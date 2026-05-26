@@ -64,6 +64,7 @@ app.*.map.json
 *.mocks.dart
 *.config.dart
 lib/core/supabase/database_types.dart
+lib/l10n/generated/
 
 # iOS — local-only build artifacts
 ios/Pods/

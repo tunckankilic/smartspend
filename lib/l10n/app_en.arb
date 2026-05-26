@@ -1,0 +1,24 @@
+{
+  "@@locale": "en",
+  "appTitle": "SmartSpend",
+
+  "navDashboard": "Overview",
+  "navScan": "Scan",
+  "navExpenses": "Expenses",
+  "navBudget": "Budget",
+  "navSettings": "Settings",
+
+  "placeholderDashboard": "Dashboard arrives in Sprint 5.",
+  "placeholderScan": "Receipt scanning arrives in Sprint 2.",
+  "placeholderExpenses": "Expense list arrives in Sprint 3.",
+  "placeholderBudget": "Budget screen arrives in Sprint 6.",
+  "placeholderSettings": "Account settings arrive in Sprint 8.",
+
+  "authSignInTitle": "Sign in",
+  "authSignUpTitle": "Create account",
+  "authForgotPasswordTitle": "Forgot password",
+  "authSignOut": "Sign out",
+
+  "onboardingTitle": "Welcome to SmartSpend",
+  "onboardingContinue": "Get started"
+}

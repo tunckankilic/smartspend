@@ -1,0 +1,27 @@
+{
+  "@@locale": "tr",
+  "appTitle": "SmartSpend",
+  "@appTitle": {
+    "description": "App name shown in the title bar"
+  },
+
+  "navDashboard": "Özet",
+  "navScan": "Tara",
+  "navExpenses": "Harcamalar",
+  "navBudget": "Bütçe",
+  "navSettings": "Ayarlar",
+
+  "placeholderDashboard": "Sprint 5'te dashboard burada görünecek.",
+  "placeholderScan": "Sprint 2'de fiş tarama burada açılacak.",
+  "placeholderExpenses": "Sprint 3'te harcama listesi burada görünecek.",
+  "placeholderBudget": "Sprint 6'da bütçe ekranı burada açılacak.",
+  "placeholderSettings": "Sprint 8'de hesap ayarları burada açılacak.",
+
+  "authSignInTitle": "Giriş Yap",
+  "authSignUpTitle": "Hesap Oluştur",
+  "authForgotPasswordTitle": "Şifremi Unuttum",
+  "authSignOut": "Çıkış Yap",
+
+  "onboardingTitle": "SmartSpend'e hoş geldin",
+  "onboardingContinue": "Başlayalım"
+}

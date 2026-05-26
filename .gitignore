@@ -43,3 +43,71 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ============================================================
+# SmartSpend project additions
+# ============================================================
+
+# Environment files — contain secrets, NEVER commit
+.env
+.env.local
+.env.development
+.env.production
+.env.prod
+.env.dev
+.env.*
+!.env.example
+
+# Generated code — produced by build_runner, regenerated locally
+*.g.dart
+*.freezed.dart
+*.mocks.dart
+*.config.dart
+lib/core/supabase/database_types.dart
+
+# iOS — local-only build artifacts
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Runner.xcworkspace/xcuserdata/
+ios/Runner.xcodeproj/xcuserdata/
+ios/Runner.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcuserstate
+
+# Android — local-only
+android/.gradle/
+android/local.properties
+android/key.properties
+android/app/upload-keystore.jks
+android/app/release-keystore.jks
+
+# Supabase — local stack temp + secrets file
+supabase/.temp/
+supabase/.branches/
+supabase/.env
+
+# Test coverage
+coverage/
+test/.test_coverage.dart
+
+# Sentry CLI config (when added in Sprint 9)
+.sentryclirc
+
+# VS Code / IntelliJ workspace-local settings
+.vscode/settings.json
+
+# macOS / Windows OS files
+Thumbs.db
+
+# Claude Code internal notes — never published
+CLAUDE.md
+.claude/
+claude_*.md
+*_claude.md
+
+# Internal / private docs (Turkish planning notes, sprint scratch, etc.)
+# Public docs in docs/ root are tracked; only docs/internal/ + docs/private/ are ignored.
+docs/internal/
+docs/private/
+docs/*.private.md

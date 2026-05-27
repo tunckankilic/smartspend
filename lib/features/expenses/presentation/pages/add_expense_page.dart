@@ -7,7 +7,6 @@ import 'package:intl/intl.dart';
 import 'package:smartspend/app/injection_container.dart';
 import 'package:smartspend/core/utils/currency_formatter.dart';
 import 'package:smartspend/core/widgets/category_icon.dart';
-import 'package:smartspend/features/categories/domain/entities/category.dart';
 import 'package:smartspend/features/categories/presentation/widgets/category_picker_sheet.dart';
 import 'package:smartspend/features/expenses/domain/entities/expense.dart';
 import 'package:smartspend/features/expenses/domain/entities/recurring_period.dart';
@@ -305,7 +304,10 @@ class _FormState extends State<_Form> {
         const SizedBox(height: 8),
         TagInput(
           tags: ready.tags,
-          suggestions: ready.availableTags,
+          suggestions: _mergeTagSuggestions(
+            ready.suggestedTags,
+            ready.availableTags,
+          ),
           onAdd: (String t) => bloc.add(AddExpenseTagAdded(tag: t)),
           onRemove: (String t) =>
               bloc.add(AddExpenseTagRemoved(tag: t)),
@@ -376,32 +378,37 @@ class _FormState extends State<_Form> {
     final CategoryPickerResult? r = await CategoryPickerSheet.show(
       context,
       categories: ready.categories,
-      // Sprint 3.2: inline-create routes through the scan repository's
-      // createCategory path in Sprint 4 when CategoriesRepository lands.
-      // For now we surface a placeholder that just adds it locally to
-      // the bloc's category list (the row is *not* persisted to Drift
-      // here). The form save still works because the picker only
-      // returns Selected when an existing id was tapped.
-      allowCreate: false,
     );
     if (r is CategoryPickerSelected) {
       bloc.add(AddExpenseCategorySelected(category: r.category));
     } else if (r is CategoryPickerCreated) {
-      // Defensive: allowCreate is false so this branch shouldn't fire,
-      // but keep it wired so a future change in the picker doesn't
-      // silently break things.
       bloc.add(
         AddExpenseCategoryCreated(
-          category: Category(
-            id: -DateTime.now().millisecondsSinceEpoch,
-            name: r.name,
-            icon: r.icon,
-            color: r.color,
-            isCustom: true,
-          ),
+          name: r.name,
+          icon: r.icon,
+          color: r.color,
         ),
       );
     }
+  }
+
+  /// Smart-tag suggestions first, then the user's historical tag names,
+  /// deduped (case-insensitive). The merged list keeps the keyword-driven
+  /// hints visible even when the user has a long history of free-form
+  /// tags.
+  List<String> _mergeTagSuggestions(
+    List<String> smart,
+    List<String> historical,
+  ) {
+    final List<String> out = <String>[];
+    final Set<String> seen = <String>{};
+    for (final String s in <String>[...smart, ...historical]) {
+      final String key = s.toLowerCase();
+      if (seen.contains(key)) continue;
+      seen.add(key);
+      out.add(s);
+    }
+    return out;
   }
 
   String _currencyHint(AddExpenseReady ready) {

@@ -11,6 +11,9 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:smartspend/core/error/failures.dart';
 import 'package:smartspend/features/categories/domain/entities/category.dart';
+import 'package:smartspend/features/categorization/domain/engines/categorization_engine.dart';
+import 'package:smartspend/features/categorization/domain/entities/categorization_suggestion.dart';
+import 'package:smartspend/features/categorization/domain/usecases/suggest_category_for_receipt.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_item.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
 import 'package:smartspend/features/scan/domain/repositories/scan_repository.dart';
@@ -21,6 +24,43 @@ class _MockRepo extends Mock implements ScanRepository {}
 class _FakeFile extends Fake implements File {}
 
 class _FakeReceipt extends Fake implements ScannedReceipt {}
+
+/// Engine stub that always declines to categorize so tests exercise the
+/// bloc's fallback path (pick "Market" if available, else first cat).
+class _NoMatchEngine implements CategorizationEngine {
+  const _NoMatchEngine();
+
+  @override
+  Future<void> warmUp() async {}
+
+  @override
+  Future<CategorizationSuggestion> suggest({
+    required String? storeName,
+    required List<String> itemNames,
+    required List<Category> availableCategories,
+  }) async {
+    return const CategorizationSuggestion.none();
+  }
+}
+
+/// Engine stub that returns a fixed suggestion regardless of input —
+/// used to verify the bloc actually consults the engine.
+class _FixedEngine implements CategorizationEngine {
+  const _FixedEngine(this._suggestion);
+
+  final CategorizationSuggestion _suggestion;
+
+  @override
+  Future<void> warmUp() async {}
+
+  @override
+  Future<CategorizationSuggestion> suggest({
+    required String? storeName,
+    required List<String> itemNames,
+    required List<Category> availableCategories,
+  }) async =>
+      _suggestion;
+}
 
 void main() {
   setUpAll(() {
@@ -76,7 +116,12 @@ void main() {
     );
   }
 
-  ReceiptEditBloc build() => ReceiptEditBloc(repository: repo);
+  ReceiptEditBloc build({CategorizationEngine? engine}) => ReceiptEditBloc(
+        repository: repo,
+        suggestCategory: SuggestCategoryForReceiptUseCase(
+          engine ?? const _NoMatchEngine(),
+        ),
+      );
 
   void mockCategoriesOK() {
     when(() => repo.listCategories()).thenAnswer(
@@ -124,6 +169,31 @@ void main() {
       verify: (ReceiptEditBloc b) {
         final ReceiptEditReady ready = b.state as ReceiptEditReady;
         expect(ready.receipt.items.length, 1);
+      },
+    );
+
+    blocTest<ReceiptEditBloc, ReceiptEditState>(
+      'should prefer engine suggestion over fallback market default',
+      build: () {
+        mockCategoriesOK();
+        return build(
+          engine: const _FixedEngine(
+            CategorizationSuggestion(
+              category: other,
+              confidence: 0.95,
+              source: CategorizationSource.keywordStore,
+              matchedPattern: 'foo',
+            ),
+          ),
+        );
+      },
+      act: (ReceiptEditBloc b) =>
+          b.add(ReceiptEditStarted(receipt: baseReceipt())),
+      verify: (ReceiptEditBloc b) {
+        expect(
+          (b.state as ReceiptEditReady).defaultCategoryId,
+          other.id,
+        );
       },
     );
 

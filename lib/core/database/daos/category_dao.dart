@@ -20,6 +20,16 @@ class CategoryDao extends DatabaseAccessor<AppDatabase>
         .get();
   }
 
+  /// Reactive variant of [getAll]. Emits on every insert/update/delete
+  /// to the `categories` table.
+  Stream<List<Category>> watchAll() {
+    return (select(categories)
+          ..orderBy(<OrderClauseGenerator<$CategoriesTable>>[
+            ($CategoriesTable t) => OrderingTerm(expression: t.sortOrder),
+          ]))
+        .watch();
+  }
+
   /// Global default categories (userId is NULL).
   Future<List<Category>> getDefaults() {
     return (select(categories)

@@ -3,10 +3,12 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:smartspend/core/database/app_database.dart' as drift_db;
-import 'package:smartspend/core/database/app_database.dart' show AppDatabase;
 import 'package:smartspend/core/error/failures.dart';
 import 'package:smartspend/features/categories/domain/entities/category.dart';
+import 'package:smartspend/features/categories/domain/repositories/category_repository.dart';
+import 'package:smartspend/features/categories/domain/usecases/create_category.dart';
+import 'package:smartspend/features/categories/domain/usecases/list_categories.dart';
+import 'package:smartspend/features/categorization/domain/usecases/suggest_tags_for_expense.dart';
 import 'package:smartspend/features/expenses/domain/entities/expense.dart';
 import 'package:smartspend/features/expenses/domain/entities/recurring_period.dart';
 import 'package:smartspend/features/expenses/domain/repositories/expense_repository.dart';
@@ -15,9 +17,9 @@ import 'package:smartspend/features/expenses/domain/usecases/get_all_tags.dart';
 import 'package:smartspend/features/expenses/domain/usecases/update_expense.dart';
 import 'package:smartspend/features/expenses/presentation/bloc/add_expense_bloc.dart';
 
-import '../../helpers/test_database.dart';
-
 class _MockRepo extends Mock implements ExpenseRepository {}
+
+class _MockCategoryRepo extends Mock implements CategoryRepository {}
 
 class _FakeAddParams extends Fake implements AddExpenseParams {}
 
@@ -29,36 +31,44 @@ void main() {
     registerFallbackValue(_FakeUpdateParams());
   });
 
-  late AppDatabase db;
   late _MockRepo repo;
-  late int marketId;
+  late _MockCategoryRepo catRepo;
+  const int marketId = 1;
+  const Category market = Category(
+    id: marketId,
+    name: 'Market',
+    icon: 'shopping_cart',
+    color: 0xFF4CAF50,
+    isCustom: false,
+  );
+  const Category restaurant = Category(
+    id: 2,
+    name: 'Restoran',
+    icon: 'restaurant',
+    color: 0xFFFF5722,
+    isCustom: false,
+  );
 
   AddExpenseBloc build() => AddExpenseBloc(
         addExpense: AddExpenseUseCase(repo),
         updateExpense: UpdateExpenseUseCase(repo),
         getAllTags: GetAllTagsUseCase(repo),
-        categoryDao: db.categoryDao,
+        listCategories: ListCategoriesUseCase(catRepo),
+        createCategory: CreateCategoryUseCase(catRepo),
+        suggestTags: const SuggestTagsForExpenseUseCase(),
       );
 
   setUp(() async {
-    db = createTestDatabase();
-    // Seed categories run as part of onCreate; make sure they're loaded.
-    final List<drift_db.Category> cats = await db.categoryDao.getAll();
-    marketId = cats
-        .firstWhere(
-          (drift_db.Category c) => c.name == 'Market',
-          orElse: () => cats.first,
-        )
-        .id;
-
     repo = _MockRepo();
+    catRepo = _MockCategoryRepo();
+    when(() => catRepo.listAll()).thenAnswer(
+      (_) async => const Right<Failure, List<Category>>(
+        <Category>[market, restaurant],
+      ),
+    );
     when(() => repo.getAllTagNames()).thenAnswer(
       (_) async => const Right<Failure, List<String>>(<String>['kahve', 'iş']),
     );
-  });
-
-  tearDown(() async {
-    await db.close();
   });
 
   group('bootstrap', () {
@@ -90,13 +100,7 @@ void main() {
         final Expense source = Expense(
           id: 99,
           amount: 1500,
-          category: Category(
-            id: marketId,
-            name: 'Market',
-            icon: 'shopping_cart',
-            color: 0xFF4CAF50,
-            isCustom: false,
-          ),
+          category: market,
           date: DateTime.utc(2026, 5, 22),
           currency: 'TRY',
           isManual: true,
@@ -227,6 +231,157 @@ void main() {
 
   });
 
+  group('smart tagging', () {
+    blocTest<AddExpenseBloc, AddExpenseState>(
+      'NoteChanged populates suggestedTags from keyword triggers',
+      build: build,
+      act: (AddExpenseBloc b) async {
+        b.add(const AddExpenseStarted());
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        b.add(const AddExpenseNoteChanged(note: 'sabah kahve molası'));
+      },
+      verify: (AddExpenseBloc b) {
+        final AddExpenseReady s = b.state as AddExpenseReady;
+        expect(s.note, 'sabah kahve molası');
+        expect(s.suggestedTags, contains('kahve'));
+      },
+    );
+
+    blocTest<AddExpenseBloc, AddExpenseState>(
+      'tags already on the form suppress matching suggestions',
+      build: build,
+      act: (AddExpenseBloc b) async {
+        b.add(const AddExpenseStarted());
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        b.add(const AddExpenseTagAdded(tag: 'kahve'));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        b.add(const AddExpenseNoteChanged(note: 'espresso çift shot'));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      },
+      verify: (AddExpenseBloc b) {
+        final AddExpenseReady s = b.state as AddExpenseReady;
+        expect(s.suggestedTags, isNot(contains('kahve')));
+      },
+    );
+
+    blocTest<AddExpenseBloc, AddExpenseState>(
+      'removing a tag re-opens its suggestion when the note still triggers',
+      build: build,
+      act: (AddExpenseBloc b) async {
+        b.add(const AddExpenseStarted());
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        b.add(const AddExpenseNoteChanged(note: 'kahve molası'));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        b.add(const AddExpenseTagAdded(tag: 'kahve'));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        b.add(const AddExpenseTagRemoved(tag: 'kahve'));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      },
+      verify: (AddExpenseBloc b) {
+        final AddExpenseReady s = b.state as AddExpenseReady;
+        expect(s.tags, isEmpty);
+        expect(s.suggestedTags, contains('kahve'));
+      },
+    );
+
+    blocTest<AddExpenseBloc, AddExpenseState>(
+      'empty note clears suggestions',
+      build: build,
+      act: (AddExpenseBloc b) async {
+        b.add(const AddExpenseStarted());
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        b.add(const AddExpenseNoteChanged(note: 'kahve'));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        b.add(const AddExpenseNoteChanged(note: ''));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      },
+      verify: (AddExpenseBloc b) {
+        final AddExpenseReady s = b.state as AddExpenseReady;
+        expect(s.note, isNull);
+        expect(s.suggestedTags, isEmpty);
+      },
+    );
+  });
+
+  group('inline category create', () {
+    blocTest<AddExpenseBloc, AddExpenseState>(
+      'CategoryCreated should persist via repo and auto-select the new row',
+      build: () {
+        when(() => catRepo.createCustom(
+              name: any(named: 'name'),
+              icon: any(named: 'icon'),
+              color: any(named: 'color'),
+            )).thenAnswer(
+          (_) async => const Right<Failure, Category>(
+            Category(
+              id: 99,
+              name: 'Hobi',
+              icon: 'more_horiz',
+              color: 0xFF123456,
+              isCustom: true,
+            ),
+          ),
+        );
+        return build();
+      },
+      act: (AddExpenseBloc b) async {
+        b.add(const AddExpenseStarted());
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        b.add(
+          const AddExpenseCategoryCreated(
+            name: 'Hobi',
+            icon: 'more_horiz',
+            color: 0xFF123456,
+          ),
+        );
+      },
+      verify: (AddExpenseBloc b) {
+        final AddExpenseReady s = b.state as AddExpenseReady;
+        expect(s.category?.name, 'Hobi');
+        expect(s.category?.id, 99);
+        expect(s.categories.any((Category c) => c.id == 99), isTrue);
+        verify(() => catRepo.createCustom(
+              name: 'Hobi',
+              icon: 'more_horiz',
+              color: 0xFF123456,
+            )).called(1);
+      },
+    );
+
+    blocTest<AddExpenseBloc, AddExpenseState>(
+      'CategoryCreated should emit Failure and restore Ready when repo fails',
+      build: () {
+        when(() => catRepo.createCustom(
+              name: any(named: 'name'),
+              icon: any(named: 'icon'),
+              color: any(named: 'color'),
+            )).thenAnswer(
+          (_) async => const Left<Failure, Category>(
+            CacheFailure(message: 'disk full'),
+          ),
+        );
+        return build();
+      },
+      act: (AddExpenseBloc b) async {
+        b.add(const AddExpenseStarted());
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        b.add(
+          const AddExpenseCategoryCreated(
+            name: 'Hobi',
+            icon: 'more_horiz',
+            color: 0xFF123456,
+          ),
+        );
+      },
+      verify: (AddExpenseBloc b) {
+        expect(b.state, isA<AddExpenseReady>());
+        final AddExpenseReady s = b.state as AddExpenseReady;
+        expect(s.category?.name, 'Market'); // selection unchanged
+        expect(s.categories.any((Category c) => c.name == 'Hobi'), isFalse);
+      },
+    );
+  });
+
   group('submit — happy paths', () {
     blocTest<AddExpenseBloc, AddExpenseState>(
       'should call repo.addExpense and emit AddExpenseSaved',
@@ -292,13 +447,7 @@ void main() {
             expense: Expense(
               id: 5,
               amount: 1000,
-              category: Category(
-                id: marketId,
-                name: 'Market',
-                icon: 'shopping_cart',
-                color: 0xFF4CAF50,
-                isCustom: false,
-              ),
+              category: market,
               date: DateTime.utc(2026, 5, 1),
               currency: 'TRY',
               isManual: true,

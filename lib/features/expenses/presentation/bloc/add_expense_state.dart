@@ -49,6 +49,7 @@ final class AddExpenseReady extends AddExpenseState {
     this.recurringPeriod,
     this.validationErrors = const <AddExpenseValidationError>{},
     this.isSubmitting = false,
+    this.suggestedTags = const <String>[],
   });
 
   /// Whether the user is adding a brand-new row or editing an existing
@@ -86,6 +87,11 @@ final class AddExpenseReady extends AddExpenseState {
   /// `true` while the use case is running.
   final bool isSubmitting;
 
+  /// Smart-tag hints derived from the current [note]; surfaced as
+  /// quick-add chips in the [TagInput] widget. Deduped against [tags]
+  /// so the user never sees a suggestion for a tag they already have.
+  final List<String> suggestedTags;
+
   AddExpenseReady copyWith({
     AddExpenseMode? mode,
     int? editingId,
@@ -101,6 +107,7 @@ final class AddExpenseReady extends AddExpenseState {
     List<String>? availableTags,
     Set<AddExpenseValidationError>? validationErrors,
     bool? isSubmitting,
+    List<String>? suggestedTags,
     bool clearCategory = false,
     bool clearNote = false,
     bool clearRecurringPeriod = false,
@@ -124,6 +131,7 @@ final class AddExpenseReady extends AddExpenseState {
       availableTags: availableTags ?? this.availableTags,
       validationErrors: validationErrors ?? this.validationErrors,
       isSubmitting: isSubmitting ?? this.isSubmitting,
+      suggestedTags: suggestedTags ?? this.suggestedTags,
     );
   }
 
@@ -143,6 +151,7 @@ final class AddExpenseReady extends AddExpenseState {
         availableTags,
         validationErrors,
         isSubmitting,
+        suggestedTags,
       ];
 }
 

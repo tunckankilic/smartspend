@@ -1,14 +1,16 @@
 // ignore_for_file: prefer_initializing_formals — private field convention.
 
 import 'package:bloc/bloc.dart';
+import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
 
-import 'package:smartspend/core/database/daos/category_dao.dart';
-import 'package:smartspend/core/database/app_database.dart' as drift_db;
 import 'package:smartspend/core/error/failures.dart';
 import 'package:smartspend/core/utils/currency_formatter.dart';
 import 'package:smartspend/features/categories/domain/entities/category.dart';
+import 'package:smartspend/features/categories/domain/usecases/create_category.dart';
+import 'package:smartspend/features/categories/domain/usecases/list_categories.dart';
+import 'package:smartspend/features/categorization/domain/usecases/suggest_tags_for_expense.dart';
 import 'package:smartspend/features/expenses/domain/entities/expense.dart';
 import 'package:smartspend/features/expenses/domain/entities/recurring_period.dart';
 import 'package:smartspend/features/expenses/domain/usecases/add_expense.dart';
@@ -32,40 +34,61 @@ part 'add_expense_state.dart';
 ///   → AddExpenseFailure (recoverable; previous Ready re-emitted afterwards)
 /// ```
 ///
-/// The category list comes straight from [CategoryDao] for now — Sprint
-/// 4 will wrap that in a Categories repository when the AI categorizer
-/// feature gets its own bloc. Pulling the dao directly here is the only
-/// presentation-layer DAO call in the codebase; revisit once we have a
-/// dedicated repository to avoid leaking Drift types upward.
+/// Sprint 4 dropped the direct `CategoryDao` dependency in favour of
+/// [ListCategoriesUseCase] + [CreateCategoryUseCase], which means inline
+/// category creation from the picker now persists through the repository
+/// just like the scan flow does.
 class AddExpenseBloc extends Bloc<AddExpenseEvent, AddExpenseState> {
   AddExpenseBloc({
     required AddExpenseUseCase addExpense,
     required UpdateExpenseUseCase updateExpense,
     required GetAllTagsUseCase getAllTags,
-    required CategoryDao categoryDao,
+    required ListCategoriesUseCase listCategories,
+    required CreateCategoryUseCase createCategory,
+    required SuggestTagsForExpenseUseCase suggestTags,
   })  : _add = addExpense,
         _update = updateExpense,
         _getAllTags = getAllTags,
-        _categoryDao = categoryDao,
+        _listCategories = listCategories,
+        _createCategory = createCategory,
+        _suggestTags = suggestTags,
         super(const AddExpenseInitial()) {
+    // Field-mutation handlers use `sequential()` because note + tag
+    // changes share state (smart-tag suggestions read `tags`), and the
+    // default concurrent transformer would race when the UI dispatches
+    // them back-to-back (e.g. on a fast-typed note edit).
     on<AddExpenseStarted>(_onStarted);
     on<AddExpenseEditStarted>(_onEditStarted);
-    on<AddExpenseAmountChanged>(_onAmount);
-    on<AddExpenseCategorySelected>(_onCategorySelected);
-    on<AddExpenseCategoryCreated>(_onCategoryCreated);
-    on<AddExpenseDateSelected>(_onDate);
-    on<AddExpenseNoteChanged>(_onNote);
-    on<AddExpenseTagAdded>(_onTagAdded);
-    on<AddExpenseTagRemoved>(_onTagRemoved);
-    on<AddExpenseRecurringToggled>(_onRecurringToggled);
-    on<AddExpensePeriodChanged>(_onPeriodChanged);
+    on<AddExpenseAmountChanged>(_onAmount, transformer: sequential());
+    on<AddExpenseCategorySelected>(
+      _onCategorySelected,
+      transformer: sequential(),
+    );
+    on<AddExpenseCategoryCreated>(
+      _onCategoryCreated,
+      transformer: sequential(),
+    );
+    on<AddExpenseDateSelected>(_onDate, transformer: sequential());
+    on<AddExpenseNoteChanged>(_onNote, transformer: sequential());
+    on<AddExpenseTagAdded>(_onTagAdded, transformer: sequential());
+    on<AddExpenseTagRemoved>(_onTagRemoved, transformer: sequential());
+    on<AddExpenseRecurringToggled>(
+      _onRecurringToggled,
+      transformer: sequential(),
+    );
+    on<AddExpensePeriodChanged>(
+      _onPeriodChanged,
+      transformer: sequential(),
+    );
     on<AddExpenseSubmitted>(_onSubmitted);
   }
 
   final AddExpenseUseCase _add;
   final UpdateExpenseUseCase _update;
   final GetAllTagsUseCase _getAllTags;
-  final CategoryDao _categoryDao;
+  final ListCategoriesUseCase _listCategories;
+  final CreateCategoryUseCase _createCategory;
+  final SuggestTagsForExpenseUseCase _suggestTags;
 
   // ---------------------------------------------------------------------
   // Bootstrap
@@ -119,18 +142,10 @@ class AddExpenseBloc extends Bloc<AddExpenseEvent, AddExpenseState> {
   }
 
   Future<(List<Category>, List<String>)> _bootstrap() async {
-    final List<drift_db.Category> rows = await _categoryDao.getAll();
-    final List<Category> categories = rows
-        .map(
-          (drift_db.Category c) => Category(
-            id: c.id,
-            name: c.name,
-            icon: c.icon,
-            color: c.color,
-            isCustom: c.isCustom,
-          ),
-        )
-        .toList(growable: false);
+    final Either<Failure, List<Category>> catsResult =
+        await _listCategories(const ListCategoriesParams());
+    final List<Category> categories =
+        catsResult.getOrElse(() => const <Category>[]);
 
     final Either<Failure, List<String>> tagsResult =
         await _getAllTags(const NoParams());
@@ -174,16 +189,35 @@ class AddExpenseBloc extends Bloc<AddExpenseEvent, AddExpenseState> {
     });
   }
 
-  void _onCategoryCreated(
+  Future<void> _onCategoryCreated(
     AddExpenseCategoryCreated event,
     Emitter<AddExpenseState> emit,
-  ) {
-    _mutate(emit, (AddExpenseReady s) {
-      return s.copyWith(
-        categories: <Category>[...s.categories, event.category],
-        category: event.category,
-      );
-    });
+  ) async {
+    final AddExpenseState current = state;
+    if (current is! AddExpenseReady) return;
+
+    final Either<Failure, Category> result = await _createCategory(
+      CreateCategoryParams(
+        name: event.name,
+        icon: event.icon,
+        color: event.color,
+      ),
+    );
+    result.fold(
+      (Failure f) {
+        emit(AddExpenseFailure(failure: f));
+        emit(current);
+      },
+      (Category created) {
+        emit(
+          current.copyWith(
+            categories: <Category>[...current.categories, created],
+            category: created,
+            validationErrors: const <AddExpenseValidationError>{},
+          ),
+        );
+      },
+    );
   }
 
   void _onDate(
@@ -195,46 +229,84 @@ class AddExpenseBloc extends Bloc<AddExpenseEvent, AddExpenseState> {
     });
   }
 
-  void _onNote(
+  Future<void> _onNote(
     AddExpenseNoteChanged event,
     Emitter<AddExpenseState> emit,
-  ) {
-    _mutate(emit, (AddExpenseReady s) {
-      final String trimmed = event.note.trim();
-      return s.copyWith(
+  ) async {
+    final AddExpenseState current = state;
+    if (current is! AddExpenseReady) return;
+    final String trimmed = event.note.trim();
+    final List<String> suggestions = await _computeTagSuggestions(
+      text: trimmed,
+      existingTags: current.tags,
+    );
+    emit(
+      current.copyWith(
         note: trimmed.isEmpty ? null : trimmed,
         clearNote: trimmed.isEmpty,
-      );
-    });
+        suggestedTags: suggestions,
+        validationErrors: const <AddExpenseValidationError>{},
+      ),
+    );
   }
 
-  void _onTagAdded(
+  Future<void> _onTagAdded(
     AddExpenseTagAdded event,
     Emitter<AddExpenseState> emit,
-  ) {
-    _mutate(emit, (AddExpenseReady s) {
-      final String trimmed = event.tag.trim();
-      if (trimmed.isEmpty) return s;
-      // Case-insensitive de-dupe, preserve display casing of first occurrence.
-      final bool exists = s.tags.any(
-        (String t) => t.toLowerCase() == trimmed.toLowerCase(),
-      );
-      if (exists) return s;
-      return s.copyWith(tags: <String>[...s.tags, trimmed]);
-    });
+  ) async {
+    final AddExpenseState current = state;
+    if (current is! AddExpenseReady) return;
+    final String trimmed = event.tag.trim();
+    if (trimmed.isEmpty) return;
+    final bool exists = current.tags.any(
+      (String t) => t.toLowerCase() == trimmed.toLowerCase(),
+    );
+    if (exists) return;
+    final List<String> nextTags = <String>[...current.tags, trimmed];
+    final List<String> suggestions = await _computeTagSuggestions(
+      text: current.note ?? '',
+      existingTags: nextTags,
+    );
+    emit(
+      current.copyWith(
+        tags: nextTags,
+        suggestedTags: suggestions,
+        validationErrors: const <AddExpenseValidationError>{},
+      ),
+    );
   }
 
-  void _onTagRemoved(
+  Future<void> _onTagRemoved(
     AddExpenseTagRemoved event,
     Emitter<AddExpenseState> emit,
-  ) {
-    _mutate(emit, (AddExpenseReady s) {
-      final List<String> next = <String>[...s.tags]
-        ..removeWhere(
-          (String t) => t.toLowerCase() == event.tag.toLowerCase(),
-        );
-      return s.copyWith(tags: next);
-    });
+  ) async {
+    final AddExpenseState current = state;
+    if (current is! AddExpenseReady) return;
+    final List<String> nextTags = <String>[...current.tags]
+      ..removeWhere(
+        (String t) => t.toLowerCase() == event.tag.toLowerCase(),
+      );
+    final List<String> suggestions = await _computeTagSuggestions(
+      text: current.note ?? '',
+      existingTags: nextTags,
+    );
+    emit(
+      current.copyWith(
+        tags: nextTags,
+        suggestedTags: suggestions,
+        validationErrors: const <AddExpenseValidationError>{},
+      ),
+    );
+  }
+
+  Future<List<String>> _computeTagSuggestions({
+    required String text,
+    required List<String> existingTags,
+  }) async {
+    final Either<Failure, List<String>> result = await _suggestTags(
+      SuggestTagsParams(text: text, existingTags: existingTags),
+    );
+    return result.getOrElse(() => const <String>[]);
   }
 
   void _onRecurringToggled(

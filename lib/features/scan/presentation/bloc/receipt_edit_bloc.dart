@@ -6,6 +6,8 @@ import 'package:equatable/equatable.dart';
 
 import 'package:smartspend/core/error/failures.dart';
 import 'package:smartspend/features/categories/domain/entities/category.dart';
+import 'package:smartspend/features/categorization/domain/entities/categorization_suggestion.dart';
+import 'package:smartspend/features/categorization/domain/usecases/suggest_category_for_receipt.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_item.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
 import 'package:smartspend/features/scan/domain/repositories/scan_repository.dart';
@@ -41,9 +43,12 @@ enum ReceiptEditValidationError {
 ///   → ReceiptEditFailure (recoverable error; ready state is preserved)
 /// ```
 class ReceiptEditBloc extends Bloc<ReceiptEditEvent, ReceiptEditState> {
-  ReceiptEditBloc({required ScanRepository repository})
-    : _repository = repository,
-      super(const ReceiptEditInitial()) {
+  ReceiptEditBloc({
+    required ScanRepository repository,
+    required SuggestCategoryForReceiptUseCase suggestCategory,
+  })  : _repository = repository,
+        _suggestCategory = suggestCategory,
+        super(const ReceiptEditInitial()) {
     on<ReceiptEditStarted>(_onStarted);
     on<ReceiptStoreNameChanged>(_onStoreName);
     on<ReceiptDateChanged>(_onDate);
@@ -58,6 +63,7 @@ class ReceiptEditBloc extends Bloc<ReceiptEditEvent, ReceiptEditState> {
   }
 
   final ScanRepository _repository;
+  final SuggestCategoryForReceiptUseCase _suggestCategory;
 
   // ---------------------------------------------------------------------
   // Bootstrap
@@ -70,15 +76,17 @@ class ReceiptEditBloc extends Bloc<ReceiptEditEvent, ReceiptEditState> {
     emit(const ReceiptEditInitial());
     final Either<Failure, List<Category>> result =
         await _repository.listCategories();
-    result.fold(
-      (Failure f) => emit(ReceiptEditFailure(failure: f)),
-      (List<Category> cats) {
+    await result.fold<Future<void>>(
+      (Failure f) async => emit(ReceiptEditFailure(failure: f)),
+      (List<Category> cats) async {
         final ScannedReceipt seeded = _ensureAtLeastOneItem(event.receipt);
+        final int? guessed =
+            await _guessDefaultCategory(seeded, cats);
         emit(
           ReceiptEditReady(
             receipt: seeded,
             categories: cats,
-            defaultCategoryId: _guessDefaultCategory(cats),
+            defaultCategoryId: guessed,
           ),
         );
       },
@@ -90,17 +98,39 @@ class ReceiptEditBloc extends Bloc<ReceiptEditEvent, ReceiptEditState> {
     return receipt.copyWith(items: <ScannedItem>[ScannedItem.empty()]);
   }
 
-  int? _guessDefaultCategory(List<Category> cats) {
+  /// Hybrid pipeline:
+  /// 1. Ask [CategorizationEngine] for a guess based on store + items.
+  /// 2. Fall back to the user's "Market" / first-available category if
+  ///    the engine returns no usable match.
+  Future<int?> _guessDefaultCategory(
+    ScannedReceipt receipt,
+    List<Category> cats,
+  ) async {
     if (cats.isEmpty) return null;
-    // Market is by far the most common scanned context — pick it when
-    // available so the user can save with one fewer tap. Falls back to
-    // the first category otherwise (e.g. tests with limited fixtures).
-    final Category market = cats.firstWhere(
+
+    final Either<Failure, CategorizationSuggestion> result =
+        await _suggestCategory(
+      SuggestCategoryParams(
+        storeName: receipt.storeName,
+        itemNames: receipt.items
+            .map((ScannedItem i) => i.name)
+            .where((String n) => n.trim().isNotEmpty)
+            .toList(growable: false),
+        availableCategories: cats,
+      ),
+    );
+    final CategorizationSuggestion suggestion =
+        result.getOrElse(() => const CategorizationSuggestion.none());
+    if (suggestion.hasMatch) return suggestion.category!.id;
+
+    // Fallback: keep the Sprint 2 default so an offline / empty-store
+    // receipt is still saveable in one tap.
+    final Category fallback = cats.firstWhere(
       (Category c) =>
           c.icon == 'shopping_cart' || c.name.toLowerCase() == 'market',
       orElse: () => cats.first,
     );
-    return market.id;
+    return fallback.id;
   }
 
   // ---------------------------------------------------------------------

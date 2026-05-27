@@ -44,16 +44,24 @@ final class AddExpenseCategorySelected extends AddExpenseEvent {
   List<Object?> get props => <Object?>[category];
 }
 
-/// Push a freshly created category onto the bloc's local list so the
-/// inline "+ new category" flow can keep the picker accurate without a
-/// round-trip through the repository.
+/// Persist a user-typed category inline (from the picker's "+ new"
+/// dialog) via [CreateCategoryUseCase], then auto-select it.
+///
+/// Sprint 4 made this event do real work; previously it took a pre-baked
+/// [Category] with a fake id and only mutated bloc state.
 final class AddExpenseCategoryCreated extends AddExpenseEvent {
-  const AddExpenseCategoryCreated({required this.category});
+  const AddExpenseCategoryCreated({
+    required this.name,
+    required this.icon,
+    required this.color,
+  });
 
-  final Category category;
+  final String name;
+  final String icon;
+  final int color;
 
   @override
-  List<Object?> get props => <Object?>[category];
+  List<Object?> get props => <Object?>[name, icon, color];
 }
 
 final class AddExpenseDateSelected extends AddExpenseEvent {

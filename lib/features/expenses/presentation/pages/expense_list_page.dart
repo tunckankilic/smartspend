@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:dartz/dartz.dart' hide State;
+
 import 'package:smartspend/app/injection_container.dart';
-import 'package:smartspend/core/database/app_database.dart' as drift_db;
-import 'package:smartspend/core/database/daos/category_dao.dart';
 import 'package:smartspend/core/error/failures.dart';
 import 'package:smartspend/core/utils/currency_formatter.dart';
 import 'package:smartspend/features/categories/domain/entities/category.dart';
+import 'package:smartspend/features/categories/domain/usecases/list_categories.dart';
 import 'package:smartspend/features/expenses/domain/entities/expense.dart';
 import 'package:smartspend/features/expenses/domain/entities/expense_filter.dart';
 import 'package:smartspend/features/expenses/presentation/bloc/expense_list_bloc.dart';
@@ -137,9 +138,10 @@ class _ExpenseListViewState extends State<_ExpenseListView> {
 
   Future<void> _openFilterSheet(BuildContext context) async {
     final ExpenseListBloc bloc = context.read<ExpenseListBloc>();
-    // Loading categories straight from the DAO. Sprint 4 will move this
-    // to a CategoryRepository when the feature gets its own bloc.
-    final List<Category> categories = await _loadCategories();
+    final Either<Failure, List<Category>> result =
+        await sl<ListCategoriesUseCase>()(const ListCategoriesParams());
+    final List<Category> categories =
+        result.getOrElse(() => const <Category>[]);
     if (!context.mounted) return;
     final ExpenseFilter? next = await ExpenseFilterSheet.show(
       context,
@@ -149,22 +151,6 @@ class _ExpenseListViewState extends State<_ExpenseListView> {
     if (next != null) {
       bloc.add(FilterChanged(filter: next));
     }
-  }
-
-  Future<List<Category>> _loadCategories() async {
-    final CategoryDao dao = sl<CategoryDao>();
-    final List<drift_db.Category> rows = await dao.getAll();
-    return rows
-        .map(
-          (drift_db.Category c) => Category(
-            id: c.id,
-            name: c.name,
-            icon: c.icon,
-            color: c.color,
-            isCustom: c.isCustom,
-          ),
-        )
-        .toList(growable: false);
   }
 }
 

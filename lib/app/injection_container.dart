@@ -14,7 +14,21 @@ import 'package:smartspend/core/database/daos/tag_dao.dart';
 import 'package:smartspend/core/services/onboarding_flag_store.dart';
 import 'package:smartspend/core/supabase/supabase_client_provider.dart';
 import 'package:smartspend/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:smartspend/features/categories/data/repositories/category_repository_impl.dart';
+import 'package:smartspend/features/categories/domain/repositories/category_repository.dart';
+import 'package:smartspend/features/categories/domain/usecases/create_category.dart';
+import 'package:smartspend/features/categories/domain/usecases/list_categories.dart';
+import 'package:smartspend/features/categorization/data/engines/hybrid_categorization_engine.dart';
+import 'package:smartspend/features/categorization/data/engines/keyword_categorization_engine.dart';
+import 'package:smartspend/features/categorization/data/engines/tflite_categorization_engine.dart';
+import 'package:smartspend/features/categorization/data/store_database.dart';
+import 'package:smartspend/features/categorization/domain/engines/categorization_engine.dart';
+import 'package:smartspend/features/categorization/domain/usecases/record_user_correction.dart';
+import 'package:smartspend/features/categorization/domain/usecases/suggest_category_for_receipt.dart';
+import 'package:smartspend/features/categorization/domain/usecases/suggest_tags_for_expense.dart';
+import 'package:smartspend/features/categorization/presentation/bloc/categorization_bloc.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
 import 'package:smartspend/features/scan/data/datasources/camera_data_source.dart';
 import 'package:smartspend/features/scan/data/datasources/gemini_ocr_data_source.dart';
@@ -88,6 +102,42 @@ Future<void> configureDependencies() async {
     // will be `registerFactory` so they get a fresh instance per route.
     ..registerLazySingleton<AppBloc>(AppBloc.new)
     ..registerLazySingleton<AuthBloc>(AuthBloc.new)
+    // Categories feature (Sprint 4 hoist) ---------------------------------
+    ..registerLazySingleton<CategoryRepository>(
+      () => CategoryRepositoryImpl(categoryDao: sl<CategoryDao>()),
+    )
+    ..registerLazySingleton<ListCategoriesUseCase>(
+      () => ListCategoriesUseCase(sl<CategoryRepository>()),
+    )
+    ..registerLazySingleton<CreateCategoryUseCase>(
+      () => CreateCategoryUseCase(sl<CategoryRepository>()),
+    )
+    // Categorization feature (Sprint 4) -----------------------------------
+    ..registerLazySingleton<StoreDatabase>(
+      () => StoreDatabase(bundle: rootBundle),
+    )
+    ..registerLazySingleton<CategorizationEngine>(
+      () => HybridCategorizationEngine(
+        keyword: KeywordCategorizationEngine(database: sl<StoreDatabase>()),
+        tflite: const TFLiteCategorizationEngine(),
+      ),
+    )
+    ..registerLazySingleton<SuggestCategoryForReceiptUseCase>(
+      () => SuggestCategoryForReceiptUseCase(sl<CategorizationEngine>()),
+    )
+    ..registerLazySingleton<SuggestTagsForExpenseUseCase>(
+      () => const SuggestTagsForExpenseUseCase(),
+    )
+    ..registerLazySingleton<RecordUserCorrectionUseCase>(
+      () => RecordUserCorrectionUseCase(logger: sl<Logger>()),
+    )
+    ..registerFactory<CategorizationBloc>(
+      () => CategorizationBloc(
+        suggestCategory: sl<SuggestCategoryForReceiptUseCase>(),
+        suggestTags: sl<SuggestTagsForExpenseUseCase>(),
+        recordCorrection: sl<RecordUserCorrectionUseCase>(),
+      ),
+    )
     // Scan feature (Sprint 2) ---------------------------------------------
     ..registerLazySingleton<CameraDataSource>(CameraDataSourceImpl.new)
     ..registerLazySingleton<Connectivity>(Connectivity.new)
@@ -145,7 +195,10 @@ Future<void> configureDependencies() async {
     // /scan/result route, and we want a fresh editable copy each time
     // the user reviews a scan.
     ..registerFactory<ReceiptEditBloc>(
-      () => ReceiptEditBloc(repository: sl<ScanRepository>()),
+      () => ReceiptEditBloc(
+        repository: sl<ScanRepository>(),
+        suggestCategory: sl<SuggestCategoryForReceiptUseCase>(),
+      ),
     )
     // Expenses feature (Sprint 3.1) -------------------------------------
     ..registerLazySingleton<ExpenseLocalDataSource>(
@@ -202,7 +255,9 @@ Future<void> configureDependencies() async {
         addExpense: sl<AddExpenseUseCase>(),
         updateExpense: sl<UpdateExpenseUseCase>(),
         getAllTags: sl<GetAllTagsUseCase>(),
-        categoryDao: sl<CategoryDao>(),
+        listCategories: sl<ListCategoriesUseCase>(),
+        createCategory: sl<CreateCategoryUseCase>(),
+        suggestTags: sl<SuggestTagsForExpenseUseCase>(),
       ),
     );
 

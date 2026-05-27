@@ -34,6 +34,27 @@ class ReceiptDao extends DatabaseAccessor<AppDatabase> with _$ReceiptDaoMixin {
     );
   }
 
+  /// Insert a single line item. Stamps `updatedAt` and `pending_create`.
+  Future<int> insertItem(ReceiptItemsCompanion entry) {
+    return into(receiptItems).insert(
+      entry.copyWith(
+        updatedAt: Value<DateTime>(DateTime.now().toUtc()),
+        syncStatus: const Value<String>(SyncStatus.pendingCreate),
+      ),
+    );
+  }
+
+  /// All non-deleted items belonging to [receiptId].
+  Future<List<ReceiptItem>> getItems(int receiptId) {
+    return (select(receiptItems)
+          ..where(
+            ($ReceiptItemsTable t) =>
+                t.receiptId.equals(receiptId) &
+                t.syncStatus.equals(SyncStatus.pendingDelete).not(),
+          ))
+        .get();
+  }
+
   /// Update a receipt by its local [id]. Returns the number of affected rows.
   Future<int> updateReceipt(int id, ReceiptsCompanion patch) {
     return (update(receipts)..where(($ReceiptsTable t) => t.id.equals(id)))

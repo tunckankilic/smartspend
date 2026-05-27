@@ -4,6 +4,12 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>SmartSpend uses the camera to scan receipts and extract expense details automatically.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>SmartSpend needs photo library access to import receipt images you have already saved.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>SmartSpend saves processed receipt images back to your photo library when you choose to export them.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

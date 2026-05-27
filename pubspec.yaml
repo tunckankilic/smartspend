@@ -53,6 +53,12 @@ dependencies:
   google_fonts: ^8.1.0
   shared_preferences: ^2.3.3
 
+  # Scan pipeline
+  image_picker: ^1.1.2
+  image: ^4.5.4
+  # OCR (on-device, free)
+  google_mlkit_text_recognition: ^0.15.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

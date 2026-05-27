@@ -12,7 +12,9 @@ import 'package:smartspend/features/budget/presentation/pages/budget_page.dart';
 import 'package:smartspend/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:smartspend/features/expenses/presentation/pages/expense_list_page.dart';
 import 'package:smartspend/features/onboarding/presentation/pages/onboarding_page.dart';
+import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
 import 'package:smartspend/features/scan/presentation/pages/scan_page.dart';
+import 'package:smartspend/features/scan/presentation/pages/scan_result_page.dart';
 import 'package:smartspend/features/settings/presentation/pages/settings_page.dart';
 
 /// Stable GoRouter keys for navigator hot-restart safety.
@@ -68,6 +70,18 @@ GoRouter buildRouter({
         builder: (BuildContext c, GoRouterState s) => const SignInPage(),
       ),
       // /auth/sign-up, /auth/forgot-password, /auth/callback land in Sprint 8.
+
+      // Receipt edit screen — opened on top of the shell so the user gets
+      // full screen for review and is forced to consciously cancel/save
+      // instead of swiping back into a partial edit.
+      GoRoute(
+        path: '/scan/result',
+        parentNavigatorKey: _rootKey,
+        builder: (BuildContext c, GoRouterState s) {
+          final ScannedReceipt receipt = s.extra! as ScannedReceipt;
+          return ScanResultPage(receipt: receipt);
+        },
+      ),
       StatefulShellRoute.indexedStack(
         builder: (
           BuildContext context,

@@ -1,0 +1,17 @@
+A101 YENİ MAĞAZACILIK A.Ş.
+BARBAROS MAH. 1234 SK NO:5
+ÜSKÜDAR / İSTANBUL
+TARİH:03.05.2026
+
+YOGURT 1KG                   28,50
+TAVUK BUT 1KG                72,40
+MAKARNA SPAGETTI              9,90
+DOMATES SALÇA                14,75
+ÇİKOLATA                     12,30
+
+ARA TOPLAM                  137,85
+KDV TOPLAM                    8,42
+TOPLAM                      137,85
+
+KART                        137,85
+TEŞEKKÜRLER

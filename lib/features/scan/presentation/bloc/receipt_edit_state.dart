@@ -23,7 +23,7 @@ final class ReceiptEditReady extends ReceiptEditState {
   });
 
   final ScannedReceipt receipt;
-  final List<ScanCategory> categories;
+  final List<Category> categories;
 
   /// Category applied to items the user hasn't manually tagged. `null`
   /// blocks Save and surfaces a validation chip.
@@ -35,7 +35,7 @@ final class ReceiptEditReady extends ReceiptEditState {
 
   ReceiptEditReady copyWith({
     ScannedReceipt? receipt,
-    List<ScanCategory>? categories,
+    List<Category>? categories,
     int? defaultCategoryId,
     Set<ReceiptEditValidationError>? validationErrors,
   }) {

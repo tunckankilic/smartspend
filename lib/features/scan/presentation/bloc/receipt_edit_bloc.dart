@@ -5,7 +5,7 @@ import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
 
 import 'package:smartspend/core/error/failures.dart';
-import 'package:smartspend/features/scan/domain/entities/scan_category.dart';
+import 'package:smartspend/features/categories/domain/entities/category.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_item.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
 import 'package:smartspend/features/scan/domain/repositories/scan_repository.dart';
@@ -68,11 +68,11 @@ class ReceiptEditBloc extends Bloc<ReceiptEditEvent, ReceiptEditState> {
     Emitter<ReceiptEditState> emit,
   ) async {
     emit(const ReceiptEditInitial());
-    final Either<Failure, List<ScanCategory>> result =
+    final Either<Failure, List<Category>> result =
         await _repository.listCategories();
     result.fold(
       (Failure f) => emit(ReceiptEditFailure(failure: f)),
-      (List<ScanCategory> cats) {
+      (List<Category> cats) {
         final ScannedReceipt seeded = _ensureAtLeastOneItem(event.receipt);
         emit(
           ReceiptEditReady(
@@ -90,13 +90,13 @@ class ReceiptEditBloc extends Bloc<ReceiptEditEvent, ReceiptEditState> {
     return receipt.copyWith(items: <ScannedItem>[ScannedItem.empty()]);
   }
 
-  int? _guessDefaultCategory(List<ScanCategory> cats) {
+  int? _guessDefaultCategory(List<Category> cats) {
     if (cats.isEmpty) return null;
     // Market is by far the most common scanned context — pick it when
     // available so the user can save with one fewer tap. Falls back to
     // the first category otherwise (e.g. tests with limited fixtures).
-    final ScanCategory market = cats.firstWhere(
-      (ScanCategory c) =>
+    final Category market = cats.firstWhere(
+      (Category c) =>
           c.icon == 'shopping_cart' || c.name.toLowerCase() == 'market',
       orElse: () => cats.first,
     );
@@ -208,7 +208,7 @@ class ReceiptEditBloc extends Bloc<ReceiptEditEvent, ReceiptEditState> {
     final ReceiptEditState current = state;
     if (current is! ReceiptEditReady) return;
 
-    final Either<Failure, ScanCategory> result =
+    final Either<Failure, Category> result =
         await _repository.createCategory(
       name: event.name,
       icon: event.icon,
@@ -217,10 +217,10 @@ class ReceiptEditBloc extends Bloc<ReceiptEditEvent, ReceiptEditState> {
 
     result.fold(
       (Failure f) => emit(ReceiptEditFailure(failure: f)),
-      (ScanCategory created) {
+      (Category created) {
         emit(
           current.copyWith(
-            categories: <ScanCategory>[...current.categories, created],
+            categories: <Category>[...current.categories, created],
           ),
         );
       },

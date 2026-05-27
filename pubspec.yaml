@@ -17,7 +17,11 @@ dependencies:
   # State management
   flutter_bloc: ^9.1.1
   bloc: ^9.0.0
+  bloc_concurrency: ^0.3.0
   equatable: ^2.0.7
+
+  # Stream operators (debounce for search input)
+  stream_transform: ^2.1.0
 
   # Functional error handling
   dartz: ^0.10.1

@@ -10,7 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:smartspend/core/error/failures.dart';
-import 'package:smartspend/features/scan/domain/entities/scan_category.dart';
+import 'package:smartspend/features/categories/domain/entities/category.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_item.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
 import 'package:smartspend/features/scan/domain/repositories/scan_repository.dart';
@@ -30,14 +30,14 @@ void main() {
 
   late _MockRepo repo;
 
-  const ScanCategory market = ScanCategory(
+  const Category market = Category(
     id: 1,
     name: 'Market',
     icon: 'shopping_cart',
     color: 0xFF4CAF50,
     isCustom: false,
   );
-  const ScanCategory other = ScanCategory(
+  const Category other = Category(
     id: 2,
     name: 'Diğer',
     icon: 'more_horiz',
@@ -80,8 +80,8 @@ void main() {
 
   void mockCategoriesOK() {
     when(() => repo.listCategories()).thenAnswer(
-      (_) async => const Right<Failure, List<ScanCategory>>(
-        <ScanCategory>[market, other],
+      (_) async => const Right<Failure, List<Category>>(
+        <Category>[market, other],
       ),
     );
   }
@@ -131,7 +131,7 @@ void main() {
       'should emit Failure when listCategories fails',
       build: () {
         when(() => repo.listCategories()).thenAnswer(
-          (_) async => const Left<Failure, List<ScanCategory>>(
+          (_) async => const Left<Failure, List<Category>>(
             CacheFailure(message: 'no db'),
           ),
         );

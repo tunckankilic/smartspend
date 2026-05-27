@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 
 /// Maps the icon names persisted in the `categories` table to concrete
-/// [IconData]. Keeping this table inside the scan feature for now —
-/// Sprint 3's Categories feature will hoist it into `core/`.
+/// [IconData].
+///
+/// Hoisted from `features/scan/presentation/widgets/category_icon` in
+/// Sprint 3 so Expenses, Budget, Dashboard, and Scan can share the same
+/// glyph table.
+///
+/// Keys match the `icon` column on `Categories`; see
+/// `lib/core/database/default_categories.dart` for the seed list.
 const Map<String, IconData> kCategoryIcons = <String, IconData>{
   'shopping_cart': Icons.shopping_cart_rounded,
   'restaurant': Icons.restaurant_rounded,
@@ -21,6 +27,9 @@ const Map<String, IconData> kCategoryIcons = <String, IconData>{
   'more_horiz': Icons.more_horiz_rounded,
 };
 
+/// Resolve a [IconData] for the persisted icon name. Unknown names fall
+/// back to a neutral label glyph so custom categories never render as
+/// blanks.
 IconData iconForCategory(String name) {
   return kCategoryIcons[name] ?? Icons.label_rounded;
 }

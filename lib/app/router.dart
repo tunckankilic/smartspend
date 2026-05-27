@@ -10,6 +10,9 @@ import 'package:smartspend/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:smartspend/features/auth/presentation/pages/sign_in_page.dart';
 import 'package:smartspend/features/budget/presentation/pages/budget_page.dart';
 import 'package:smartspend/features/dashboard/presentation/pages/dashboard_page.dart';
+import 'package:smartspend/features/expenses/domain/entities/expense.dart';
+import 'package:smartspend/features/expenses/presentation/pages/add_expense_page.dart';
+import 'package:smartspend/features/expenses/presentation/pages/expense_detail_page.dart';
 import 'package:smartspend/features/expenses/presentation/pages/expense_list_page.dart';
 import 'package:smartspend/features/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
@@ -82,6 +85,22 @@ GoRouter buildRouter({
           return ScanResultPage(receipt: receipt);
         },
       ),
+      // Manual-entry / edit form — also pushed on the root navigator so
+      // the bottom tab bar is hidden while the user is filling in the
+      // form.
+      GoRoute(
+        path: '/expenses/new',
+        parentNavigatorKey: _rootKey,
+        builder: (BuildContext c, GoRouterState s) => const AddExpensePage(),
+      ),
+      GoRoute(
+        path: '/expenses/:id/edit',
+        parentNavigatorKey: _rootKey,
+        builder: (BuildContext c, GoRouterState s) {
+          final Expense expense = s.extra! as Expense;
+          return AddExpensePage(expense: expense);
+        },
+      ),
       StatefulShellRoute.indexedStack(
         builder: (
           BuildContext context,
@@ -107,11 +126,13 @@ GoRouter buildRouter({
                 builder: (BuildContext c, GoRouterState s) =>
                     const ExpenseListPage(),
                 routes: <RouteBase>[
-                  // Detail route — Sprint 3 will build out the real page.
                   GoRoute(
                     path: ':id',
-                    builder: (BuildContext c, GoRouterState s) =>
-                        const ExpenseListPage(),
+                    builder: (BuildContext c, GoRouterState s) {
+                      final int id =
+                          int.tryParse(s.pathParameters['id'] ?? '') ?? -1;
+                      return ExpenseDetailPage(expenseId: id);
+                    },
                   ),
                 ],
               ),

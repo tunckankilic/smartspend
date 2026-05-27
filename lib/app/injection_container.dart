@@ -10,6 +10,7 @@ import 'package:smartspend/core/database/daos/category_dao.dart';
 import 'package:smartspend/core/database/daos/expense_dao.dart';
 import 'package:smartspend/core/database/daos/receipt_dao.dart';
 import 'package:smartspend/core/database/daos/sync_log_dao.dart';
+import 'package:smartspend/core/database/daos/tag_dao.dart';
 import 'package:smartspend/core/services/onboarding_flag_store.dart';
 import 'package:smartspend/core/supabase/supabase_client_provider.dart';
 import 'package:smartspend/features/auth/presentation/bloc/auth_bloc.dart';
@@ -26,6 +27,19 @@ import 'package:smartspend/features/scan/domain/repositories/scan_repository.dar
 import 'package:smartspend/features/scan/domain/usecases/capture_image.dart';
 import 'package:smartspend/features/scan/domain/usecases/pick_image.dart';
 import 'package:smartspend/features/scan/domain/usecases/scan_receipt.dart';
+import 'package:smartspend/features/expenses/data/datasources/expense_local_data_source.dart';
+import 'package:smartspend/features/expenses/data/repositories/expense_repository_impl.dart';
+import 'package:smartspend/features/expenses/domain/repositories/expense_repository.dart';
+import 'package:smartspend/features/expenses/domain/usecases/add_expense.dart';
+import 'package:smartspend/features/expenses/domain/usecases/delete_expense.dart';
+import 'package:smartspend/features/expenses/domain/usecases/get_all_tags.dart';
+import 'package:smartspend/features/expenses/domain/usecases/get_expense_by_id.dart';
+import 'package:smartspend/features/expenses/domain/usecases/get_expense_summary.dart';
+import 'package:smartspend/features/expenses/domain/usecases/get_expenses.dart';
+import 'package:smartspend/features/expenses/domain/usecases/update_expense.dart';
+import 'package:smartspend/features/expenses/presentation/bloc/add_expense_bloc.dart';
+import 'package:smartspend/features/expenses/presentation/bloc/expense_detail_bloc.dart';
+import 'package:smartspend/features/expenses/presentation/bloc/expense_list_bloc.dart';
 import 'package:smartspend/features/scan/presentation/bloc/receipt_edit_bloc.dart';
 import 'package:smartspend/features/scan/presentation/bloc/scan_bloc.dart';
 
@@ -68,6 +82,7 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton<BudgetDao>(() => sl<AppDatabase>().budgetDao)
     ..registerLazySingleton<CategoryDao>(() => sl<AppDatabase>().categoryDao)
     ..registerLazySingleton<SyncLogDao>(() => sl<AppDatabase>().syncLogDao)
+    ..registerLazySingleton<TagDao>(() => sl<AppDatabase>().tagDao)
     // Top-level BLoCs — kept as singletons so the router can read their
     // state across rebuilds. Feature-scoped BLoCs (ExpenseListBloc, ...)
     // will be `registerFactory` so they get a fresh instance per route.
@@ -131,6 +146,64 @@ Future<void> configureDependencies() async {
     // the user reviews a scan.
     ..registerFactory<ReceiptEditBloc>(
       () => ReceiptEditBloc(repository: sl<ScanRepository>()),
+    )
+    // Expenses feature (Sprint 3.1) -------------------------------------
+    ..registerLazySingleton<ExpenseLocalDataSource>(
+      () => ExpenseLocalDataSourceImpl(
+        expenseDao: sl<ExpenseDao>(),
+        categoryDao: sl<CategoryDao>(),
+        receiptDao: sl<ReceiptDao>(),
+        tagDao: sl<TagDao>(),
+      ),
+    )
+    ..registerLazySingleton<ExpenseRepository>(
+      () => ExpenseRepositoryImpl(
+        localDataSource: sl<ExpenseLocalDataSource>(),
+      ),
+    )
+    ..registerLazySingleton<GetExpensesUseCase>(
+      () => GetExpensesUseCase(sl<ExpenseRepository>()),
+    )
+    ..registerLazySingleton<GetExpenseByIdUseCase>(
+      () => GetExpenseByIdUseCase(sl<ExpenseRepository>()),
+    )
+    ..registerLazySingleton<GetExpenseSummaryUseCase>(
+      () => GetExpenseSummaryUseCase(sl<ExpenseRepository>()),
+    )
+    ..registerLazySingleton<AddExpenseUseCase>(
+      () => AddExpenseUseCase(sl<ExpenseRepository>()),
+    )
+    ..registerLazySingleton<UpdateExpenseUseCase>(
+      () => UpdateExpenseUseCase(sl<ExpenseRepository>()),
+    )
+    ..registerLazySingleton<DeleteExpenseUseCase>(
+      () => DeleteExpenseUseCase(sl<ExpenseRepository>()),
+    )
+    ..registerLazySingleton<GetAllTagsUseCase>(
+      () => GetAllTagsUseCase(sl<ExpenseRepository>()),
+    )
+    // Page-scoped blocs are factories so re-entry gets a fresh state
+    // machine + fresh stream subscription.
+    ..registerFactory<ExpenseListBloc>(
+      () => ExpenseListBloc(
+        repository: sl<ExpenseRepository>(),
+        getSummary: sl<GetExpenseSummaryUseCase>(),
+        deleteExpense: sl<DeleteExpenseUseCase>(),
+      ),
+    )
+    ..registerFactory<ExpenseDetailBloc>(
+      () => ExpenseDetailBloc(
+        getExpenseById: sl<GetExpenseByIdUseCase>(),
+        deleteExpense: sl<DeleteExpenseUseCase>(),
+      ),
+    )
+    ..registerFactory<AddExpenseBloc>(
+      () => AddExpenseBloc(
+        addExpense: sl<AddExpenseUseCase>(),
+        updateExpense: sl<UpdateExpenseUseCase>(),
+        getAllTags: sl<GetAllTagsUseCase>(),
+        categoryDao: sl<CategoryDao>(),
+      ),
     );
 
   // Feature registrations land here as sprints progress.

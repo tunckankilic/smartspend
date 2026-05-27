@@ -6,13 +6,13 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:smartspend/app/injection_container.dart';
-import 'package:smartspend/features/scan/domain/entities/scan_category.dart';
+import 'package:smartspend/core/utils/currency_formatter.dart';
+import 'package:smartspend/core/widgets/category_icon.dart';
+import 'package:smartspend/features/categories/domain/entities/category.dart';
+import 'package:smartspend/features/categories/presentation/widgets/category_picker_sheet.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_item.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
 import 'package:smartspend/features/scan/presentation/bloc/receipt_edit_bloc.dart';
-import 'package:smartspend/features/scan/presentation/widgets/category_icon.dart';
-import 'package:smartspend/features/scan/presentation/widgets/category_picker_sheet.dart';
-import 'package:smartspend/features/scan/presentation/widgets/scan_money.dart';
 import 'package:smartspend/l10n/generated/app_localizations.dart';
 
 /// User-facing review + edit screen.
@@ -403,9 +403,9 @@ class _DefaultCategoryField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l = AppLocalizations.of(context);
-    final ScanCategory? selected = state.categories
-        .where((ScanCategory c) => c.id == state.defaultCategoryId)
-        .cast<ScanCategory?>()
+    final Category? selected = state.categories
+        .where((Category c) => c.id == state.defaultCategoryId)
+        .cast<Category?>()
         .firstWhere((_) => true, orElse: () => null);
 
     return InkWell(
@@ -476,7 +476,7 @@ class _ItemCard extends StatefulWidget {
 
   final int index;
   final ScannedItem item;
-  final List<ScanCategory> categories;
+  final List<Category> categories;
   final String currency;
 
   @override
@@ -527,9 +527,9 @@ class _ItemCardState extends State<_ItemCard> {
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l = AppLocalizations.of(context);
-    final ScanCategory? category = widget.categories
-        .where((ScanCategory c) => c.id == widget.item.categoryId)
-        .cast<ScanCategory?>()
+    final Category? category = widget.categories
+        .where((Category c) => c.id == widget.item.categoryId)
+        .cast<Category?>()
         .firstWhere((_) => true, orElse: () => null);
 
     return Dismissible(

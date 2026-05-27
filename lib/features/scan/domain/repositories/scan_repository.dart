@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:dartz/dartz.dart';
 
 import 'package:smartspend/core/error/failures.dart';
-import 'package:smartspend/features/scan/domain/entities/scan_category.dart';
+import 'package:smartspend/features/categories/domain/entities/category.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
 
 /// Contract for the scan feature's data access.
@@ -26,11 +26,11 @@ abstract class ScanRepository {
   Future<Either<Failure, ScannedReceipt>> scanReceipt(File image);
 
   /// All categories (seeded defaults + user custom ones).
-  Future<Either<Failure, List<ScanCategory>>> listCategories();
+  Future<Either<Failure, List<Category>>> listCategories();
 
   /// Persist a custom category and return the inserted row. The
   /// [color] argument is a packed ARGB int.
-  Future<Either<Failure, ScanCategory>> createCategory({
+  Future<Either<Failure, Category>> createCategory({
     required String name,
     required String icon,
     required int color,

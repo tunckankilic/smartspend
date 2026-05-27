@@ -10,6 +10,7 @@ import 'package:smartspend/core/database/daos/category_dao.dart';
 import 'package:smartspend/core/database/daos/expense_dao.dart';
 import 'package:smartspend/core/database/daos/receipt_dao.dart';
 import 'package:smartspend/core/database/daos/sync_log_dao.dart';
+import 'package:smartspend/core/database/daos/tag_dao.dart';
 import 'package:smartspend/core/database/default_categories.dart';
 import 'package:smartspend/core/database/sync_status.dart';
 import 'package:smartspend/core/database/tables.dart';
@@ -41,6 +42,7 @@ part 'app_database.g.dart';
     BudgetDao,
     CategoryDao,
     SyncLogDao,
+    TagDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {

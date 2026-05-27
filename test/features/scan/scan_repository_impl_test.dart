@@ -4,7 +4,8 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:smartspend/core/database/app_database.dart';
+import 'package:smartspend/core/database/app_database.dart'
+    show AppDatabase, Expense, ReceiptItem;
 import 'package:smartspend/core/database/daos/category_dao.dart';
 import 'package:smartspend/core/database/daos/expense_dao.dart';
 import 'package:smartspend/core/database/daos/receipt_dao.dart';
@@ -14,7 +15,7 @@ import 'package:smartspend/features/scan/data/datasources/camera_data_source.dar
 import 'package:smartspend/features/scan/data/datasources/ocr_data_source.dart';
 import 'package:smartspend/features/scan/data/parsers/receipt_parser.dart';
 import 'package:smartspend/features/scan/data/repositories/scan_repository_impl.dart';
-import 'package:smartspend/features/scan/domain/entities/scan_category.dart';
+import 'package:smartspend/features/categories/domain/entities/category.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_item.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
 
@@ -213,46 +214,46 @@ void main() {
     });
 
     test('listCategories should return the 15 seeded defaults', () async {
-      final Either<Failure, List<ScanCategory>> result =
+      final Either<Failure, List<Category>> result =
           await liveRepo.listCategories();
-      final List<ScanCategory> cats = result.getOrElse(
+      final List<Category> cats = result.getOrElse(
         () => throw StateError('expected Right'),
       );
       expect(cats.length, greaterThanOrEqualTo(15));
       expect(
-        cats.map((ScanCategory c) => c.name),
+        cats.map((Category c) => c.name),
         contains('Market'),
       );
     });
 
     test('createCategory should persist a custom category', () async {
-      final Either<Failure, ScanCategory> result =
+      final Either<Failure, Category> result =
           await liveRepo.createCategory(
         name: 'Hediye Kartı',
         icon: 'card_giftcard',
         color: 0xFFCE93D8,
       );
 
-      final ScanCategory created = result.getOrElse(
+      final Category created = result.getOrElse(
         () => throw StateError('expected Right'),
       );
       expect(created.name, 'Hediye Kartı');
       expect(created.isCustom, isTrue);
 
-      final List<ScanCategory> all = (await liveRepo.listCategories())
+      final List<Category> all = (await liveRepo.listCategories())
           .getOrElse(() => throw StateError('left'));
       expect(
-        all.any((ScanCategory c) => c.name == 'Hediye Kartı'),
+        all.any((Category c) => c.name == 'Hediye Kartı'),
         isTrue,
       );
     });
 
     test('saveReceipt should write 1 receipt + N items + N expenses',
         () async {
-      final List<ScanCategory> cats = (await liveRepo.listCategories())
+      final List<Category> cats = (await liveRepo.listCategories())
           .getOrElse(() => throw StateError('left'));
       final int marketId = cats
-          .firstWhere((ScanCategory c) => c.name == 'Market')
+          .firstWhere((Category c) => c.name == 'Market')
           .id;
 
       const ScannedReceipt receipt = ScannedReceipt(

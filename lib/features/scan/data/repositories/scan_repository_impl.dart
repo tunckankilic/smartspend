@@ -5,16 +5,22 @@ import 'dart:io';
 import 'package:dartz/dartz.dart';
 import 'package:drift/drift.dart' show Value;
 
-import 'package:smartspend/core/database/app_database.dart';
+import 'package:smartspend/core/database/app_database.dart' as drift_db;
+import 'package:smartspend/core/database/app_database.dart'
+    show
+        CategoriesCompanion,
+        ExpensesCompanion,
+        ReceiptItemsCompanion,
+        ReceiptsCompanion;
 import 'package:smartspend/core/database/daos/category_dao.dart';
 import 'package:smartspend/core/database/daos/expense_dao.dart';
 import 'package:smartspend/core/database/daos/receipt_dao.dart';
 import 'package:smartspend/core/error/exceptions.dart';
 import 'package:smartspend/core/error/failures.dart';
+import 'package:smartspend/features/categories/domain/entities/category.dart';
 import 'package:smartspend/features/scan/data/datasources/camera_data_source.dart';
 import 'package:smartspend/features/scan/data/datasources/ocr_data_source.dart';
 import 'package:smartspend/features/scan/data/parsers/receipt_parser.dart';
-import 'package:smartspend/features/scan/domain/entities/scan_category.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_item.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
 import 'package:smartspend/features/scan/domain/repositories/scan_repository.dart';
@@ -107,12 +113,12 @@ class ScanRepositoryImpl implements ScanRepository {
   // ---------------------------------------------------------------------
 
   @override
-  Future<Either<Failure, List<ScanCategory>>> listCategories() async {
+  Future<Either<Failure, List<Category>>> listCategories() async {
     try {
-      final List<Category> rows = await _categories.getAll();
-      final List<ScanCategory> mapped = rows
+      final List<drift_db.Category> rows = await _categories.getAll();
+      final List<Category> mapped = rows
           .map(
-            (Category c) => ScanCategory(
+            (drift_db.Category c) => Category(
               id: c.id,
               name: c.name,
               icon: c.icon,
@@ -121,16 +127,16 @@ class ScanRepositoryImpl implements ScanRepository {
             ),
           )
           .toList(growable: false);
-      return Right<Failure, List<ScanCategory>>(mapped);
+      return Right<Failure, List<Category>>(mapped);
     } on Exception catch (e) {
-      return Left<Failure, List<ScanCategory>>(
+      return Left<Failure, List<Category>>(
         CacheFailure(message: 'listCategories failed: $e'),
       );
     }
   }
 
   @override
-  Future<Either<Failure, ScanCategory>> createCategory({
+  Future<Either<Failure, Category>> createCategory({
     required String name,
     required String icon,
     required int color,
@@ -147,8 +153,8 @@ class ScanRepositoryImpl implements ScanRepository {
           updatedAt: DateTime.now().toUtc(),
         ),
       );
-      return Right<Failure, ScanCategory>(
-        ScanCategory(
+      return Right<Failure, Category>(
+        Category(
           id: id,
           name: name,
           icon: icon,
@@ -157,7 +163,7 @@ class ScanRepositoryImpl implements ScanRepository {
         ),
       );
     } on Exception catch (e) {
-      return Left<Failure, ScanCategory>(
+      return Left<Failure, Category>(
         CacheFailure(message: 'createCategory failed: $e'),
       );
     }

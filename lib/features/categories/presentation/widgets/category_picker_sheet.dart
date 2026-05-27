@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 
-import 'package:smartspend/features/scan/domain/entities/scan_category.dart';
-import 'package:smartspend/features/scan/presentation/widgets/category_icon.dart';
+import 'package:smartspend/core/widgets/category_icon.dart';
+import 'package:smartspend/features/categories/domain/entities/category.dart';
 import 'package:smartspend/l10n/generated/app_localizations.dart';
 
 /// Modal bottom sheet that lets the user pick (or create) a category.
 ///
 /// Returns a [CategoryPickerResult] via [Navigator.pop]:
-/// * `selected` — user tapped an existing category
-/// * `created` — user filled the "new category" form
-/// * `cancelled` — user dismissed the sheet
+/// * `CategoryPickerSelected` — user tapped an existing category
+/// * `CategoryPickerCreated` — user filled the "new category" form
+/// * `null` — user dismissed the sheet
+///
+/// Hoisted from `features/scan/presentation/widgets/category_picker_sheet`
+/// in Sprint 3 so the Expense list/form, Budget, and Scan flows can all
+/// share the same picker.
 class CategoryPickerSheet extends StatefulWidget {
   const CategoryPickerSheet({
     required this.categories,
@@ -17,12 +21,12 @@ class CategoryPickerSheet extends StatefulWidget {
     super.key,
   });
 
-  final List<ScanCategory> categories;
+  final List<Category> categories;
   final bool allowCreate;
 
   static Future<CategoryPickerResult?> show(
     BuildContext context, {
-    required List<ScanCategory> categories,
+    required List<Category> categories,
     bool allowCreate = true,
   }) {
     return showModalBottomSheet<CategoryPickerResult>(
@@ -57,11 +61,11 @@ class _CategoryPickerSheetState extends State<CategoryPickerSheet> {
     super.dispose();
   }
 
-  List<ScanCategory> get _filtered {
+  List<Category> get _filtered {
     if (_query.isEmpty) return widget.categories;
     final String needle = _query.toLowerCase();
     return widget.categories
-        .where((ScanCategory c) => c.name.toLowerCase().contains(needle))
+        .where((Category c) => c.name.toLowerCase().contains(needle))
         .toList(growable: false);
   }
 
@@ -69,7 +73,7 @@ class _CategoryPickerSheetState extends State<CategoryPickerSheet> {
   Widget build(BuildContext context) {
     final AppLocalizations l = AppLocalizations.of(context);
     final ThemeData theme = Theme.of(context);
-    final List<ScanCategory> filtered = _filtered;
+    final List<Category> filtered = _filtered;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -107,7 +111,7 @@ class _CategoryPickerSheetState extends State<CategoryPickerSheet> {
               ),
               itemCount: filtered.length,
               itemBuilder: (BuildContext ctx, int i) {
-                final ScanCategory cat = filtered[i];
+                final Category cat = filtered[i];
                 return _CategoryTile(
                   category: cat,
                   onTap: () => Navigator.of(context).pop(
@@ -183,7 +187,7 @@ class _CategoryPickerSheetState extends State<CategoryPickerSheet> {
 class _CategoryTile extends StatelessWidget {
   const _CategoryTile({required this.category, required this.onTap});
 
-  final ScanCategory category;
+  final Category category;
   final VoidCallback onTap;
 
   @override
@@ -222,7 +226,7 @@ class _CategoryTile extends StatelessWidget {
 sealed class CategoryPickerResult {
   const CategoryPickerResult();
 
-  factory CategoryPickerResult.selected(ScanCategory category) =
+  factory CategoryPickerResult.selected(Category category) =
       CategoryPickerSelected;
   factory CategoryPickerResult.created({
     required String name,
@@ -234,7 +238,7 @@ sealed class CategoryPickerResult {
 final class CategoryPickerSelected extends CategoryPickerResult {
   const CategoryPickerSelected(this.category);
 
-  final ScanCategory category;
+  final Category category;
 }
 
 final class CategoryPickerCreated extends CategoryPickerResult {

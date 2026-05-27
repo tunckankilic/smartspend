@@ -8,7 +8,6 @@
   "navBudget": "Budget",
   "navSettings": "Settings",
 
-  "placeholderDashboard": "Dashboard arrives in Sprint 5.",
   "placeholderScan": "Receipt scanning arrives in Sprint 2.",
   "placeholderExpenses": "Expense list arrives in Sprint 3.",
   "placeholderBudget": "Budget screen arrives in Sprint 6.",
@@ -161,5 +160,48 @@
   "addExpenseErrorAmount": "Amount must be greater than zero.",
   "addExpenseErrorCategory": "Pick a category.",
   "addExpenseErrorFutureDate": "The date can't be in the future.",
-  "addExpenseErrorRecurringPeriod": "Pick a recurrence period."
+  "addExpenseErrorRecurringPeriod": "Pick a recurrence period.",
+
+  "dashboardGreetingMorning": "Good morning",
+  "dashboardGreetingAfternoon": "Good afternoon",
+  "dashboardGreetingEvening": "Good evening",
+  "dashboardGreetingNight": "Good night",
+  "dashboardSummaryThisWeekLabel": "This week",
+  "dashboardSummaryThisMonthLabel": "This month",
+  "dashboardSummaryLast3MonthsLabel": "Last 3 months",
+  "dashboardSummaryCustomLabel": "Custom range",
+  "dashboardSummaryDeltaUp": "↑ {percent}% vs previous period",
+  "@dashboardSummaryDeltaUp": {
+    "placeholders": { "percent": { "type": "String" } }
+  },
+  "dashboardSummaryDeltaDown": "↓ {percent}% vs previous period",
+  "@dashboardSummaryDeltaDown": {
+    "placeholders": { "percent": { "type": "String" } }
+  },
+  "dashboardSummaryDeltaNone": "No data for the previous period.",
+  "dashboardPeriodWeek": "Week",
+  "dashboardPeriodMonth": "Month",
+  "dashboardPeriod3Months": "3 months",
+  "dashboardPeriodCustom": "Custom",
+  "dashboardPickRangeTitle": "Pick a date range",
+  "dashboardQuickActionScan": "Scan",
+  "dashboardQuickActionAdd": "Add",
+  "dashboardQuickActionBudget": "Budget",
+  "dashboardQuickActionReport": "Report",
+  "dashboardReportComingSoon": "Reports land in Sprint 10.",
+  "dashboardSectionWeekly": "Daily spending",
+  "dashboardSectionCategories": "Categories",
+  "dashboardSectionRecent": "Recent expenses",
+  "dashboardRecentSeeAll": "See all",
+  "dashboardEmptyTitle": "No expenses yet",
+  "dashboardEmptyBody": "Scan a receipt or add one manually to get started.",
+  "dashboardInsightSpike": "You spent {percent}% more on {category} than last period.",
+  "@dashboardInsightSpike": {
+    "placeholders": {
+      "category": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "dashboardErrorTitle": "Couldn't load the dashboard.",
+  "dashboardErrorRetry": "Try again"
 }

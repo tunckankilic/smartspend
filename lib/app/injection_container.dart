@@ -54,6 +54,9 @@ import 'package:smartspend/features/expenses/domain/usecases/update_expense.dart
 import 'package:smartspend/features/expenses/presentation/bloc/add_expense_bloc.dart';
 import 'package:smartspend/features/expenses/presentation/bloc/expense_detail_bloc.dart';
 import 'package:smartspend/features/expenses/presentation/bloc/expense_list_bloc.dart';
+import 'package:smartspend/features/dashboard/domain/usecases/get_dashboard_insight.dart';
+import 'package:smartspend/features/dashboard/domain/usecases/get_dashboard_snapshot.dart';
+import 'package:smartspend/features/dashboard/presentation/bloc/dashboard_bloc.dart';
 import 'package:smartspend/features/scan/presentation/bloc/receipt_edit_bloc.dart';
 import 'package:smartspend/features/scan/presentation/bloc/scan_bloc.dart';
 
@@ -258,6 +261,20 @@ Future<void> configureDependencies() async {
         listCategories: sl<ListCategoriesUseCase>(),
         createCategory: sl<CreateCategoryUseCase>(),
         suggestTags: sl<SuggestTagsForExpenseUseCase>(),
+      ),
+    )
+    // Dashboard feature (Sprint 5) ---------------------------------------
+    ..registerLazySingleton<GetDashboardSnapshotUseCase>(
+      () => GetDashboardSnapshotUseCase(sl<ExpenseRepository>()),
+    )
+    ..registerLazySingleton<GetDashboardInsightUseCase>(
+      () => const GetDashboardInsightUseCase(),
+    )
+    ..registerFactory<DashboardBloc>(
+      () => DashboardBloc(
+        repository: sl<ExpenseRepository>(),
+        getSnapshot: sl<GetDashboardSnapshotUseCase>(),
+        listCategories: sl<ListCategoriesUseCase>(),
       ),
     );
 

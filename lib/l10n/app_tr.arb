@@ -11,7 +11,6 @@
   "navBudget": "Bütçe",
   "navSettings": "Ayarlar",
 
-  "placeholderDashboard": "Sprint 5'te dashboard burada görünecek.",
   "placeholderScan": "Sprint 2'de fiş tarama burada açılacak.",
   "placeholderExpenses": "Sprint 3'te harcama listesi burada görünecek.",
   "placeholderBudget": "Sprint 6'da bütçe ekranı burada açılacak.",
@@ -170,5 +169,48 @@
   "addExpenseErrorAmount": "Tutar sıfırdan büyük olmalı.",
   "addExpenseErrorCategory": "Kategori seçilmelidir.",
   "addExpenseErrorFutureDate": "Tarih gelecekte olamaz.",
-  "addExpenseErrorRecurringPeriod": "Tekrar dönemi seç."
+  "addExpenseErrorRecurringPeriod": "Tekrar dönemi seç.",
+
+  "dashboardGreetingMorning": "Günaydın",
+  "dashboardGreetingAfternoon": "İyi günler",
+  "dashboardGreetingEvening": "İyi akşamlar",
+  "dashboardGreetingNight": "İyi geceler",
+  "dashboardSummaryThisWeekLabel": "Bu Hafta",
+  "dashboardSummaryThisMonthLabel": "Bu Ay",
+  "dashboardSummaryLast3MonthsLabel": "Son 3 Ay",
+  "dashboardSummaryCustomLabel": "Özel Dönem",
+  "dashboardSummaryDeltaUp": "Geçen döneme göre ↑ %{percent}",
+  "@dashboardSummaryDeltaUp": {
+    "placeholders": { "percent": { "type": "String" } }
+  },
+  "dashboardSummaryDeltaDown": "Geçen döneme göre ↓ %{percent}",
+  "@dashboardSummaryDeltaDown": {
+    "placeholders": { "percent": { "type": "String" } }
+  },
+  "dashboardSummaryDeltaNone": "Karşılaştıracak geçen dönem verisi yok.",
+  "dashboardPeriodWeek": "Bu Hafta",
+  "dashboardPeriodMonth": "Bu Ay",
+  "dashboardPeriod3Months": "3 Ay",
+  "dashboardPeriodCustom": "Özel",
+  "dashboardPickRangeTitle": "Tarih aralığı seç",
+  "dashboardQuickActionScan": "Tara",
+  "dashboardQuickActionAdd": "Ekle",
+  "dashboardQuickActionBudget": "Bütçe",
+  "dashboardQuickActionReport": "Rapor",
+  "dashboardReportComingSoon": "Rapor ekranı Sprint 10'da gelecek.",
+  "dashboardSectionWeekly": "Günlük Harcama",
+  "dashboardSectionCategories": "Kategoriler",
+  "dashboardSectionRecent": "Son Harcamalar",
+  "dashboardRecentSeeAll": "Tümünü Gör",
+  "dashboardEmptyTitle": "Henüz harcama yok",
+  "dashboardEmptyBody": "Fiş tarayarak veya manuel ekleyerek başla.",
+  "dashboardInsightSpike": "{category} kategorisinde geçen döneme göre %{percent} fazla harcadın.",
+  "@dashboardInsightSpike": {
+    "placeholders": {
+      "category": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "dashboardErrorTitle": "Dashboard yüklenemedi.",
+  "dashboardErrorRetry": "Tekrar Dene"
 }

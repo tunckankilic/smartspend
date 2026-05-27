@@ -23,12 +23,29 @@ import 'package:smartspend/l10n/generated/app_localizations.dart';
 /// down when the tab pops. Manual-entry FAB (Sprint 3.2) navigates to
 /// `/expenses/new`; tapping a row pushes `/expenses/:id`.
 class ExpenseListPage extends StatelessWidget {
-  const ExpenseListPage({super.key});
+  const ExpenseListPage({super.key, this.initialCategoryId});
+
+  /// Optional category id pre-applied to the filter on first build —
+  /// supplied by the dashboard drill-down via `/expenses?categoryId=X`.
+  final int? initialCategoryId;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider<ExpenseListBloc>(
-      create: (_) => sl<ExpenseListBloc>()..add(const ExpensesSubscribed()),
+      create: (_) {
+        final ExpenseListBloc bloc = sl<ExpenseListBloc>()
+          ..add(const ExpensesSubscribed());
+        if (initialCategoryId != null) {
+          bloc.add(
+            FilterChanged(
+              filter: ExpenseFilter(
+                categoryIds: <int>{initialCategoryId!},
+              ),
+            ),
+          );
+        }
+        return bloc;
+      },
       child: const _ExpenseListView(),
     );
   }

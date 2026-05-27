@@ -8,7 +8,6 @@
   "navBudget": "Budget",
   "navSettings": "Einstellungen",
 
-  "placeholderDashboard": "Dashboard kommt in Sprint 5.",
   "placeholderScan": "Bon-Scan kommt in Sprint 2.",
   "placeholderExpenses": "Ausgabenliste kommt in Sprint 3.",
   "placeholderBudget": "Budget-Bildschirm kommt in Sprint 6.",
@@ -161,5 +160,48 @@
   "addExpenseErrorAmount": "Der Betrag muss größer als null sein.",
   "addExpenseErrorCategory": "Bitte wähle eine Kategorie.",
   "addExpenseErrorFutureDate": "Das Datum darf nicht in der Zukunft liegen.",
-  "addExpenseErrorRecurringPeriod": "Bitte wähle einen Wiederholungszeitraum."
+  "addExpenseErrorRecurringPeriod": "Bitte wähle einen Wiederholungszeitraum.",
+
+  "dashboardGreetingMorning": "Guten Morgen",
+  "dashboardGreetingAfternoon": "Guten Tag",
+  "dashboardGreetingEvening": "Guten Abend",
+  "dashboardGreetingNight": "Gute Nacht",
+  "dashboardSummaryThisWeekLabel": "Diese Woche",
+  "dashboardSummaryThisMonthLabel": "Dieser Monat",
+  "dashboardSummaryLast3MonthsLabel": "Letzte 3 Monate",
+  "dashboardSummaryCustomLabel": "Eigener Zeitraum",
+  "dashboardSummaryDeltaUp": "↑ {percent}% ggü. Vorperiode",
+  "@dashboardSummaryDeltaUp": {
+    "placeholders": { "percent": { "type": "String" } }
+  },
+  "dashboardSummaryDeltaDown": "↓ {percent}% ggü. Vorperiode",
+  "@dashboardSummaryDeltaDown": {
+    "placeholders": { "percent": { "type": "String" } }
+  },
+  "dashboardSummaryDeltaNone": "Keine Daten für die Vorperiode.",
+  "dashboardPeriodWeek": "Woche",
+  "dashboardPeriodMonth": "Monat",
+  "dashboardPeriod3Months": "3 Monate",
+  "dashboardPeriodCustom": "Eigen",
+  "dashboardPickRangeTitle": "Zeitraum wählen",
+  "dashboardQuickActionScan": "Scannen",
+  "dashboardQuickActionAdd": "Hinzufügen",
+  "dashboardQuickActionBudget": "Budget",
+  "dashboardQuickActionReport": "Bericht",
+  "dashboardReportComingSoon": "Berichte kommen in Sprint 10.",
+  "dashboardSectionWeekly": "Tägliche Ausgaben",
+  "dashboardSectionCategories": "Kategorien",
+  "dashboardSectionRecent": "Letzte Ausgaben",
+  "dashboardRecentSeeAll": "Alle anzeigen",
+  "dashboardEmptyTitle": "Noch keine Ausgaben",
+  "dashboardEmptyBody": "Scanne einen Beleg oder füge manuell etwas hinzu.",
+  "dashboardInsightSpike": "Du hast {percent}% mehr für {category} ausgegeben als in der Vorperiode.",
+  "@dashboardInsightSpike": {
+    "placeholders": {
+      "category": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "dashboardErrorTitle": "Dashboard konnte nicht geladen werden.",
+  "dashboardErrorRetry": "Erneut versuchen"
 }

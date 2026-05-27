@@ -123,8 +123,12 @@ GoRouter buildRouter({
             routes: <RouteBase>[
               GoRoute(
                 path: '/expenses',
-                builder: (BuildContext c, GoRouterState s) =>
-                    const ExpenseListPage(),
+                builder: (BuildContext c, GoRouterState s) {
+                  final int? catId = int.tryParse(
+                    s.uri.queryParameters['categoryId'] ?? '',
+                  );
+                  return ExpenseListPage(initialCategoryId: catId);
+                },
                 routes: <RouteBase>[
                   GoRoute(
                     path: ':id',

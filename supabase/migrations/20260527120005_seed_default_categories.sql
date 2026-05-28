@@ -15,8 +15,11 @@
 -- `categories_select_default_or_own` lets every user read them.
 -- =============================================================================
 
+-- is_custom is omitted intentionally: it has DEFAULT false, which is exactly
+-- what default categories need. Listing it without a value caused a
+-- column/value count mismatch (SQLSTATE 42601) that blocked db reset.
 insert into public.categories
-  (id, user_id, name, icon, color, is_custom, sort_order)
+  (id, user_id, name, icon, color, sort_order)
 values
   ('11111111-1111-1111-1111-000000000001', null, 'Market',       'shopping_cart',     4283215696,  1),
   ('11111111-1111-1111-1111-000000000002', null, 'Restoran',     'restaurant',        4294918434,  2),

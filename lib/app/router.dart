@@ -7,7 +7,10 @@ import 'package:go_router/go_router.dart';
 import 'package:smartspend/app/widgets/main_scaffold.dart';
 import 'package:smartspend/core/services/onboarding_flag_store.dart';
 import 'package:smartspend/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:smartspend/features/auth/presentation/pages/auth_callback_page.dart';
+import 'package:smartspend/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:smartspend/features/auth/presentation/pages/sign_in_page.dart';
+import 'package:smartspend/features/auth/presentation/pages/sign_up_page.dart';
 import 'package:smartspend/features/budget/presentation/pages/budget_page.dart';
 import 'package:smartspend/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:smartspend/features/expenses/domain/entities/expense.dart';
@@ -75,7 +78,19 @@ GoRouter buildRouter({
         path: '/auth/sign-in',
         builder: (BuildContext c, GoRouterState s) => const SignInPage(),
       ),
-      // /auth/sign-up, /auth/forgot-password, /auth/callback land in Sprint 8.
+      GoRoute(
+        path: '/auth/sign-up',
+        builder: (BuildContext c, GoRouterState s) => const SignUpPage(),
+      ),
+      GoRoute(
+        path: '/auth/forgot-password',
+        builder: (BuildContext c, GoRouterState s) =>
+            const ForgotPasswordPage(),
+      ),
+      GoRoute(
+        path: '/auth/callback',
+        builder: (BuildContext c, GoRouterState s) => const AuthCallbackPage(),
+      ),
 
       // Receipt edit screen — opened on top of the shell so the user gets
       // full screen for review and is forced to consciously cancel/save

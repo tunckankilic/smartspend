@@ -10,6 +10,19 @@
 	<string>SmartSpend needs photo library access to import receipt images you have already saved.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>SmartSpend saves processed receipt images back to your photo library when you choose to export them.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>site.tunckankilic.smartspend</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>site.tunckankilic.smartspend</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

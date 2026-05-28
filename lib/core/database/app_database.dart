@@ -93,6 +93,30 @@ class AppDatabase extends _$AppDatabase {
         },
       );
 
+  /// Wipes every user-owned row on sign-out so the next account starts from
+  /// a clean local cache. The global seed categories (`userId == null`,
+  /// non-custom) are preserved so the app still has its category set, and
+  /// device-local [UserSettings] (theme / locale) survive a session change.
+  /// Children are deleted before parents to respect foreign keys.
+  Future<void> clearUserData() async {
+    await transaction(() async {
+      await delete(expenseTags).go();
+      await delete(receiptItems).go();
+      await delete(budgetAlerts).go();
+      await delete(userCorrections).go();
+      await delete(expenses).go();
+      await delete(budgets).go();
+      await delete(receipts).go();
+      await delete(tags).go();
+      await delete(syncLog).go();
+      await (delete(categories)
+            ..where(
+              (Categories t) => t.userId.isNotNull() | t.isCustom.equals(true),
+            ))
+          .go();
+    });
+  }
+
   Future<void> _seedDefaultCategories() async {
     final DateTime now = DateTime.now().toUtc();
     await batch((Batch batch) {

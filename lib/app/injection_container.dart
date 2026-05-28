@@ -16,6 +16,15 @@ import 'package:smartspend/core/services/notification_service.dart';
 import 'package:smartspend/core/services/onboarding_flag_store.dart';
 import 'package:smartspend/core/services/recurring_expense_scheduler.dart';
 import 'package:smartspend/core/supabase/supabase_client_provider.dart';
+import 'package:smartspend/features/auth/data/datasources/supabase_auth_data_source.dart';
+import 'package:smartspend/features/auth/data/repositories/supabase_auth_repository_impl.dart';
+import 'package:smartspend/features/auth/domain/repositories/auth_repository.dart';
+import 'package:smartspend/features/auth/domain/usecases/apple_sign_in_usecase.dart';
+import 'package:smartspend/features/auth/domain/usecases/google_sign_in_usecase.dart';
+import 'package:smartspend/features/auth/domain/usecases/reset_password_usecase.dart';
+import 'package:smartspend/features/auth/domain/usecases/sign_in_usecase.dart';
+import 'package:smartspend/features/auth/domain/usecases/sign_out_usecase.dart';
+import 'package:smartspend/features/auth/domain/usecases/sign_up_usecase.dart';
 import 'package:smartspend/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:smartspend/features/categories/data/repositories/category_repository_impl.dart';
 import 'package:smartspend/features/categories/domain/repositories/category_repository.dart';
@@ -146,7 +155,45 @@ Future<void> configureDependencies() async {
     // state across rebuilds. Feature-scoped BLoCs (ExpenseListBloc, ...)
     // will be `registerFactory` so they get a fresh instance per route.
     ..registerLazySingleton<AppBloc>(AppBloc.new)
-    ..registerLazySingleton<AuthBloc>(AuthBloc.new)
+    // Auth feature (Sprint 8.2) -------------------------------------------
+    ..registerLazySingleton<SupabaseAuthDataSource>(
+      () => SupabaseAuthDataSourceImpl(auth: sl<SupabaseClient>().auth),
+    )
+    ..registerLazySingleton<AuthRepository>(
+      () => SupabaseAuthRepositoryImpl(
+        dataSource: sl<SupabaseAuthDataSource>(),
+      ),
+    )
+    ..registerLazySingleton<SignInUseCase>(
+      () => SignInUseCase(sl<AuthRepository>()),
+    )
+    ..registerLazySingleton<SignUpUseCase>(
+      () => SignUpUseCase(sl<AuthRepository>()),
+    )
+    ..registerLazySingleton<SignOutUseCase>(
+      () => SignOutUseCase(sl<AuthRepository>()),
+    )
+    ..registerLazySingleton<GoogleSignInUseCase>(
+      () => GoogleSignInUseCase(sl<AuthRepository>()),
+    )
+    ..registerLazySingleton<AppleSignInUseCase>(
+      () => AppleSignInUseCase(sl<AuthRepository>()),
+    )
+    ..registerLazySingleton<ResetPasswordUseCase>(
+      () => ResetPasswordUseCase(sl<AuthRepository>()),
+    )
+    ..registerLazySingleton<AuthBloc>(
+      () => AuthBloc(
+        authRepository: sl<AuthRepository>(),
+        signIn: sl<SignInUseCase>(),
+        signUp: sl<SignUpUseCase>(),
+        signOut: sl<SignOutUseCase>(),
+        googleSignIn: sl<GoogleSignInUseCase>(),
+        appleSignIn: sl<AppleSignInUseCase>(),
+        resetPassword: sl<ResetPasswordUseCase>(),
+        database: sl<AppDatabase>(),
+      ),
+    )
     // Categories feature (Sprint 4 hoist) ---------------------------------
     ..registerLazySingleton<CategoryRepository>(
       () => CategoryRepositoryImpl(categoryDao: sl<CategoryDao>()),

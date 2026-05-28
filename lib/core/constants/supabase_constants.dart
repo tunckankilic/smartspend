@@ -9,6 +9,13 @@ abstract class SupabaseConstants {
   static const String envUrl = 'SUPABASE_URL';
   static const String envAnonKey = 'SUPABASE_ANON_KEY';
 
+  /// Google OAuth client IDs for the native `signInWithIdToken` flow. The web
+  /// client is the audience Supabase validates the ID token against; the iOS
+  /// client is required by the Google Sign-In SDK on iOS. Both injected via
+  /// `--dart-define-from-file=.env`; empty in dev until configured.
+  static const String envGoogleWebClientId = 'GOOGLE_WEB_CLIENT_ID';
+  static const String envGoogleIosClientId = 'GOOGLE_IOS_CLIENT_ID';
+
   // Storage buckets.
   static const String receiptsBucket = 'receipts';
 

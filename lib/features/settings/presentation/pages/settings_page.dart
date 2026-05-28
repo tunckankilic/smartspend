@@ -20,7 +20,7 @@ class SettingsPage extends StatelessWidget {
             icon: const Icon(Icons.logout_rounded),
             onPressed: () => context
                 .read<AuthBloc>()
-                .add(const AuthSignedOutRequested()),
+                .add(const AuthSignOutRequested()),
           ),
         ],
       ),

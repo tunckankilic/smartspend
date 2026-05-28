@@ -1,39 +1,172 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:smartspend/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:smartspend/features/auth/presentation/widgets/auth_failure_message.dart';
 import 'package:smartspend/l10n/generated/app_localizations.dart';
 
-/// Placeholder sign-in surface. Real flow lands in Sprint 8.
-class SignInPage extends StatelessWidget {
+/// Email + password sign-in, plus Google and (on iOS) Apple providers.
+class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
+
+  @override
+  State<SignInPage> createState() => _SignInPageState();
+}
+
+class _SignInPageState extends State<SignInPage> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _email = TextEditingController();
+  final TextEditingController _password = TextEditingController();
+  bool _obscure = true;
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (_formKey.currentState?.validate() ?? false) {
+      context.read<AuthBloc>().add(
+            AuthSignInRequested(
+              email: _email.text.trim(),
+              password: _password.text,
+            ),
+          );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(l.authSignInTitle)),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Text(
-                'Sprint 8: Supabase Auth (Google / Apple / e-posta) buraya gelecek.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
+      body: BlocConsumer<AuthBloc, AuthState>(
+        listener: (BuildContext context, AuthState state) {
+          if (state is AuthFailure) {
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                SnackBar(
+                  content: Text(authFailureMessage(l, state.failure)),
+                ),
+              );
+          }
+        },
+        builder: (BuildContext context, AuthState state) {
+          final bool busy = state is AuthLoading;
+          return SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    TextFormField(
+                      controller: _email,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const <String>[AutofillHints.email],
+                      enabled: !busy,
+                      decoration: InputDecoration(
+                        labelText: l.authEmailLabel,
+                        prefixIcon: const Icon(Icons.email_outlined),
+                      ),
+                      validator: (String? v) => _isValidEmail(v)
+                          ? null
+                          : l.authEmailInvalid,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _password,
+                      obscureText: _obscure,
+                      enabled: !busy,
+                      autofillHints: const <String>[AutofillHints.password],
+                      decoration: InputDecoration(
+                        labelText: l.authPasswordLabel,
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscure
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
+                          onPressed: () =>
+                              setState(() => _obscure = !_obscure),
+                        ),
+                      ),
+                      validator: (String? v) => (v == null || v.isEmpty)
+                          ? l.authPasswordTooShort
+                          : null,
+                      onFieldSubmitted: (_) => _submit(),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: busy
+                            ? null
+                            : () => context.push('/auth/forgot-password'),
+                        child: Text(l.authForgotPasswordLink),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    FilledButton(
+                      onPressed: busy ? null : _submit,
+                      child: busy
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(l.authSignInCta),
+                    ),
+                    const SizedBox(height: 24),
+                    OutlinedButton.icon(
+                      onPressed: busy
+                          ? null
+                          : () => context
+                              .read<AuthBloc>()
+                              .add(const AuthGoogleRequested()),
+                      icon: const Icon(Icons.g_mobiledata),
+                      label: Text(l.authGoogleSignInCta),
+                    ),
+                    if (Platform.isIOS) ...<Widget>[
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: busy
+                            ? null
+                            : () => context
+                                .read<AuthBloc>()
+                                .add(const AuthAppleRequested()),
+                        icon: const Icon(Icons.apple),
+                        label: Text(l.authAppleSignInCta),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    TextButton(
+                      onPressed:
+                          busy ? null : () => context.push('/auth/sign-up'),
+                      child: Text(l.authNoAccount),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () =>
-                    context.read<AuthBloc>().add(const AuthStarted()),
-                child: Text(l.authSignInTitle),
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
+}
+
+bool _isValidEmail(String? value) {
+  if (value == null) {
+    return false;
+  }
+  final String trimmed = value.trim();
+  return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(trimmed);
 }

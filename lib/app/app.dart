@@ -32,7 +32,7 @@ class _SmartSpendAppState extends State<SmartSpendApp> {
   void initState() {
     super.initState();
     _appBloc = sl<AppBloc>();
-    _authBloc = sl<AuthBloc>()..add(const AuthStarted());
+    _authBloc = sl<AuthBloc>()..add(const AuthCheckRequested());
     _router = buildRouter(
       authBloc: _authBloc,
       onboardingFlagStore: sl<OnboardingFlagStore>(),

@@ -307,5 +307,65 @@
   "weekdayThursday": "Perşembe",
   "weekdayFriday": "Cuma",
   "weekdaySaturday": "Cumartesi",
-  "weekdaySunday": "Pazar"
+  "weekdaySunday": "Pazar",
+
+  "splitTitle": "Hesap Bölüşme",
+  "splitParticipantsLabel": "Katılımcılar",
+  "splitParticipantHint": "İsim ekle",
+  "splitParticipantAdd": "Ekle",
+  "splitParticipantsEmpty": "Henüz katılımcı yok. Bölüşmek için en az bir kişi ekle.",
+  "splitTypeEqual": "Eşit Böl",
+  "splitTypeCustom": "Özel",
+  "splitItemsLabel": "Ürünler",
+  "splitAssignSheetHint": "Bu ürünü kimler paylaştı?",
+  "splitAssignSave": "Kaydet",
+  "splitAssignClear": "Temizle",
+  "splitSummaryTitle": "Özet",
+  "splitSummaryEmpty": "Önce katılımcı ekle.",
+  "splitSummaryTotal": "Toplam",
+  "splitShareButton": "Özeti Paylaş",
+  "splitShareHeading": "SmartSpend Hesap Özeti",
+  "splitShareHeader": "{store} — {date}",
+  "@splitShareHeader": {
+    "placeholders": {
+      "store": { "type": "String" },
+      "date": { "type": "String" }
+    }
+  },
+  "splitSharePerPerson": "{name}: {amount}",
+  "@splitSharePerPerson": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "amount": { "type": "String" }
+    }
+  },
+  "splitShareTotal": "Toplam: {amount}",
+  "@splitShareTotal": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    }
+  },
+  "splitLoadFailed": "Fiş yüklenemedi. Lütfen tekrar deneyin.",
+  "splitShareFailed": "Paylaşım başarısız oldu.",
+
+  "archiveTitle": "Fiş Arşivi",
+  "archiveSearchHint": "Mağaza ara",
+  "archiveViewGrid": "Izgara görünümü",
+  "archiveViewList": "Liste görünümü",
+  "archiveEmpty": "Henüz arşivlenmiş fiş yok. Önce bir fiş tara.",
+  "archiveEmptyFiltered": "Bu filtreyle eşleşen fiş yok.",
+  "archiveLoadFailed": "Arşiv yüklenemedi.",
+  "archiveUnknownStore": "Bilinmeyen mağaza",
+
+  "receiptDetailTitle": "Fiş Detayı",
+  "receiptDetailMissing": "Fiş bulunamadı.",
+  "receiptDetailItemsLabel": "Ürünler",
+  "receiptDetailItemsEmpty": "Bu fişte ürün bulunmuyor.",
+  "warrantySectionTitle": "Garanti Takibi",
+  "warrantyReminderHint": "Bitimine 30 gün kala hatırlatma alırsın.",
+  "warrantyAbsent": "Garanti tanımlı değil.",
+  "warrantyAdd": "Garanti Ekle",
+  "warrantyChange": "Değiştir",
+  "warrantyClear": "Kaldır",
+  "warrantyWriteFailed": "Garanti kaydedilemedi."
 }

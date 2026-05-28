@@ -298,5 +298,65 @@
   "weekdayThursday": "Thursday",
   "weekdayFriday": "Friday",
   "weekdaySaturday": "Saturday",
-  "weekdaySunday": "Sunday"
+  "weekdaySunday": "Sunday",
+
+  "splitTitle": "Split Bill",
+  "splitParticipantsLabel": "Participants",
+  "splitParticipantHint": "Add a name",
+  "splitParticipantAdd": "Add",
+  "splitParticipantsEmpty": "No participants yet. Add at least one person to split.",
+  "splitTypeEqual": "Equal",
+  "splitTypeCustom": "Custom",
+  "splitItemsLabel": "Items",
+  "splitAssignSheetHint": "Who shared this item?",
+  "splitAssignSave": "Save",
+  "splitAssignClear": "Clear",
+  "splitSummaryTitle": "Summary",
+  "splitSummaryEmpty": "Add a participant first.",
+  "splitSummaryTotal": "Total",
+  "splitShareButton": "Share Summary",
+  "splitShareHeading": "SmartSpend Bill Summary",
+  "splitShareHeader": "{store} — {date}",
+  "@splitShareHeader": {
+    "placeholders": {
+      "store": { "type": "String" },
+      "date": { "type": "String" }
+    }
+  },
+  "splitSharePerPerson": "{name}: {amount}",
+  "@splitSharePerPerson": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "amount": { "type": "String" }
+    }
+  },
+  "splitShareTotal": "Total: {amount}",
+  "@splitShareTotal": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    }
+  },
+  "splitLoadFailed": "Couldn't load the receipt. Please try again.",
+  "splitShareFailed": "Sharing failed.",
+
+  "archiveTitle": "Receipt Archive",
+  "archiveSearchHint": "Search by store",
+  "archiveViewGrid": "Grid view",
+  "archiveViewList": "List view",
+  "archiveEmpty": "No archived receipts yet. Scan one first.",
+  "archiveEmptyFiltered": "No receipts match this filter.",
+  "archiveLoadFailed": "Couldn't load the archive.",
+  "archiveUnknownStore": "Unknown store",
+
+  "receiptDetailTitle": "Receipt Details",
+  "receiptDetailMissing": "Receipt not found.",
+  "receiptDetailItemsLabel": "Items",
+  "receiptDetailItemsEmpty": "This receipt has no items.",
+  "warrantySectionTitle": "Warranty Tracking",
+  "warrantyReminderHint": "We'll remind you 30 days before it expires.",
+  "warrantyAbsent": "No warranty set.",
+  "warrantyAdd": "Add Warranty",
+  "warrantyChange": "Change",
+  "warrantyClear": "Clear",
+  "warrantyWriteFailed": "Couldn't save the warranty."
 }

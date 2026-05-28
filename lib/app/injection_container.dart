@@ -71,6 +71,18 @@ import 'package:smartspend/features/dashboard/domain/usecases/get_dashboard_snap
 import 'package:smartspend/features/dashboard/presentation/bloc/dashboard_bloc.dart';
 import 'package:smartspend/features/scan/presentation/bloc/receipt_edit_bloc.dart';
 import 'package:smartspend/features/scan/presentation/bloc/scan_bloc.dart';
+import 'package:smartspend/features/receipts/data/repositories/receipt_archive_repository_impl.dart';
+import 'package:smartspend/features/receipts/domain/repositories/receipt_archive_repository.dart';
+import 'package:smartspend/features/receipts/domain/usecases/add_warranty.dart';
+import 'package:smartspend/features/receipts/domain/usecases/get_receipt_detail.dart';
+import 'package:smartspend/features/receipts/domain/usecases/watch_receipt_archive.dart';
+import 'package:smartspend/features/receipts/presentation/bloc/receipt_archive_bloc.dart';
+import 'package:smartspend/features/receipts/presentation/bloc/receipt_detail_bloc.dart';
+import 'package:smartspend/features/split/data/repositories/split_repository_impl.dart';
+import 'package:smartspend/features/split/data/share_plus_split_sink.dart';
+import 'package:smartspend/features/split/domain/repositories/split_repository.dart';
+import 'package:smartspend/features/split/domain/usecases/load_split_session.dart';
+import 'package:smartspend/features/split/presentation/bloc/split_bloc.dart';
 
 /// Process-wide service locator. Always inject via [sl] — never construct
 /// repositories, datasources, or BLoCs by hand.
@@ -342,6 +354,48 @@ Future<void> configureDependencies() async {
         budgetRepository: sl<BudgetRepository>(),
         getSnapshot: sl<GetDashboardSnapshotUseCase>(),
         listCategories: sl<ListCategoriesUseCase>(),
+      ),
+    )
+    // Split feature (Sprint 7) -------------------------------------------
+    ..registerLazySingleton<SplitRepository>(
+      () => SplitRepositoryImpl(receiptDao: sl<ReceiptDao>()),
+    )
+    ..registerLazySingleton<LoadSplitSessionUseCase>(
+      () => LoadSplitSessionUseCase(sl<SplitRepository>()),
+    )
+    ..registerLazySingleton<SplitShareSink>(SharePlusSplitSink.new)
+    // SplitBloc is page-scoped — closing the page discards the session.
+    ..registerFactory<SplitBloc>(
+      () => SplitBloc(
+        loadSession: sl<LoadSplitSessionUseCase>(),
+        shareSink: sl<SplitShareSink>(),
+      ),
+    )
+    // Receipts feature (Sprint 7) ----------------------------------------
+    ..registerLazySingleton<ReceiptArchiveRepository>(
+      () => ReceiptArchiveRepositoryImpl(receiptDao: sl<ReceiptDao>()),
+    )
+    ..registerLazySingleton<WatchReceiptArchiveUseCase>(
+      () => WatchReceiptArchiveUseCase(sl<ReceiptArchiveRepository>()),
+    )
+    ..registerLazySingleton<GetReceiptDetailUseCase>(
+      () => GetReceiptDetailUseCase(sl<ReceiptArchiveRepository>()),
+    )
+    ..registerLazySingleton<AddWarrantyUseCase>(
+      () => AddWarrantyUseCase(
+        repository: sl<ReceiptArchiveRepository>(),
+        notifications: sl<NotificationService>(),
+      ),
+    )
+    ..registerFactory<ReceiptArchiveBloc>(
+      () => ReceiptArchiveBloc(
+        watchArchive: sl<WatchReceiptArchiveUseCase>(),
+      ),
+    )
+    ..registerFactory<ReceiptDetailBloc>(
+      () => ReceiptDetailBloc(
+        getDetail: sl<GetReceiptDetailUseCase>(),
+        addWarranty: sl<AddWarrantyUseCase>(),
       ),
     );
 

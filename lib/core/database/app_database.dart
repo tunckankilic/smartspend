@@ -59,8 +59,11 @@ class AppDatabase extends _$AppDatabase {
   ///   v2 — Sprint 6 adds `user_corrections` to persist the per-user
   ///        category-override learning signal that Sprint 4 was logging
   ///        only via the structured logger.
+  ///   v3 — Sprint 7 adds `receipts.warranty_end_date` for the receipt
+  ///        archive's warranty-reminder feature. Nullable; older rows
+  ///        upgrade with `null` and behave as "no warranty".
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   /// Store `DateTime` columns as ISO-8601 text so timezone information
   /// survives a write/read round-trip. CLAUDE.md mandates UTC storage; the
@@ -81,6 +84,11 @@ class AppDatabase extends _$AppDatabase {
           // v1 → v2: add user_corrections table (Sprint 6).
           if (from < 2) {
             await m.createTable(userCorrections);
+          }
+          // v2 → v3: add receipts.warranty_end_date (Sprint 7). Nullable
+          // column so existing rows survive the upgrade with no default.
+          if (from < 3) {
+            await m.addColumn(receipts, receipts.warrantyEndDate);
           }
         },
       );

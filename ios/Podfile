@@ -1,5 +1,8 @@
-# Uncomment this line to define a global platform for your project
-# platform :ios, '13.0'
+# Minimum deployment target — matches CLAUDE.md (Min iOS: 16.0). Several
+# plugins (google_mlkit_commons, share_plus, flutter_local_notifications)
+# require iOS 13+/15+; pin to 16.0 so pod resolution is deterministic and
+# matches the Xcode project's IPHONEOS_DEPLOYMENT_TARGET.
+platform :ios, '16.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'

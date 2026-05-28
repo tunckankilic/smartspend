@@ -28,6 +28,11 @@ class Receipts extends Table {
   TextColumn get storageObjectPath => text().nullable()();
   TextColumn get rawOcrText => text().nullable()();
   RealColumn get confidenceScore => real().nullable()();
+  /// Sprint 7 — receipt archive warranty tracking. UTC end-of-warranty
+  /// date; null for receipts without an attached warranty. The reminder
+  /// notification fires 30 days before this date (see
+  /// `AddWarrantyUseCase`).
+  DateTimeColumn get warrantyEndDate => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
   TextColumn get syncStatus =>

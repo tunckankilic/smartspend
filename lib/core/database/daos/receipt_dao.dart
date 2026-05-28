@@ -132,4 +132,78 @@ class ReceiptDao extends DatabaseAccessor<AppDatabase> with _$ReceiptDaoMixin {
           ))
         .get();
   }
+
+  // ---------------------------------------------------------------------
+  // Sprint 7 — reactive reads for the Receipt Archive feature.
+  // ---------------------------------------------------------------------
+
+  /// Streams every non-deleted receipt, newest-date first.
+  ///
+  /// The archive bloc subscribes to this on mount and rebuilds the grid
+  /// whenever scans, deletes, or warranty edits land in Drift. Matches
+  /// the `watch*` cadence used by `BudgetDao.watchActive` (Sprint 6).
+  Stream<List<Receipt>> watchAll() {
+    return (select(receipts)
+          ..where(
+            ($ReceiptsTable t) =>
+                t.syncStatus.equals(SyncStatus.pendingDelete).not(),
+          )
+          ..orderBy(<OrderClauseGenerator<$ReceiptsTable>>[
+            ($ReceiptsTable t) =>
+                OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+          ]))
+        .watch();
+  }
+
+  /// Streams non-deleted receipts narrowed by [searchQuery] (substring
+  /// match on `store_name`) and an optional [from] / [to] inclusive
+  /// date range.
+  ///
+  /// Empty / blank [searchQuery] disables the text predicate. Bounds
+  /// default to "no bound" when null. The query is rebuilt on every
+  /// call by the bloc when filters change, so old subscriptions are
+  /// cancelled by the bloc's `restartable()` transformer.
+  Stream<List<Receipt>> watchFiltered({
+    String? searchQuery,
+    DateTime? from,
+    DateTime? to,
+  }) {
+    final SimpleSelectStatement<$ReceiptsTable, Receipt> q = select(receipts)
+      ..where(
+        ($ReceiptsTable t) =>
+            t.syncStatus.equals(SyncStatus.pendingDelete).not(),
+      )
+      ..orderBy(<OrderClauseGenerator<$ReceiptsTable>>[
+        ($ReceiptsTable t) =>
+            OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+      ]);
+    final String? trimmed = searchQuery?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) {
+      final String like = '%${trimmed.toLowerCase()}%';
+      q.where(($ReceiptsTable t) => t.storeName.lower().like(like));
+    }
+    if (from != null) {
+      q.where(($ReceiptsTable t) => t.date.isBiggerOrEqualValue(from));
+    }
+    if (to != null) {
+      q.where(($ReceiptsTable t) => t.date.isSmallerOrEqualValue(to));
+    }
+    return q.watch();
+  }
+
+  /// Patch the warranty expiry on a receipt. Pass `null` to clear.
+  ///
+  /// Stamps `pending_update` so the sync engine (Sprint 8) propagates
+  /// the change to Supabase. The notification scheduling is the
+  /// caller's responsibility — DAOs never touch platform services.
+  Future<int> setWarrantyEndDate(int id, DateTime? endDate) {
+    return (update(receipts)..where(($ReceiptsTable t) => t.id.equals(id)))
+        .write(
+      ReceiptsCompanion(
+        warrantyEndDate: Value<DateTime?>(endDate?.toUtc()),
+        updatedAt: Value<DateTime>(DateTime.now().toUtc()),
+        syncStatus: const Value<String>(SyncStatus.pendingUpdate),
+      ),
+    );
+  }
 }

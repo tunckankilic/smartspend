@@ -30,6 +30,10 @@ class NotificationChannel {
 
   /// Recurring expense reminders ("Netflix yarın çekilecek"). Medium.
   static const String recurringReminders = 'recurring_reminders';
+
+  /// Warranty expiry reminders for archived receipts (Sprint 7). Medium —
+  /// the user benefits but missing one isn't catastrophic.
+  static const String warrantyReminders = 'warranty_reminders';
 }
 
 /// Stable id offsets per channel so cancellations target the right row
@@ -38,6 +42,7 @@ class _NotificationIdSpace {
   const _NotificationIdSpace._();
   static const int budgetBase = 1000;
   static const int recurringBase = 2000;
+  static const int warrantyBase = 3000;
   static const int weeklySummary = 30001;
 }
 
@@ -85,6 +90,18 @@ abstract class NotificationService {
     required DateTime when,
   });
 
+  /// Schedules a warranty expiry reminder at [when] (UTC), typically 30
+  /// days before the warranty end date (Sprint 7). Mechanics are
+  /// identical to [scheduleRecurringReminder] — only the channel + id
+  /// namespace differ so the user can mute warranty alerts without
+  /// silencing subscription reminders.
+  Future<void> scheduleWarrantyReminder({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime when,
+  });
+
   /// Cancels a previously scheduled notification by id.
   Future<void> cancel(int id);
 
@@ -99,6 +116,12 @@ abstract class NotificationService {
   /// Stable id derivation for recurring expense reminders.
   int recurringNotificationId(int expenseId) =>
       _NotificationIdSpace.recurringBase + expenseId;
+
+  /// Stable id derivation for warranty reminders (Sprint 7). One slot
+  /// per receipt so re-saving the same warranty replaces the previous
+  /// scheduled notification.
+  int warrantyNotificationId(int receiptId) =>
+      _NotificationIdSpace.warrantyBase + receiptId;
 }
 
 /// Production implementation backed by `flutter_local_notifications`.
@@ -240,6 +263,30 @@ class FlutterLocalNotificationService implements NotificationService {
   }
 
   @override
+  Future<void> scheduleWarrantyReminder({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime when,
+  }) async {
+    final tz.TZDateTime scheduled = tz.TZDateTime.from(when.toUtc(), tz.UTC);
+    await _plugin.zonedSchedule(
+      id,
+      title,
+      body,
+      scheduled,
+      _details(
+        channelId: NotificationChannel.warrantyReminders,
+        channelName: 'Warranty reminders',
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      payload: 'warranty:$id',
+    );
+  }
+
+  @override
   Future<void> cancel(int id) => _plugin.cancel(id);
 
   @override
@@ -252,6 +299,10 @@ class FlutterLocalNotificationService implements NotificationService {
   @override
   int recurringNotificationId(int expenseId) =>
       _NotificationIdSpace.recurringBase + expenseId;
+
+  @override
+  int warrantyNotificationId(int receiptId) =>
+      _NotificationIdSpace.warrantyBase + receiptId;
 
   NotificationDetails _details({
     required String channelId,

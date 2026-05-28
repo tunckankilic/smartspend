@@ -46,8 +46,10 @@ dependencies:
   google_sign_in: ^7.2.0
   sign_in_with_apple: ^8.0.0
 
-  # Observability
-  sentry_flutter: ^8.11.2
+  # Observability — pinned to 9.x because 8.14.x ships a Swift plugin
+  # that references `SentryBinaryImageCache.image`, removed in the
+  # latest native Sentry-Cocoa SDK that ships with 9.x.
+  sentry_flutter: ^9.0.0
 
   # Utilities
   logger: ^2.5.0
@@ -63,6 +65,9 @@ dependencies:
   # Local notifications (budget alerts, recurring reminders) — Sprint 6
   flutter_local_notifications: ^17.2.4
   timezone: ^0.9.4
+
+  # System share sheet (Sprint 7: split-summary share — WhatsApp/SMS/etc.).
+  share_plus: ^10.1.4
 
   # Scan pipeline
   image_picker: ^1.1.2

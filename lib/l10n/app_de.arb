@@ -298,5 +298,65 @@
   "weekdayThursday": "Donnerstag",
   "weekdayFriday": "Freitag",
   "weekdaySaturday": "Samstag",
-  "weekdaySunday": "Sonntag"
+  "weekdaySunday": "Sonntag",
+
+  "splitTitle": "Rechnung teilen",
+  "splitParticipantsLabel": "Teilnehmer",
+  "splitParticipantHint": "Name hinzufügen",
+  "splitParticipantAdd": "Hinzufügen",
+  "splitParticipantsEmpty": "Noch keine Teilnehmer. Füge mindestens eine Person hinzu.",
+  "splitTypeEqual": "Gleich",
+  "splitTypeCustom": "Individuell",
+  "splitItemsLabel": "Artikel",
+  "splitAssignSheetHint": "Wer hat sich diesen Artikel geteilt?",
+  "splitAssignSave": "Speichern",
+  "splitAssignClear": "Leeren",
+  "splitSummaryTitle": "Zusammenfassung",
+  "splitSummaryEmpty": "Füge zuerst einen Teilnehmer hinzu.",
+  "splitSummaryTotal": "Gesamt",
+  "splitShareButton": "Zusammenfassung teilen",
+  "splitShareHeading": "SmartSpend Rechnungsaufteilung",
+  "splitShareHeader": "{store} — {date}",
+  "@splitShareHeader": {
+    "placeholders": {
+      "store": { "type": "String" },
+      "date": { "type": "String" }
+    }
+  },
+  "splitSharePerPerson": "{name}: {amount}",
+  "@splitSharePerPerson": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "amount": { "type": "String" }
+    }
+  },
+  "splitShareTotal": "Gesamt: {amount}",
+  "@splitShareTotal": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    }
+  },
+  "splitLoadFailed": "Beleg konnte nicht geladen werden. Bitte erneut versuchen.",
+  "splitShareFailed": "Teilen fehlgeschlagen.",
+
+  "archiveTitle": "Beleg-Archiv",
+  "archiveSearchHint": "Geschäft suchen",
+  "archiveViewGrid": "Rasteransicht",
+  "archiveViewList": "Listenansicht",
+  "archiveEmpty": "Noch keine archivierten Belege. Scanne zuerst einen.",
+  "archiveEmptyFiltered": "Keine Belege passen zu diesem Filter.",
+  "archiveLoadFailed": "Archiv konnte nicht geladen werden.",
+  "archiveUnknownStore": "Unbekanntes Geschäft",
+
+  "receiptDetailTitle": "Beleg-Details",
+  "receiptDetailMissing": "Beleg nicht gefunden.",
+  "receiptDetailItemsLabel": "Artikel",
+  "receiptDetailItemsEmpty": "Dieser Beleg enthält keine Artikel.",
+  "warrantySectionTitle": "Garantie",
+  "warrantyReminderHint": "Wir erinnern dich 30 Tage vor Ablauf.",
+  "warrantyAbsent": "Keine Garantie hinterlegt.",
+  "warrantyAdd": "Garantie hinzufügen",
+  "warrantyChange": "Ändern",
+  "warrantyClear": "Entfernen",
+  "warrantyWriteFailed": "Garantie konnte nicht gespeichert werden."
 }

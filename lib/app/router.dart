@@ -15,10 +15,13 @@ import 'package:smartspend/features/expenses/presentation/pages/add_expense_page
 import 'package:smartspend/features/expenses/presentation/pages/expense_detail_page.dart';
 import 'package:smartspend/features/expenses/presentation/pages/expense_list_page.dart';
 import 'package:smartspend/features/onboarding/presentation/pages/onboarding_page.dart';
+import 'package:smartspend/features/receipts/presentation/pages/receipt_archive_page.dart';
+import 'package:smartspend/features/receipts/presentation/pages/receipt_detail_page.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
 import 'package:smartspend/features/scan/presentation/pages/scan_page.dart';
 import 'package:smartspend/features/scan/presentation/pages/scan_result_page.dart';
 import 'package:smartspend/features/settings/presentation/pages/settings_page.dart';
+import 'package:smartspend/features/split/presentation/pages/split_page.dart';
 
 /// Stable GoRouter keys for navigator hot-restart safety.
 final GlobalKey<NavigatorState> _rootKey =
@@ -99,6 +102,34 @@ GoRouter buildRouter({
         builder: (BuildContext c, GoRouterState s) {
           final Expense expense = s.extra! as Expense;
           return AddExpensePage(expense: expense);
+        },
+      ),
+      // Sprint 7 — Hesap Bölüşme. Pushed on the root navigator (full
+      // screen, no bottom tabs) so the user finishes the split flow
+      // without being able to wander off into other tabs mid-edit.
+      GoRoute(
+        path: '/split/:receiptId',
+        parentNavigatorKey: _rootKey,
+        builder: (BuildContext c, GoRouterState s) {
+          final int id =
+              int.tryParse(s.pathParameters['receiptId'] ?? '') ?? -1;
+          return SplitPage(receiptId: id);
+        },
+      ),
+      // Sprint 7 — Fiş Arşivi. Top-level read-only browsing surface;
+      // entered from Settings / Dashboard quick actions.
+      GoRoute(
+        path: '/receipts',
+        parentNavigatorKey: _rootKey,
+        builder: (BuildContext c, GoRouterState s) =>
+            const ReceiptArchivePage(),
+      ),
+      GoRoute(
+        path: '/receipts/:id',
+        parentNavigatorKey: _rootKey,
+        builder: (BuildContext c, GoRouterState s) {
+          final int id = int.tryParse(s.pathParameters['id'] ?? '') ?? -1;
+          return ReceiptDetailPage(receiptId: id);
         },
       ),
       StatefulShellRoute.indexedStack(

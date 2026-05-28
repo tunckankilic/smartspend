@@ -203,5 +203,100 @@
     }
   },
   "dashboardErrorTitle": "Dashboard konnte nicht geladen werden.",
-  "dashboardErrorRetry": "Erneut versuchen"
+  "dashboardErrorRetry": "Erneut versuchen",
+
+  "budgetTitle": "Budget",
+  "budgetGeneralLabel": "Gesamtbudget",
+  "budgetCategoriesSection": "Kategoriebudgets",
+  "budgetEmptyTitle": "Noch kein Budget",
+  "budgetEmptyBody": "Lege ein monatliches oder wöchentliches Budget fest, um den Überblick zu behalten.",
+  "budgetEmptyCta": "Erstes Budget anlegen",
+  "budgetCreateFab": "Budget hinzufügen",
+  "budgetSheetTitleCreate": "Neues Budget",
+  "budgetSheetTitleEdit": "Budget bearbeiten",
+  "budgetSheetAmountLabel": "Betrag",
+  "budgetSheetAmountHint": "z. B. 5000,00",
+  "budgetSheetPeriodLabel": "Zeitraum",
+  "budgetSheetCategoryLabel": "Kategorie",
+  "budgetSheetCategoryGeneral": "Allgemein (alle Ausgaben)",
+  "budgetSheetCategoryPick": "Kategorie wählen",
+  "budgetSheetSubmit": "Speichern",
+  "budgetSheetDelete": "Budget löschen",
+  "budgetPeriodWeekly": "Wöchentlich",
+  "budgetPeriodMonthly": "Monatlich",
+  "budgetPeriodYearly": "Jährlich",
+  "budgetSpentOfTotal": "{spent} / {total}",
+  "@budgetSpentOfTotal": {
+    "placeholders": {
+      "spent": { "type": "String" },
+      "total": { "type": "String" }
+    }
+  },
+  "budgetRemaining": "Verbleibend: {remaining}",
+  "@budgetRemaining": {
+    "placeholders": { "remaining": { "type": "String" } }
+  },
+  "budgetOverspent": "Überzogen um {amount}",
+  "@budgetOverspent": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
+  "budgetPercentSpent": "{percent} % verbraucht",
+  "@budgetPercentSpent": {
+    "placeholders": { "percent": { "type": "String" } }
+  },
+  "budgetPermissionBannerTitle": "Benachrichtigungen aus",
+  "budgetPermissionBannerBody": "Aktiviere Benachrichtigungen, um Budgetwarnungen und Wochenberichte zu erhalten.",
+  "budgetPermissionBannerAction": "Aktivieren",
+  "budgetWriteFailed": "Konnte nicht gespeichert werden: {message}",
+  "@budgetWriteFailed": {
+    "placeholders": { "message": { "type": "String" } }
+  },
+  "budgetAmountInvalid": "Der Betrag muss größer als Null sein.",
+  "budgetErrorTitle": "Budgets konnten nicht geladen werden.",
+  "budgetErrorRetry": "Erneut versuchen",
+  "budgetDeleteConfirmTitle": "Budget löschen?",
+  "budgetDeleteConfirmBody": "Das Budget wird entfernt. Dein Ausgabenverlauf bleibt unverändert.",
+  "budgetDeleteConfirm": "Löschen",
+  "budgetDeleteCancel": "Abbrechen",
+
+  "dashboardInsightBudgetWarning": "Dein {category}-Budget liegt bei {percent} % — kurz vor der Grenze.",
+  "@dashboardInsightBudgetWarning": {
+    "placeholders": {
+      "category": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "dashboardInsightBudgetExceeded": "Du hast dein {category}-Budget überzogen ({percent} %).",
+  "@dashboardInsightBudgetExceeded": {
+    "placeholders": {
+      "category": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "dashboardInsightBudgetAchievement": "Gut gemacht — du bleibst unter deinem {category}-Budget.",
+  "@dashboardInsightBudgetAchievement": {
+    "placeholders": { "category": { "type": "String" } }
+  },
+  "dashboardInsightFrequency": "Diesen Zeitraum hast du {count} Mal {tag} gekauft, insgesamt {total}.",
+  "@dashboardInsightFrequency": {
+    "placeholders": {
+      "tag": { "type": "String" },
+      "count": { "type": "String" },
+      "total": { "type": "String" }
+    }
+  },
+  "dashboardInsightDayOfWeek": "Am {weekday} gibst du {percent} % mehr aus als im Tagesschnitt.",
+  "@dashboardInsightDayOfWeek": {
+    "placeholders": {
+      "weekday": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "weekdayMonday": "Montag",
+  "weekdayTuesday": "Dienstag",
+  "weekdayWednesday": "Mittwoch",
+  "weekdayThursday": "Donnerstag",
+  "weekdayFriday": "Freitag",
+  "weekdaySaturday": "Samstag",
+  "weekdaySunday": "Sonntag"
 }

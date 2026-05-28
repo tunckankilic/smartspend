@@ -18,6 +18,8 @@ class DashboardSnapshot extends Equatable {
     required this.recentExpenses,
     required this.topCategoryId,
     required this.expenseCount,
+    this.byWeekdayMinor = const <int, int>{},
+    this.tagFrequency = const <String, TagFrequencyAggregate>{},
   });
 
   static const DashboardSnapshot empty = DashboardSnapshot(
@@ -62,6 +64,16 @@ class DashboardSnapshot extends Equatable {
   /// Number of expense rows that fell inside the current period.
   final int expenseCount;
 
+  /// `ISO weekday → minor-unit total` for the current period.
+  /// Keys: 1 = Monday … 7 = Sunday. Days with zero spending are absent.
+  /// Used by [DayOfWeekInsight] evaluator.
+  final Map<int, int> byWeekdayMinor;
+
+  /// Per-tag aggregate for the current period (case-insensitive on
+  /// match, original casing preserved on the key). Used by
+  /// [FrequencyInsight] evaluator.
+  final Map<String, TagFrequencyAggregate> tagFrequency;
+
   /// Signed percentage delta vs the previous period. `null` when the
   /// previous period was empty (delta is undefined). Positive = spent
   /// more this period than last.
@@ -86,5 +98,25 @@ class DashboardSnapshot extends Equatable {
         recentExpenses,
         topCategoryId,
         expenseCount,
+        byWeekdayMinor,
+        tagFrequency,
       ];
+}
+
+/// Per-tag aggregate row: occurrence count + summed spend.
+class TagFrequencyAggregate extends Equatable {
+  const TagFrequencyAggregate({required this.count, required this.totalMinor});
+
+  final int count;
+  final int totalMinor;
+
+  TagFrequencyAggregate add(int minor) {
+    return TagFrequencyAggregate(
+      count: count + 1,
+      totalMinor: totalMinor + minor,
+    );
+  }
+
+  @override
+  List<Object?> get props => <Object?>[count, totalMinor];
 }

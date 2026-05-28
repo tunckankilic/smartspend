@@ -11,7 +11,10 @@ import 'package:smartspend/core/database/daos/expense_dao.dart';
 import 'package:smartspend/core/database/daos/receipt_dao.dart';
 import 'package:smartspend/core/database/daos/sync_log_dao.dart';
 import 'package:smartspend/core/database/daos/tag_dao.dart';
+import 'package:smartspend/core/database/daos/user_correction_dao.dart';
+import 'package:smartspend/core/services/notification_service.dart';
 import 'package:smartspend/core/services/onboarding_flag_store.dart';
+import 'package:smartspend/core/services/recurring_expense_scheduler.dart';
 import 'package:smartspend/core/supabase/supabase_client_provider.dart';
 import 'package:smartspend/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:smartspend/features/categories/data/repositories/category_repository_impl.dart';
@@ -21,8 +24,10 @@ import 'package:smartspend/features/categories/domain/usecases/list_categories.d
 import 'package:smartspend/features/categorization/data/engines/hybrid_categorization_engine.dart';
 import 'package:smartspend/features/categorization/data/engines/keyword_categorization_engine.dart';
 import 'package:smartspend/features/categorization/data/engines/tflite_categorization_engine.dart';
+import 'package:smartspend/features/categorization/data/repositories/user_correction_repository_impl.dart';
 import 'package:smartspend/features/categorization/data/store_database.dart';
 import 'package:smartspend/features/categorization/domain/engines/categorization_engine.dart';
+import 'package:smartspend/features/categorization/domain/repositories/user_correction_repository.dart';
 import 'package:smartspend/features/categorization/domain/usecases/record_user_correction.dart';
 import 'package:smartspend/features/categorization/domain/usecases/suggest_category_for_receipt.dart';
 import 'package:smartspend/features/categorization/domain/usecases/suggest_tags_for_expense.dart';
@@ -54,6 +59,13 @@ import 'package:smartspend/features/expenses/domain/usecases/update_expense.dart
 import 'package:smartspend/features/expenses/presentation/bloc/add_expense_bloc.dart';
 import 'package:smartspend/features/expenses/presentation/bloc/expense_detail_bloc.dart';
 import 'package:smartspend/features/expenses/presentation/bloc/expense_list_bloc.dart';
+import 'package:smartspend/features/budget/data/repositories/budget_repository_impl.dart';
+import 'package:smartspend/features/budget/domain/repositories/budget_repository.dart';
+import 'package:smartspend/features/budget/domain/usecases/create_budget.dart';
+import 'package:smartspend/features/budget/domain/usecases/delete_budget.dart';
+import 'package:smartspend/features/budget/domain/usecases/update_budget.dart';
+import 'package:smartspend/features/budget/domain/usecases/watch_budgets.dart';
+import 'package:smartspend/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:smartspend/features/dashboard/domain/usecases/get_dashboard_insight.dart';
 import 'package:smartspend/features/dashboard/domain/usecases/get_dashboard_snapshot.dart';
 import 'package:smartspend/features/dashboard/presentation/bloc/dashboard_bloc.dart';
@@ -100,6 +112,24 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton<CategoryDao>(() => sl<AppDatabase>().categoryDao)
     ..registerLazySingleton<SyncLogDao>(() => sl<AppDatabase>().syncLogDao)
     ..registerLazySingleton<TagDao>(() => sl<AppDatabase>().tagDao)
+    ..registerLazySingleton<UserCorrectionDao>(
+      () => sl<AppDatabase>().userCorrectionDao,
+    )
+    // Local notifications — single shared plugin instance, initialised in
+    // main.dart after DI wiring completes.
+    ..registerLazySingleton<NotificationService>(
+      FlutterLocalNotificationService.new,
+    )
+    // Recurring expense scheduler — tick()-ed from main.dart after the
+    // notification plugin is initialised.
+    ..registerLazySingleton<RecurringExpenseScheduler>(
+      () => RecurringExpenseSchedulerImpl(
+        expenseDao: sl<ExpenseDao>(),
+        notifications: sl<NotificationService>(),
+        prefs: sl<SharedPreferences>(),
+        logger: sl<Logger>(),
+      ),
+    )
     // Top-level BLoCs — kept as singletons so the router can read their
     // state across rebuilds. Feature-scoped BLoCs (ExpenseListBloc, ...)
     // will be `registerFactory` so they get a fresh instance per route.
@@ -131,8 +161,14 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton<SuggestTagsForExpenseUseCase>(
       () => const SuggestTagsForExpenseUseCase(),
     )
+    ..registerLazySingleton<UserCorrectionRepository>(
+      () => UserCorrectionRepositoryImpl(dao: sl<UserCorrectionDao>()),
+    )
     ..registerLazySingleton<RecordUserCorrectionUseCase>(
-      () => RecordUserCorrectionUseCase(logger: sl<Logger>()),
+      () => RecordUserCorrectionUseCase(
+        repository: sl<UserCorrectionRepository>(),
+        logger: sl<Logger>(),
+      ),
     )
     ..registerFactory<CategorizationBloc>(
       () => CategorizationBloc(
@@ -263,6 +299,36 @@ Future<void> configureDependencies() async {
         suggestTags: sl<SuggestTagsForExpenseUseCase>(),
       ),
     )
+    // Budget feature (Sprint 6) -----------------------------------------
+    ..registerLazySingleton<BudgetRepository>(
+      () => BudgetRepositoryImpl(budgetDao: sl<BudgetDao>()),
+    )
+    ..registerLazySingleton<WatchBudgetsUseCase>(
+      () => WatchBudgetsUseCase(sl<BudgetRepository>()),
+    )
+    ..registerLazySingleton<CreateBudgetUseCase>(
+      () => CreateBudgetUseCase(sl<BudgetRepository>()),
+    )
+    ..registerLazySingleton<UpdateBudgetUseCase>(
+      () => UpdateBudgetUseCase(sl<BudgetRepository>()),
+    )
+    ..registerLazySingleton<DeleteBudgetUseCase>(
+      () => DeleteBudgetUseCase(sl<BudgetRepository>()),
+    )
+    // Page-scoped — fresh stream subscription on every visit so the
+    // baseline-establishing behaviour for threshold notifications stays
+    // predictable.
+    ..registerFactory<BudgetBloc>(
+      () => BudgetBloc(
+        watchBudgets: sl<WatchBudgetsUseCase>(),
+        createBudget: sl<CreateBudgetUseCase>(),
+        updateBudget: sl<UpdateBudgetUseCase>(),
+        deleteBudget: sl<DeleteBudgetUseCase>(),
+        expenseRepository: sl<ExpenseRepository>(),
+        listCategories: sl<ListCategoriesUseCase>(),
+        notifications: sl<NotificationService>(),
+      ),
+    )
     // Dashboard feature (Sprint 5) ---------------------------------------
     ..registerLazySingleton<GetDashboardSnapshotUseCase>(
       () => GetDashboardSnapshotUseCase(sl<ExpenseRepository>()),
@@ -273,6 +339,7 @@ Future<void> configureDependencies() async {
     ..registerFactory<DashboardBloc>(
       () => DashboardBloc(
         repository: sl<ExpenseRepository>(),
+        budgetRepository: sl<BudgetRepository>(),
         getSnapshot: sl<GetDashboardSnapshotUseCase>(),
         listCategories: sl<ListCategoriesUseCase>(),
       ),

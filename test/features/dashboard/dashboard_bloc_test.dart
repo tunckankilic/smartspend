@@ -6,9 +6,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:smartspend/core/error/failures.dart';
+import 'package:smartspend/features/budget/domain/entities/budget.dart';
+import 'package:smartspend/features/budget/domain/repositories/budget_repository.dart';
 import 'package:smartspend/features/categories/domain/entities/category.dart';
 import 'package:smartspend/features/categories/domain/repositories/category_repository.dart';
 import 'package:smartspend/features/categories/domain/usecases/list_categories.dart';
+import 'package:smartspend/features/dashboard/domain/entities/dashboard_insight.dart';
 import 'package:smartspend/features/dashboard/domain/entities/dashboard_period.dart';
 import 'package:smartspend/features/dashboard/domain/usecases/get_dashboard_snapshot.dart';
 import 'package:smartspend/features/dashboard/presentation/bloc/dashboard_bloc.dart';
@@ -20,6 +23,8 @@ import 'package:smartspend/features/expenses/domain/repositories/expense_reposit
 class _MockRepo extends Mock implements ExpenseRepository {}
 
 class _MockCatRepo extends Mock implements CategoryRepository {}
+
+class _MockBudgetRepo extends Mock implements BudgetRepository {}
 
 class _FakeFilter extends Fake implements ExpenseFilter {}
 
@@ -53,12 +58,15 @@ void main() {
 
   late _MockRepo repo;
   late _MockCatRepo catRepo;
+  late _MockBudgetRepo budgetRepo;
   late StreamController<List<Expense>> ctrl;
+  late StreamController<List<Budget>> budgetCtrl;
   final DateTime now = DateTime.utc(2026, 5, 27, 9);
 
   DashboardBloc build() {
     return DashboardBloc(
       repository: repo,
+      budgetRepository: budgetRepo,
       getSnapshot: GetDashboardSnapshotUseCase(repo, now: () => now),
       listCategories: ListCategoriesUseCase(catRepo),
       now: () => now,
@@ -68,8 +76,12 @@ void main() {
   setUp(() {
     repo = _MockRepo();
     catRepo = _MockCatRepo();
+    budgetRepo = _MockBudgetRepo();
     ctrl = StreamController<List<Expense>>.broadcast();
+    budgetCtrl = StreamController<List<Budget>>.broadcast();
     when(() => repo.watchExpenses(any())).thenAnswer((_) => ctrl.stream);
+    when(budgetRepo.watchActiveBudgets)
+        .thenAnswer((_) => budgetCtrl.stream);
     when(() => repo.getExpenses(any())).thenAnswer(
       (_) async => const Right<Failure, List<Expense>>(<Expense>[]),
     );
@@ -84,6 +96,7 @@ void main() {
 
   tearDown(() async {
     await ctrl.close();
+    await budgetCtrl.close();
   });
 
   test('should start in DashboardInitial with thisMonth as default', () {
@@ -170,7 +183,9 @@ void main() {
     verify: (b) {
       final loaded = b.state as DashboardLoaded;
       expect(loaded.insight, isNotNull);
-      expect(loaded.insight!.categoryId, 1);
+      final CategorySpikeInsight spike =
+          loaded.insight! as CategorySpikeInsight;
+      expect(spike.categoryId, 1);
     },
   );
 

@@ -89,6 +89,9 @@ class GetDashboardSnapshotUseCase
     final Map<int, int> byCategory = <int, int>{};
     final Map<DateTime, int> daily = _zeroFilledDays(range);
     final Map<String, int> currencyVotes = <String, int>{};
+    final Map<int, int> byWeekday = <int, int>{};
+    final Map<String, TagFrequencyAggregate> tagFreq =
+        <String, TagFrequencyAggregate>{};
 
     for (final Expense e in expenses) {
       total += e.amount;
@@ -104,6 +107,32 @@ class GetDashboardSnapshotUseCase
         (int v) => v + 1,
         ifAbsent: () => 1,
       );
+      // Day-of-week aggregate (ISO: Mon=1..Sun=7) — driver for
+      // [DayOfWeekInsight].
+      byWeekday.update(
+        e.date.toUtc().weekday,
+        (int v) => v + e.amount,
+        ifAbsent: () => e.amount,
+      );
+      // Tag frequency aggregate — case-insensitive grouping with
+      // original casing preserved on the first seen key.
+      for (final String tag in e.tags) {
+        final String key = tag.trim();
+        if (key.isEmpty) continue;
+        final String lower = key.toLowerCase();
+        final String existing = tagFreq.keys.firstWhere(
+          (String k) => k.toLowerCase() == lower,
+          orElse: () => '',
+        );
+        if (existing.isNotEmpty) {
+          tagFreq[existing] = tagFreq[existing]!.add(e.amount);
+        } else {
+          tagFreq[key] = TagFrequencyAggregate(
+            count: 1,
+            totalMinor: e.amount,
+          );
+        }
+      }
     }
 
     final String currency = currencyVotes.entries
@@ -130,6 +159,8 @@ class GetDashboardSnapshotUseCase
       recentExpenses: recent,
       topCategoryId: topCategoryId,
       expenseCount: expenses.length,
+      byWeekdayMinor: byWeekday,
+      tagFrequency: tagFreq,
     );
   }
 

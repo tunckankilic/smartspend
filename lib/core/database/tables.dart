@@ -143,6 +143,28 @@ class UserSettings extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{key};
 }
 
+/// Records each time the user overrides the categorizer's suggestion for a
+/// given store. The hybrid engine (Sprint 4) consults the highest-count row
+/// for a store name before falling back to the keyword/TFLite engines, so
+/// the categorizer "learns" per-user mappings.
+///
+/// Sprint 6 introduces this table (schema v2). Sprint 8 will push it to
+/// Supabase via the standard `syncStatus` pipeline.
+class UserCorrections extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get remoteId => text().nullable()();
+  TextColumn get userId => text().nullable()();
+  TextColumn get storeName => text()();
+  IntColumn get oldCategoryId =>
+      integer().nullable().references(Categories, #id)();
+  IntColumn get newCategoryId => integer().references(Categories, #id)();
+  IntColumn get count => integer().withDefault(const Constant(1))();
+  DateTimeColumn get occurredAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+  TextColumn get syncStatus =>
+      text().withDefault(const Constant(SyncStatus.synced))();
+}
+
 /// Audit trail of sync attempts — debugging only, never synced.
 ///
 /// Note: Drift's [Table] base class exposes a `String? get tableName` used

@@ -2,24 +2,25 @@ import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
 
 import 'package:smartspend/core/error/failures.dart';
+import 'package:smartspend/features/budget/domain/entities/budget_snapshot.dart';
 import 'package:smartspend/features/dashboard/domain/entities/dashboard_insight.dart';
 import 'package:smartspend/features/dashboard/domain/entities/dashboard_snapshot.dart';
+import 'package:smartspend/features/dashboard/domain/usecases/insights/category_spike_insight.dart';
+import 'package:smartspend/features/dashboard/domain/usecases/insights/insight_pipeline.dart';
 import 'package:smartspend/features/expenses/domain/usecases/usecase.dart';
 
-/// Sprint 5 hard-codes the spike threshold at 20% per the prompt — Sprint
-/// 6's budget feature will own configurable thresholds.
-const double kInsightSpikeThresholdPercent = 20;
+/// Sprint 5's spike threshold (kept as a top-level constant to avoid
+/// breaking imports from old code paths and tests).
+const double kInsightSpikeThresholdPercent =
+    CategorySpikeInsightEvaluator.thresholdPercent;
+const int kInsightMinCurrentMinor =
+    CategorySpikeInsightEvaluator.minCurrentMinor;
 
-/// Minimum minor-unit spend in the *current* period before a category is
-/// eligible. Without this, a category that jumped from ₺1 → ₺5 (a 400%
-/// "spike") would dominate the banner.
-const int kInsightMinCurrentMinor = 10000; // ₺100.00 / €100.00 / etc.
-
-/// Pure rule engine: pick the most striking per-category spike vs the
-/// previous period and turn it into a [DashboardInsight].
+/// Public surface for the bloc. Sprint 6 swapped the body for the
+/// 5-rule [DashboardInsightPipeline] but the call site is unchanged.
 ///
-/// Inputs come from [DashboardSnapshot]; no IO. The use case never
-/// fails — it returns `Right(null)` when no rule matched.
+/// `evaluate` is exposed for unit tests so they can call the engine
+/// without `async`/`Either` ceremony.
 class GetDashboardInsightUseCase
     implements UseCase<DashboardInsight?, GetDashboardInsightParams> {
   const GetDashboardInsightUseCase();
@@ -28,48 +29,46 @@ class GetDashboardInsightUseCase
   Future<Either<Failure, DashboardInsight?>> call(
     GetDashboardInsightParams params,
   ) async {
-    return right(evaluate(params.snapshot));
+    return right(
+      evaluate(
+        params.snapshot,
+        budgets: params.budgets,
+        now: params.now,
+      ),
+    );
   }
 
-  /// Exposed for direct unit-testing (no `async`/`Either` ceremony).
-  static DashboardInsight? evaluate(DashboardSnapshot snapshot) {
-    if (snapshot.isEmpty) return null;
-
-    DashboardInsight? best;
-    double bestDelta = kInsightSpikeThresholdPercent;
-
-    for (final MapEntry<int, int> entry
-        in snapshot.byCategoryCurrent.entries) {
-      final int currentMinor = entry.value;
-      if (currentMinor < kInsightMinCurrentMinor) continue;
-
-      final int previousMinor =
-          snapshot.byCategoryPrevious[entry.key] ?? 0;
-      // A category that didn't exist last period would yield infinite
-      // delta — skip it; "first-time category" isn't actionable here.
-      if (previousMinor == 0) continue;
-
-      final double delta =
-          ((currentMinor - previousMinor) / previousMinor) * 100.0;
-      if (delta >= bestDelta) {
-        bestDelta = delta;
-        best = DashboardInsight(
-          categoryId: entry.key,
-          deltaPercent: delta,
-          tone: DashboardInsightTone.warning,
-        );
-      }
-    }
-
-    return best;
+  /// Direct (sync) evaluator. Defaults preserve Sprint 5 callers — pass
+  /// no budgets and the pipeline falls through to the category-spike
+  /// rule, which is what the Sprint 5 tests assert against.
+  static DashboardInsight? evaluate(
+    DashboardSnapshot snapshot, {
+    List<BudgetSnapshot> budgets = const <BudgetSnapshot>[],
+    DateTime? now,
+  }) {
+    return DashboardInsightPipeline.resolve(
+      snapshot: snapshot,
+      budgets: budgets,
+      now: now ?? DateTime.now(),
+    );
   }
 }
 
 class GetDashboardInsightParams extends Equatable {
-  const GetDashboardInsightParams({required this.snapshot});
+  const GetDashboardInsightParams({
+    required this.snapshot,
+    this.budgets = const <BudgetSnapshot>[],
+    this.now,
+  });
 
   final DashboardSnapshot snapshot;
+  final List<BudgetSnapshot> budgets;
+
+  /// Pass-through clock — the bloc supplies a real one, tests pass a
+  /// fixed instant. `null` collapses to `DateTime.now()` at the call
+  /// site (see [GetDashboardInsightUseCase.call]).
+  final DateTime? now;
 
   @override
-  List<Object?> get props => <Object?>[snapshot];
+  List<Object?> get props => <Object?>[snapshot, budgets, now];
 }

@@ -123,6 +123,22 @@ class ExpenseDao extends DatabaseAccessor<AppDatabase> with _$ExpenseDaoMixin {
         .get();
   }
 
+  /// Rows flagged as recurring **templates** — the anchor occurrence the
+  /// Sprint 6 [RecurringExpenseScheduler] uses to materialise future
+  /// instances. Excludes soft-deleted rows.
+  Future<List<Expense>> getRecurringTemplates() {
+    return (select(expenses)
+          ..where(
+            ($ExpensesTable t) =>
+                t.isRecurring.equals(true) &
+                t.syncStatus.equals(SyncStatus.pendingDelete).not(),
+          )
+          ..orderBy(<OrderClauseGenerator<$ExpensesTable>>[
+            ($ExpensesTable t) => OrderingTerm(expression: t.id),
+          ]))
+        .get();
+  }
+
   // ---------------------------------------------------------------------
   // Sprint 3 — list / filter / sort
   // ---------------------------------------------------------------------

@@ -11,6 +11,7 @@ import 'package:smartspend/core/database/daos/expense_dao.dart';
 import 'package:smartspend/core/database/daos/receipt_dao.dart';
 import 'package:smartspend/core/database/daos/sync_log_dao.dart';
 import 'package:smartspend/core/database/daos/tag_dao.dart';
+import 'package:smartspend/core/database/daos/user_correction_dao.dart';
 import 'package:smartspend/core/database/default_categories.dart';
 import 'package:smartspend/core/database/sync_status.dart';
 import 'package:smartspend/core/database/tables.dart';
@@ -35,6 +36,7 @@ part 'app_database.g.dart';
     ExpenseTags,
     UserSettings,
     SyncLog,
+    UserCorrections,
   ],
   daos: <Type>[
     ReceiptDao,
@@ -43,6 +45,7 @@ part 'app_database.g.dart';
     CategoryDao,
     SyncLogDao,
     TagDao,
+    UserCorrectionDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -51,8 +54,13 @@ class AppDatabase extends _$AppDatabase {
   /// Test-only ctor — caller supplies an in-memory [NativeDatabase].
   AppDatabase.forTesting(super.executor);
 
+  /// Schema history:
+  ///   v1 — Sprint 1 initial set (receipts, expenses, budgets, ...).
+  ///   v2 — Sprint 6 adds `user_corrections` to persist the per-user
+  ///        category-override learning signal that Sprint 4 was logging
+  ///        only via the structured logger.
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   /// Store `DateTime` columns as ISO-8601 text so timezone information
   /// survives a write/read round-trip. CLAUDE.md mandates UTC storage; the
@@ -69,7 +77,12 @@ class AppDatabase extends _$AppDatabase {
           await _seedDefaultCategories();
         },
         // Step-by-step migrations get plugged in here as `schemaVersion` grows.
-        onUpgrade: (Migrator m, int from, int to) async {},
+        onUpgrade: (Migrator m, int from, int to) async {
+          // v1 → v2: add user_corrections table (Sprint 6).
+          if (from < 2) {
+            await m.createTable(userCorrections);
+          }
+        },
       );
 
   Future<void> _seedDefaultCategories() async {

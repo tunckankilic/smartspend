@@ -45,8 +45,36 @@ class BudgetDao extends DatabaseAccessor<AppDatabase> with _$BudgetDaoMixin {
             ($BudgetsTable t) =>
                 t.isActive.equals(true) &
                 t.syncStatus.equals(SyncStatus.pendingDelete).not(),
-          ))
+          )
+          ..orderBy(<OrderClauseGenerator<$BudgetsTable>>[
+            // General budgets (null category) first, then by category id.
+            ($BudgetsTable t) => OrderingTerm.asc(t.categoryId),
+            ($BudgetsTable t) => OrderingTerm.asc(t.id),
+          ]))
         .get();
+  }
+
+  /// Reactive variant of [getActive] — re-emits whenever the `budgets`
+  /// table changes. Powers [BudgetBloc]'s live snapshot.
+  Stream<List<Budget>> watchActive() {
+    return (select(budgets)
+          ..where(
+            ($BudgetsTable t) =>
+                t.isActive.equals(true) &
+                t.syncStatus.equals(SyncStatus.pendingDelete).not(),
+          )
+          ..orderBy(<OrderClauseGenerator<$BudgetsTable>>[
+            ($BudgetsTable t) => OrderingTerm.asc(t.categoryId),
+            ($BudgetsTable t) => OrderingTerm.asc(t.id),
+          ]))
+        .watch();
+  }
+
+  Future<Budget?> getById(int id) {
+    return (select(budgets)
+          ..where(($BudgetsTable t) => t.id.equals(id))
+          ..limit(1))
+        .getSingleOrNull();
   }
 
   Future<List<Budget>> getByCategory(int? categoryId) {

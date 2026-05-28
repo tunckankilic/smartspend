@@ -12,6 +12,8 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:smartspend/app/app.dart';
 import 'package:smartspend/app/bloc_observer.dart';
 import 'package:smartspend/app/injection_container.dart';
+import 'package:smartspend/core/services/notification_service.dart';
+import 'package:smartspend/core/services/recurring_expense_scheduler.dart';
 import 'package:smartspend/core/supabase/supabase_client_provider.dart';
 
 /// Entry point. Order matters:
@@ -48,6 +50,15 @@ Future<void> main() async {
     appRunner: () async {
       await SupabaseClientProvider.initialize();
       await configureDependencies();
+      // Notification plugin needs platform channels — must run after
+      // `configureDependencies` so `sl<NotificationService>()` is wired,
+      // and before `runApp` so any boot-time scheduler (Sprint 6) can
+      // safely enqueue work.
+      await sl<NotificationService>().initialize();
+      // Foreground recurring-expense materialisation — throttled
+      // internally so the call is cheap on warm starts. Fire-and-forget
+      // so a slow Drift read doesn't block first paint.
+      unawaited(sl<RecurringExpenseScheduler>().tick());
       Bloc.observer = AppBlocObserver();
       runApp(const SmartSpendApp());
     },

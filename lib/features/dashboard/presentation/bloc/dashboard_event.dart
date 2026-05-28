@@ -38,6 +38,13 @@ final class _DashboardWatchTicked extends DashboardEvent {
   const _DashboardWatchTicked();
 }
 
+/// Internal: budgets stream emitted. Re-runs the insight pipeline
+/// against the cached expense snapshot so warning/achievement rules
+/// fire even when no new expense has arrived.
+final class _DashboardBudgetsTicked extends DashboardEvent {
+  const _DashboardBudgetsTicked();
+}
+
 /// Internal: the watch stream blew up. Surfaces as [DashboardError].
 final class _DashboardWatchErrored extends DashboardEvent {
   const _DashboardWatchErrored(this.failure);

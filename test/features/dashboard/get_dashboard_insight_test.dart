@@ -48,9 +48,10 @@ void main() {
       ),
     );
     expect(insight, isNotNull);
-    expect(insight!.categoryId, 1);
-    expect(insight.deltaPercent, closeTo(100, 0.01));
-    expect(insight.tone, DashboardInsightTone.warning);
+    final CategorySpikeInsight spike = insight! as CategorySpikeInsight;
+    expect(spike.categoryId, 1);
+    expect(spike.deltaPercent, closeTo(100, 0.01));
+    expect(spike.tone, DashboardInsightTone.warning);
   });
 
   test('should pick the biggest spike when multiple exceed the threshold',
@@ -61,7 +62,7 @@ void main() {
         previous: <int, int>{1: 10000, 2: 10000},
       ),
     );
-    expect(insight!.categoryId, 2); // 200% beats 100%
+    expect((insight! as CategorySpikeInsight).categoryId, 2); // 200>100
   });
 
   test('should ignore categories below the minimum minor-unit floor', () {

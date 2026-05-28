@@ -212,5 +212,100 @@
     }
   },
   "dashboardErrorTitle": "Dashboard yüklenemedi.",
-  "dashboardErrorRetry": "Tekrar Dene"
+  "dashboardErrorRetry": "Tekrar Dene",
+
+  "budgetTitle": "Bütçe",
+  "budgetGeneralLabel": "Genel Bütçe",
+  "budgetCategoriesSection": "Kategori Bütçeleri",
+  "budgetEmptyTitle": "Henüz bütçe yok",
+  "budgetEmptyBody": "Aylık veya haftalık bir bütçe oluştur ve harcamalarını kontrol altına al.",
+  "budgetEmptyCta": "İlk bütçeni oluştur",
+  "budgetCreateFab": "Bütçe Ekle",
+  "budgetSheetTitleCreate": "Yeni Bütçe",
+  "budgetSheetTitleEdit": "Bütçeyi Düzenle",
+  "budgetSheetAmountLabel": "Tutar",
+  "budgetSheetAmountHint": "Örn. 5000,00",
+  "budgetSheetPeriodLabel": "Dönem",
+  "budgetSheetCategoryLabel": "Kategori",
+  "budgetSheetCategoryGeneral": "Genel (tüm harcamalar)",
+  "budgetSheetCategoryPick": "Kategori seç",
+  "budgetSheetSubmit": "Kaydet",
+  "budgetSheetDelete": "Bütçeyi Sil",
+  "budgetPeriodWeekly": "Haftalık",
+  "budgetPeriodMonthly": "Aylık",
+  "budgetPeriodYearly": "Yıllık",
+  "budgetSpentOfTotal": "{spent} / {total}",
+  "@budgetSpentOfTotal": {
+    "placeholders": {
+      "spent": { "type": "String" },
+      "total": { "type": "String" }
+    }
+  },
+  "budgetRemaining": "Kalan: {remaining}",
+  "@budgetRemaining": {
+    "placeholders": { "remaining": { "type": "String" } }
+  },
+  "budgetOverspent": "Aşım: {amount}",
+  "@budgetOverspent": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
+  "budgetPercentSpent": "%{percent} kullanıldı",
+  "@budgetPercentSpent": {
+    "placeholders": { "percent": { "type": "String" } }
+  },
+  "budgetPermissionBannerTitle": "Bildirimler kapalı",
+  "budgetPermissionBannerBody": "Bütçe aşımlarını ve haftalık özetleri kaçırmamak için bildirim izni ver.",
+  "budgetPermissionBannerAction": "İzin ver",
+  "budgetWriteFailed": "İşlem tamamlanamadı: {message}",
+  "@budgetWriteFailed": {
+    "placeholders": { "message": { "type": "String" } }
+  },
+  "budgetAmountInvalid": "Tutar sıfırdan büyük olmalı.",
+  "budgetErrorTitle": "Bütçeler yüklenemedi.",
+  "budgetErrorRetry": "Tekrar Dene",
+  "budgetDeleteConfirmTitle": "Bütçeyi sil?",
+  "budgetDeleteConfirmBody": "Bu bütçe silinecek; harcama geçmişi etkilenmez.",
+  "budgetDeleteConfirm": "Sil",
+  "budgetDeleteCancel": "Vazgeç",
+
+  "dashboardInsightBudgetWarning": "{category} bütçende %{percent} kullanıldı — limite yaklaşıyorsun.",
+  "@dashboardInsightBudgetWarning": {
+    "placeholders": {
+      "category": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "dashboardInsightBudgetExceeded": "{category} bütçesini aştın (%{percent}).",
+  "@dashboardInsightBudgetExceeded": {
+    "placeholders": {
+      "category": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "dashboardInsightBudgetAchievement": "Tebrikler! {category} bütçenin altında kaldın.",
+  "@dashboardInsightBudgetAchievement": {
+    "placeholders": { "category": { "type": "String" } }
+  },
+  "dashboardInsightFrequency": "Bu dönem {count} kez {tag} aldın, toplam {total}.",
+  "@dashboardInsightFrequency": {
+    "placeholders": {
+      "tag": { "type": "String" },
+      "count": { "type": "String" },
+      "total": { "type": "String" }
+    }
+  },
+  "dashboardInsightDayOfWeek": "{weekday} günleri ortalamadan %{percent} daha fazla harcıyorsun.",
+  "@dashboardInsightDayOfWeek": {
+    "placeholders": {
+      "weekday": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "weekdayMonday": "Pazartesi",
+  "weekdayTuesday": "Salı",
+  "weekdayWednesday": "Çarşamba",
+  "weekdayThursday": "Perşembe",
+  "weekdayFriday": "Cuma",
+  "weekdaySaturday": "Cumartesi",
+  "weekdaySunday": "Pazar"
 }

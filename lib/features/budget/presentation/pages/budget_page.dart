@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:smartspend/app/injection_container.dart';
+import 'package:smartspend/core/widgets/sync_indicator.dart';
 import 'package:smartspend/features/budget/domain/entities/budget_snapshot.dart';
 import 'package:smartspend/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:smartspend/features/budget/presentation/widgets/budget_category_tile.dart';
@@ -33,7 +34,10 @@ class _BudgetView extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppLocalizations l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(l.budgetTitle)),
+      appBar: AppBar(
+        title: Text(l.budgetTitle),
+        actions: const <Widget>[SyncIndicator()],
+      ),
       body: BlocConsumer<BudgetBloc, BudgetState>(
         listenWhen: (BudgetState prev, BudgetState curr) {
           // Only react when a *fresh* transient failure lands. Without

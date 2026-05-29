@@ -7,6 +7,7 @@ import 'package:dartz/dartz.dart' hide State;
 import 'package:smartspend/app/injection_container.dart';
 import 'package:smartspend/core/error/failures.dart';
 import 'package:smartspend/core/utils/currency_formatter.dart';
+import 'package:smartspend/core/widgets/sync_indicator.dart';
 import 'package:smartspend/features/categories/domain/entities/category.dart';
 import 'package:smartspend/features/categories/domain/usecases/list_categories.dart';
 import 'package:smartspend/features/expenses/domain/entities/expense.dart';
@@ -149,6 +150,7 @@ class _ExpenseListViewState extends State<_ExpenseListView> {
           icon: const Icon(Icons.tune_rounded),
           onPressed: () => _openFilterSheet(context),
         ),
+        const SyncIndicator(),
       ],
     );
   }

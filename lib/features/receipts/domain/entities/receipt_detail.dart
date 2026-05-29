@@ -23,8 +23,9 @@ class ReceiptDetailItem extends Equatable {
 
 /// Receipt + its items, for the detail page (Sprint 7).
 ///
-/// Sprint 8 will lazy-load the image via a signed Supabase Storage URL.
-/// Today the detail page falls back to the local `imagePath` cache.
+/// The detail page renders the local `imagePath` cache when the file is
+/// still present; otherwise it lazy-loads the image via a signed Supabase
+/// Storage URL minted from [storageObjectPath] (Sprint 8.3).
 class ReceiptDetail extends Equatable {
   const ReceiptDetail({
     required this.id,
@@ -34,6 +35,7 @@ class ReceiptDetail extends Equatable {
     required this.items,
     this.storeName,
     this.imagePath,
+    this.storageObjectPath,
     this.warrantyEndDate,
   });
 
@@ -43,6 +45,7 @@ class ReceiptDetail extends Equatable {
   final int totalMinor;
   final String currency;
   final String? imagePath;
+  final String? storageObjectPath;
   final DateTime? warrantyEndDate;
   final List<ReceiptDetailItem> items;
 
@@ -54,6 +57,7 @@ class ReceiptDetail extends Equatable {
         totalMinor,
         currency,
         imagePath,
+        storageObjectPath,
         warrantyEndDate,
         items,
       ];

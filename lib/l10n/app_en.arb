@@ -389,5 +389,24 @@
   "warrantyAdd": "Add Warranty",
   "warrantyChange": "Change",
   "warrantyClear": "Clear",
-  "warrantyWriteFailed": "Couldn't save the warranty."
+  "warrantyWriteFailed": "Couldn't save the warranty.",
+
+  "syncIndicatorSynced": "Synced {lastSyncAt}",
+  "@syncIndicatorSynced": {
+    "placeholders": {
+      "lastSyncAt": { "type": "String" }
+    }
+  },
+  "syncIndicatorSyncing": "Syncing…",
+  "syncIndicatorPending": "{count} pending",
+  "@syncIndicatorPending": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "syncIndicatorOffline": "Offline",
+  "syncOfflineBanner": "You're offline. Changes will sync when you reconnect.",
+  "syncConflictBanner": "Some changes were updated elsewhere and merged.",
+  "storageUploadFailed": "Receipt image upload failed. It will retry later.",
+  "storageImageMissing": "Receipt image unavailable."
 }

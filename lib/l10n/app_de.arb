@@ -389,5 +389,24 @@
   "warrantyAdd": "Garantie hinzufügen",
   "warrantyChange": "Ändern",
   "warrantyClear": "Entfernen",
-  "warrantyWriteFailed": "Garantie konnte nicht gespeichert werden."
+  "warrantyWriteFailed": "Garantie konnte nicht gespeichert werden.",
+
+  "syncIndicatorSynced": "Synchronisiert {lastSyncAt}",
+  "@syncIndicatorSynced": {
+    "placeholders": {
+      "lastSyncAt": { "type": "String" }
+    }
+  },
+  "syncIndicatorSyncing": "Synchronisiert…",
+  "syncIndicatorPending": "{count} ausstehend",
+  "@syncIndicatorPending": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "syncIndicatorOffline": "Offline",
+  "syncOfflineBanner": "Du bist offline. Änderungen werden bei Verbindung synchronisiert.",
+  "syncConflictBanner": "Einige Änderungen wurden anderswo aktualisiert und zusammengeführt.",
+  "storageUploadFailed": "Beleg-Upload fehlgeschlagen. Wird später erneut versucht.",
+  "storageImageMissing": "Beleg-Bild nicht verfügbar."
 }

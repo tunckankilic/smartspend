@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:smartspend/app/injection_container.dart';
 import 'package:smartspend/core/error/failures.dart';
+import 'package:smartspend/core/widgets/sync_indicator.dart';
 import 'package:smartspend/features/dashboard/presentation/bloc/dashboard_bloc.dart';
 import 'package:smartspend/features/dashboard/presentation/widgets/dashboard_bar_chart.dart';
 import 'package:smartspend/features/dashboard/presentation/widgets/dashboard_empty_state.dart';
@@ -46,23 +47,37 @@ class _DashboardView extends StatelessWidget {
     final AppLocalizations l = AppLocalizations.of(context);
     return Scaffold(
       body: SafeArea(
-        child: BlocBuilder<DashboardBloc, DashboardState>(
-          builder: (BuildContext context, DashboardState state) {
-            return switch (state) {
-              DashboardInitial() ||
-              DashboardLoading() =>
-                const Center(child: CircularProgressIndicator()),
-              DashboardError(failure: final Failure f) => _ErrorView(
-                  message: f.message,
-                  onRetry: () => context
-                      .read<DashboardBloc>()
-                      .add(const DashboardRefreshed()),
-                  retryLabel: l.dashboardErrorRetry,
-                  title: l.dashboardErrorTitle,
-                ),
-              DashboardLoaded() => _LoadedView(state: state),
-            };
-          },
+        child: Column(
+          children: <Widget>[
+            const SyncOfflineBanner(),
+            const Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: EdgeInsets.only(top: 4, right: 4),
+                child: SyncIndicator(),
+              ),
+            ),
+            Expanded(
+              child: BlocBuilder<DashboardBloc, DashboardState>(
+                builder: (BuildContext context, DashboardState state) {
+                  return switch (state) {
+                    DashboardInitial() ||
+                    DashboardLoading() =>
+                      const Center(child: CircularProgressIndicator()),
+                    DashboardError(failure: final Failure f) => _ErrorView(
+                        message: f.message,
+                        onRetry: () => context
+                            .read<DashboardBloc>()
+                            .add(const DashboardRefreshed()),
+                        retryLabel: l.dashboardErrorRetry,
+                        title: l.dashboardErrorTitle,
+                      ),
+                    DashboardLoaded() => _LoadedView(state: state),
+                  };
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -9,6 +9,7 @@ import 'package:smartspend/core/database/daos/budget_dao.dart';
 import 'package:smartspend/core/database/daos/category_dao.dart';
 import 'package:smartspend/core/database/daos/expense_dao.dart';
 import 'package:smartspend/core/database/daos/receipt_dao.dart';
+import 'package:smartspend/core/database/daos/sync_dao.dart';
 import 'package:smartspend/core/database/daos/sync_log_dao.dart';
 import 'package:smartspend/core/database/daos/tag_dao.dart';
 import 'package:smartspend/core/database/daos/user_correction_dao.dart';
@@ -43,6 +44,7 @@ part 'app_database.g.dart';
     ExpenseDao,
     BudgetDao,
     CategoryDao,
+    SyncDao,
     SyncLogDao,
     TagDao,
     UserCorrectionDao,

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:smartspend/app/injection_container.dart';
+import 'package:smartspend/core/widgets/sync_indicator.dart';
 import 'package:smartspend/features/receipts/domain/entities/receipt_archive_entry.dart';
 import 'package:smartspend/features/receipts/presentation/bloc/receipt_archive_bloc.dart';
 import 'package:smartspend/features/receipts/presentation/widgets/receipt_archive_card.dart';
@@ -54,6 +55,7 @@ class _ArchiveView extends StatelessWidget {
               );
             },
           ),
+          const SyncIndicator(),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),

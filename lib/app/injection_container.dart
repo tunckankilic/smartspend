@@ -9,13 +9,18 @@ import 'package:smartspend/core/database/daos/budget_dao.dart';
 import 'package:smartspend/core/database/daos/category_dao.dart';
 import 'package:smartspend/core/database/daos/expense_dao.dart';
 import 'package:smartspend/core/database/daos/receipt_dao.dart';
+import 'package:smartspend/core/database/daos/sync_dao.dart';
 import 'package:smartspend/core/database/daos/sync_log_dao.dart';
 import 'package:smartspend/core/database/daos/tag_dao.dart';
 import 'package:smartspend/core/database/daos/user_correction_dao.dart';
 import 'package:smartspend/core/services/notification_service.dart';
 import 'package:smartspend/core/services/onboarding_flag_store.dart';
 import 'package:smartspend/core/services/recurring_expense_scheduler.dart';
+import 'package:smartspend/core/services/sync_remote_data_source.dart';
+import 'package:smartspend/core/services/sync_service.dart';
+import 'package:smartspend/core/services/sync_service_impl.dart';
 import 'package:smartspend/core/supabase/supabase_client_provider.dart';
+import 'package:smartspend/core/supabase/supabase_storage_data_source.dart';
 import 'package:smartspend/features/auth/data/datasources/supabase_auth_data_source.dart';
 import 'package:smartspend/features/auth/data/repositories/supabase_auth_repository_impl.dart';
 import 'package:smartspend/features/auth/domain/repositories/auth_repository.dart';
@@ -84,6 +89,7 @@ import 'package:smartspend/features/receipts/data/repositories/receipt_archive_r
 import 'package:smartspend/features/receipts/domain/repositories/receipt_archive_repository.dart';
 import 'package:smartspend/features/receipts/domain/usecases/add_warranty.dart';
 import 'package:smartspend/features/receipts/domain/usecases/get_receipt_detail.dart';
+import 'package:smartspend/features/receipts/domain/usecases/get_receipt_image_url.dart';
 import 'package:smartspend/features/receipts/domain/usecases/watch_receipt_archive.dart';
 import 'package:smartspend/features/receipts/presentation/bloc/receipt_archive_bloc.dart';
 import 'package:smartspend/features/receipts/presentation/bloc/receipt_detail_bloc.dart';
@@ -131,6 +137,7 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton<ExpenseDao>(() => sl<AppDatabase>().expenseDao)
     ..registerLazySingleton<BudgetDao>(() => sl<AppDatabase>().budgetDao)
     ..registerLazySingleton<CategoryDao>(() => sl<AppDatabase>().categoryDao)
+    ..registerLazySingleton<SyncDao>(() => sl<AppDatabase>().syncDao)
     ..registerLazySingleton<SyncLogDao>(() => sl<AppDatabase>().syncLogDao)
     ..registerLazySingleton<TagDao>(() => sl<AppDatabase>().tagDao)
     ..registerLazySingleton<UserCorrectionDao>(
@@ -239,6 +246,20 @@ Future<void> configureDependencies() async {
     // Scan feature (Sprint 2) ---------------------------------------------
     ..registerLazySingleton<CameraDataSource>(CameraDataSourceImpl.new)
     ..registerLazySingleton<Connectivity>(Connectivity.new)
+    // Sync engine + receipt-image storage (Sprint 8.3) -------------------
+    ..registerLazySingleton<SupabaseStorageDataSource>(
+      () => SupabaseStorageDataSourceImpl(sl<SupabaseClient>()),
+    )
+    ..registerLazySingleton<SyncRemoteDataSource>(
+      () => SupabaseSyncRemoteDataSource(sl<SupabaseClient>()),
+    )
+    ..registerLazySingleton<SyncService>(
+      () => SupabaseSyncServiceImpl(
+        database: sl<AppDatabase>(),
+        remote: sl<SyncRemoteDataSource>(),
+        connectivity: sl<Connectivity>(),
+      ),
+    )
     // ML Kit + Gemini share the OCRDataSource contract. The hybrid one is
     // what the repository asks for; the others are tagged via instanceName
     // so the hybrid can resolve them.
@@ -269,6 +290,7 @@ Future<void> configureDependencies() async {
         receiptDao: sl<ReceiptDao>(),
         expenseDao: sl<ExpenseDao>(),
         categoryDao: sl<CategoryDao>(),
+        storage: sl<SupabaseStorageDataSource>(),
       ),
     )
     ..registerLazySingleton<CaptureImageUseCase>(
@@ -420,13 +442,19 @@ Future<void> configureDependencies() async {
     )
     // Receipts feature (Sprint 7) ----------------------------------------
     ..registerLazySingleton<ReceiptArchiveRepository>(
-      () => ReceiptArchiveRepositoryImpl(receiptDao: sl<ReceiptDao>()),
+      () => ReceiptArchiveRepositoryImpl(
+        receiptDao: sl<ReceiptDao>(),
+        storageDataSource: sl<SupabaseStorageDataSource>(),
+      ),
     )
     ..registerLazySingleton<WatchReceiptArchiveUseCase>(
       () => WatchReceiptArchiveUseCase(sl<ReceiptArchiveRepository>()),
     )
     ..registerLazySingleton<GetReceiptDetailUseCase>(
       () => GetReceiptDetailUseCase(sl<ReceiptArchiveRepository>()),
+    )
+    ..registerLazySingleton<GetReceiptImageUrlUseCase>(
+      () => GetReceiptImageUrlUseCase(sl<ReceiptArchiveRepository>()),
     )
     ..registerLazySingleton<AddWarrantyUseCase>(
       () => AddWarrantyUseCase(
@@ -443,6 +471,7 @@ Future<void> configureDependencies() async {
       () => ReceiptDetailBloc(
         getDetail: sl<GetReceiptDetailUseCase>(),
         addWarranty: sl<AddWarrantyUseCase>(),
+        getImageUrl: sl<GetReceiptImageUrlUseCase>(),
       ),
     );
 

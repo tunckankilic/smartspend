@@ -22,6 +22,11 @@ abstract class ReceiptArchiveRepository {
   /// One-shot detail read.
   Future<Either<Failure, ReceiptDetail>> getDetail(int receiptId);
 
+  /// Mints a short-lived signed URL for a receipt image stored in the
+  /// private `receipts` bucket. [objectPath] is the bucket-relative path
+  /// persisted on the receipt row (`storage_object_path`).
+  Future<Either<Failure, String>> getReceiptImageUrl(String objectPath);
+
   /// Patch the warranty end date. Pass `null` to clear the warranty.
   ///
   /// Notification scheduling is **not** done here — the use case layer

@@ -3,6 +3,7 @@ import 'package:dartz/dartz.dart';
 import 'package:smartspend/core/database/app_database.dart' as drift_db;
 import 'package:smartspend/core/database/daos/receipt_dao.dart';
 import 'package:smartspend/core/error/failures.dart';
+import 'package:smartspend/core/supabase/supabase_storage_data_source.dart';
 import 'package:smartspend/features/receipts/domain/entities/receipt_archive_entry.dart';
 import 'package:smartspend/features/receipts/domain/entities/receipt_archive_filter.dart';
 import 'package:smartspend/features/receipts/domain/entities/receipt_detail.dart';
@@ -15,10 +16,14 @@ import 'package:smartspend/features/receipts/domain/repositories/receipt_archive
 /// keeps the generated `Receipt`/`ReceiptItem` row classes from
 /// shadowing domain entities.
 class ReceiptArchiveRepositoryImpl implements ReceiptArchiveRepository {
-  const ReceiptArchiveRepositoryImpl({required ReceiptDao receiptDao})
-      : _dao = receiptDao;
+  const ReceiptArchiveRepositoryImpl({
+    required ReceiptDao receiptDao,
+    required SupabaseStorageDataSource storageDataSource,
+  })  : _dao = receiptDao,
+        _storage = storageDataSource;
 
   final ReceiptDao _dao;
+  final SupabaseStorageDataSource _storage;
 
   @override
   Stream<List<ReceiptArchiveEntry>> watchArchive(
@@ -58,6 +63,7 @@ class ReceiptArchiveRepositoryImpl implements ReceiptArchiveRepository {
           totalMinor: receipt.total,
           currency: receipt.currency,
           imagePath: receipt.imagePath,
+          storageObjectPath: receipt.storageObjectPath,
           warrantyEndDate: receipt.warrantyEndDate,
           items: rows
               .map(
@@ -77,6 +83,11 @@ class ReceiptArchiveRepositoryImpl implements ReceiptArchiveRepository {
         CacheFailure(message: e.toString()),
       );
     }
+  }
+
+  @override
+  Future<Either<Failure, String>> getReceiptImageUrl(String objectPath) {
+    return _storage.getSignedUrl(objectPath);
   }
 
   @override

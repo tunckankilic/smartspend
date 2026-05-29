@@ -398,5 +398,24 @@
   "warrantyAdd": "Garanti Ekle",
   "warrantyChange": "Değiştir",
   "warrantyClear": "Kaldır",
-  "warrantyWriteFailed": "Garanti kaydedilemedi."
+  "warrantyWriteFailed": "Garanti kaydedilemedi.",
+
+  "syncIndicatorSynced": "Eşitlendi {lastSyncAt}",
+  "@syncIndicatorSynced": {
+    "placeholders": {
+      "lastSyncAt": { "type": "String" }
+    }
+  },
+  "syncIndicatorSyncing": "Eşitleniyor…",
+  "syncIndicatorPending": "{count} bekliyor",
+  "@syncIndicatorPending": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "syncIndicatorOffline": "Çevrimdışı",
+  "syncOfflineBanner": "Çevrimdışısın. Değişiklikler bağlanınca eşitlenecek.",
+  "syncConflictBanner": "Bazı değişiklikler başka cihazda güncellenip birleştirildi.",
+  "storageUploadFailed": "Fiş görseli yüklenemedi. Daha sonra tekrar denenecek.",
+  "storageImageMissing": "Fiş görseli kullanılamıyor."
 }

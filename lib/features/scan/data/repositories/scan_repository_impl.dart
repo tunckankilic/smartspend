@@ -1,5 +1,6 @@
 // ignore_for_file: prefer_initializing_formals — private field convention.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dartz/dartz.dart';
@@ -17,6 +18,7 @@ import 'package:smartspend/core/database/daos/expense_dao.dart';
 import 'package:smartspend/core/database/daos/receipt_dao.dart';
 import 'package:smartspend/core/error/exceptions.dart';
 import 'package:smartspend/core/error/failures.dart';
+import 'package:smartspend/core/supabase/supabase_storage_data_source.dart';
 import 'package:smartspend/features/categories/domain/entities/category.dart';
 import 'package:smartspend/features/scan/data/datasources/camera_data_source.dart';
 import 'package:smartspend/features/scan/data/datasources/ocr_data_source.dart';
@@ -33,12 +35,14 @@ class ScanRepositoryImpl implements ScanRepository {
     required ReceiptDao receiptDao,
     required ExpenseDao expenseDao,
     required CategoryDao categoryDao,
+    required SupabaseStorageDataSource storage,
   }) : _camera = cameraDataSource,
        _ocr = ocrDataSource,
        _parser = parser,
        _receipts = receiptDao,
        _expenses = expenseDao,
-       _categories = categoryDao;
+       _categories = categoryDao,
+       _storage = storage;
 
   final CameraDataSource _camera;
   final OCRDataSource _ocr;
@@ -46,6 +50,7 @@ class ScanRepositoryImpl implements ScanRepository {
   final ReceiptDao _receipts;
   final ExpenseDao _expenses;
   final CategoryDao _categories;
+  final SupabaseStorageDataSource _storage;
 
   // ---------------------------------------------------------------------
   // Image acquisition
@@ -221,11 +226,36 @@ class ScanRepositoryImpl implements ScanRepository {
         );
       }
 
+      // Fire-and-forget: push the receipt image to Storage without blocking
+      // the save. On success the returned object path is persisted (which
+      // re-stamps the row `pending_update` so the sync engine propagates it);
+      // on failure the row stays pending and is retried by a later sync.
+      unawaited(_uploadReceiptImage(receiptId, receipt.imagePath));
+
       return Right<Failure, int>(receiptId);
     } on Exception catch (e) {
       return Left<Failure, int>(
         CacheFailure(message: 'saveReceipt failed: $e'),
       );
     }
+  }
+
+  Future<void> _uploadReceiptImage(int receiptId, String? imagePath) async {
+    if (imagePath == null) return;
+    final File file = File(imagePath);
+    if (!file.existsSync()) return;
+    final Either<Failure, String> result = await _storage.uploadReceiptImage(
+      receiptId: '$receiptId',
+      image: file,
+    );
+    await result.fold(
+      (Failure _) async {},
+      (String objectPath) async {
+        await _receipts.updateReceipt(
+          receiptId,
+          ReceiptsCompanion(storageObjectPath: Value<String?>(objectPath)),
+        );
+      },
+    );
   }
 }

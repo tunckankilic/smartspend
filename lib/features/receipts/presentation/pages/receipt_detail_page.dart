@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -113,7 +114,10 @@ class _ReadyBody extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: <Widget>[
-        _DetailImage(imagePath: d.imagePath),
+        _DetailImage(
+          imagePath: d.imagePath,
+          signedImageUrl: state.signedImageUrl,
+        ),
         const SizedBox(height: 16),
         Text(store, style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 4),
@@ -165,39 +169,62 @@ class _ReadyBody extends StatelessWidget {
 }
 
 class _DetailImage extends StatelessWidget {
-  const _DetailImage({required this.imagePath});
+  const _DetailImage({
+    required this.imagePath,
+    required this.signedImageUrl,
+  });
 
   final String? imagePath;
+  final String? signedImageUrl;
 
   @override
   Widget build(BuildContext context) {
     final String? path = imagePath;
+    final bool hasLocal =
+        path != null && path.isNotEmpty && File(path).existsSync();
+    final String? url = signedImageUrl;
+
     final Widget child;
-    if (path == null || path.isEmpty || !File(path).existsSync()) {
-      child = Container(
-        height: 220,
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        alignment: Alignment.center,
-        child: const Icon(Icons.receipt_long, size: 64),
-      );
-    } else {
+    if (hasLocal) {
       child = Image.file(
         File(path),
         height: 220,
         fit: BoxFit.cover,
-        errorBuilder: (BuildContext _, Object _, StackTrace? _) {
-          return Container(
-            height: 220,
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            alignment: Alignment.center,
-            child: const Icon(Icons.broken_image, size: 48),
-          );
-        },
+        errorBuilder: (BuildContext _, Object _, StackTrace? _) =>
+            _placeholder(context, broken: true),
       );
+    } else if (url != null && url.isNotEmpty) {
+      child = CachedNetworkImage(
+        imageUrl: url,
+        height: 220,
+        fit: BoxFit.cover,
+        placeholder: (BuildContext _, String _) => Container(
+          height: 220,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          alignment: Alignment.center,
+          child: const CircularProgressIndicator(),
+        ),
+        errorWidget: (BuildContext _, String _, Object _) =>
+            _placeholder(context, broken: true),
+      );
+    } else {
+      child = _placeholder(context, broken: false);
     }
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: child,
+    );
+  }
+
+  Widget _placeholder(BuildContext context, {required bool broken}) {
+    return Container(
+      height: 220,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      alignment: Alignment.center,
+      child: Icon(
+        broken ? Icons.broken_image : Icons.receipt_long,
+        size: broken ? 48 : 64,
+      ),
     );
   }
 }

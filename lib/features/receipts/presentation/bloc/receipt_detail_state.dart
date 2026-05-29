@@ -18,26 +18,34 @@ final class ReceiptDetailLoading extends ReceiptDetailState {
 final class ReceiptDetailReady extends ReceiptDetailState {
   const ReceiptDetailReady({
     required this.detail,
+    this.signedImageUrl,
     this.transientFailure,
   });
 
   final ReceiptDetail detail;
+
+  /// Signed Supabase Storage URL, resolved lazily after load when the
+  /// local image file is gone. `null` until resolved (or if unavailable).
+  final String? signedImageUrl;
   final Failure? transientFailure;
 
   ReceiptDetailReady copyWith({
     ReceiptDetail? detail,
+    String? signedImageUrl,
     Failure? transientFailure,
     bool clearTransient = false,
   }) {
     return ReceiptDetailReady(
       detail: detail ?? this.detail,
+      signedImageUrl: signedImageUrl ?? this.signedImageUrl,
       transientFailure:
           clearTransient ? null : (transientFailure ?? this.transientFailure),
     );
   }
 
   @override
-  List<Object?> get props => <Object?>[detail, transientFailure];
+  List<Object?> get props =>
+      <Object?>[detail, signedImageUrl, transientFailure];
 }
 
 final class ReceiptDetailError extends ReceiptDetailState {

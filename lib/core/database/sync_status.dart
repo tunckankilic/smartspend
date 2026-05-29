@@ -39,4 +39,8 @@ abstract class SyncOperation {
   static const String update = 'update';
   static const String delete = 'delete';
   static const String pull = 'pull';
+
+  /// Remote and local diverged; the engine kept the last writer by
+  /// `updated_at` and logged the loser under this operation.
+  static const String conflictResolved = 'conflict_resolved';
 }

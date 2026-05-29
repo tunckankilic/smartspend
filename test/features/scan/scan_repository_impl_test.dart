@@ -5,12 +5,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:smartspend/core/database/app_database.dart'
-    show AppDatabase, Expense, ReceiptItem;
+    show AppDatabase, Expense, Receipt, ReceiptItem;
 import 'package:smartspend/core/database/daos/category_dao.dart';
 import 'package:smartspend/core/database/daos/expense_dao.dart';
 import 'package:smartspend/core/database/daos/receipt_dao.dart';
 import 'package:smartspend/core/error/exceptions.dart';
 import 'package:smartspend/core/error/failures.dart';
+import 'package:smartspend/core/supabase/supabase_storage_data_source.dart';
 import 'package:smartspend/features/scan/data/datasources/camera_data_source.dart';
 import 'package:smartspend/features/scan/data/datasources/ocr_data_source.dart';
 import 'package:smartspend/features/scan/data/parsers/receipt_parser.dart';
@@ -31,6 +32,8 @@ class _MockExpenseDao extends Mock implements ExpenseDao {}
 
 class _MockCategoryDao extends Mock implements CategoryDao {}
 
+class _MockStorage extends Mock implements SupabaseStorageDataSource {}
+
 class _FakeFile extends Fake implements File {}
 
 void main() {
@@ -43,6 +46,7 @@ void main() {
   late _MockReceiptDao receiptDao;
   late _MockExpenseDao expenseDao;
   late _MockCategoryDao categoryDao;
+  late _MockStorage storage;
   late ReceiptParser parser;
   late ScanRepositoryImpl repo;
   late File raw;
@@ -54,6 +58,7 @@ void main() {
     receiptDao = _MockReceiptDao();
     expenseDao = _MockExpenseDao();
     categoryDao = _MockCategoryDao();
+    storage = _MockStorage();
     parser = ReceiptParser();
     repo = ScanRepositoryImpl(
       cameraDataSource: camera,
@@ -62,6 +67,7 @@ void main() {
       receiptDao: receiptDao,
       expenseDao: expenseDao,
       categoryDao: categoryDao,
+      storage: storage,
     );
     raw = File('/tmp/raw.jpg');
     processed = File('/tmp/raw.processed.jpg');
@@ -206,6 +212,7 @@ void main() {
         receiptDao: db.receiptDao,
         expenseDao: db.expenseDao,
         categoryDao: db.categoryDao,
+        storage: storage,
       );
     });
 
@@ -299,6 +306,99 @@ void main() {
           .map((Expense e) => e.amount)
           .reduce((int a, int b) => a + b);
       expect(sum, 1150);
+    });
+
+    test('saveReceipt should skip the upload when the image is missing',
+        () async {
+      final List<Category> cats = (await liveRepo.listCategories())
+          .getOrElse(() => throw StateError('left'));
+      final int marketId =
+          cats.firstWhere((Category c) => c.name == 'Market').id;
+
+      const ScannedReceipt receipt = ScannedReceipt(
+        imagePath: '/tmp/does-not-exist.jpg',
+        items: <ScannedItem>[
+          ScannedItem(
+            name: 'EKMEK',
+            quantity: 1,
+            unitPrice: 450,
+            totalPrice: 450,
+          ),
+        ],
+        total: 450,
+        currency: 'TRY',
+        rawText: 'EKMEK 4,50',
+        confidenceScore: 0.9,
+        storeName: 'BİM',
+      );
+
+      await liveRepo.saveReceipt(receipt: receipt, defaultCategoryId: marketId);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      verifyNever(
+        () => storage.uploadReceiptImage(
+          receiptId: any(named: 'receiptId'),
+          image: any(named: 'image'),
+        ),
+      );
+    });
+
+    test('saveReceipt should upload and persist storageObjectPath', () async {
+      final List<Category> cats = (await liveRepo.listCategories())
+          .getOrElse(() => throw StateError('left'));
+      final int marketId =
+          cats.firstWhere((Category c) => c.name == 'Market').id;
+
+      final File temp = File(
+        '${Directory.systemTemp.path}/receipt_${DateTime.now().microsecondsSinceEpoch}.jpg',
+      );
+      await temp.writeAsBytes(<int>[1, 2, 3]);
+      addTearDown(() async {
+        if (temp.existsSync()) await temp.delete();
+      });
+
+      when(
+        () => storage.uploadReceiptImage(
+          receiptId: any(named: 'receiptId'),
+          image: any(named: 'image'),
+        ),
+      ).thenAnswer(
+        (_) async => const Right<Failure, String>('user-1/1/full.jpg'),
+      );
+
+      final ScannedReceipt receipt = ScannedReceipt(
+        imagePath: temp.path,
+        items: const <ScannedItem>[
+          ScannedItem(
+            name: 'EKMEK',
+            quantity: 1,
+            unitPrice: 450,
+            totalPrice: 450,
+          ),
+        ],
+        total: 450,
+        currency: 'TRY',
+        rawText: 'EKMEK 4,50',
+        confidenceScore: 0.9,
+        storeName: 'BİM',
+      );
+
+      final Either<Failure, int> result = await liveRepo.saveReceipt(
+        receipt: receipt,
+        defaultCategoryId: marketId,
+      );
+      final int receiptId =
+          result.getOrElse(() => throw StateError('expected Right'));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      verify(
+        () => storage.uploadReceiptImage(
+          receiptId: '$receiptId',
+          image: any(named: 'image'),
+        ),
+      ).called(1);
+      final Receipt? saved = await db.receiptDao.getById(receiptId);
+      expect(saved?.storageObjectPath, 'user-1/1/full.jpg');
     });
   });
 }

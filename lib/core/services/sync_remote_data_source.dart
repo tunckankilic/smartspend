@@ -1,3 +1,6 @@
+// coverage:ignore-file
+// PostgREST query-builder wrapper for the sync engine; the abstract seam is
+// mocked in SyncService tests, the concrete impl is a thin SDK passthrough.
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Thin, mockable seam over the Supabase table API used by the sync engine.

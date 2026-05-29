@@ -90,6 +90,9 @@ class _SignInPageState extends State<SignInPage> {
                         labelText: l.authPasswordLabel,
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
+                          tooltip: _obscure
+                              ? l.a11yShowPassword
+                              : l.a11yHidePassword,
                           icon: Icon(
                             _obscure
                                 ? Icons.visibility_outlined

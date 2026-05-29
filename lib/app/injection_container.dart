@@ -1,3 +1,7 @@
+// coverage:ignore-file
+// Dependency-injection wiring (get_it registrations). No branching logic to
+// unit-test; exercised indirectly by feature tests that resolve registrations
+// and by app boot.
 import 'package:get_it/get_it.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';

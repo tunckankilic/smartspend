@@ -87,6 +87,7 @@ class _TagInputState extends State<TagInput> {
             hintText: l.addExpenseTagsHint,
             border: const OutlineInputBorder(),
             suffixIcon: IconButton(
+              tooltip: l.a11yAddTag,
               icon: const Icon(Icons.add_rounded),
               onPressed: _commit,
             ),

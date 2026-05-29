@@ -1,3 +1,6 @@
+// coverage:ignore-file
+// flutter_local_notifications platform-channel wrapper; not unit-testable
+// without a device/plugin harness.
 /// Local notification surface for SmartSpend (Sprint 6).
 ///
 /// Wraps the `flutter_local_notifications` plugin behind an interface so

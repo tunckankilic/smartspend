@@ -167,14 +167,26 @@ class _Thumbnail extends StatelessWidget {
         ),
       );
     }
-    return Image.file(
-      File(path),
-      fit: BoxFit.cover,
-      errorBuilder: (BuildContext _, Object _, StackTrace? _) {
-        return Container(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          alignment: Alignment.center,
-          child: const Icon(Icons.broken_image),
+    // Decode at the thumbnail's pixel size, not the receipt photo's full
+    // resolution — a multi-megapixel capture rendered into a small list/grid
+    // cell would otherwise pin its full bitmap in memory per visible row.
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double dpr = MediaQuery.devicePixelRatioOf(context);
+        final int? cacheWidth = constraints.maxWidth.isFinite
+            ? (constraints.maxWidth * dpr).round()
+            : null;
+        return Image.file(
+          File(path),
+          fit: BoxFit.cover,
+          cacheWidth: cacheWidth,
+          errorBuilder: (BuildContext _, Object _, StackTrace? _) {
+            return Container(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              alignment: Alignment.center,
+              child: const Icon(Icons.broken_image),
+            );
+          },
         );
       },
     );

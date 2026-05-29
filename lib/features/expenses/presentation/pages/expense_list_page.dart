@@ -121,6 +121,7 @@ class _ExpenseListViewState extends State<_ExpenseListView> {
     if (_searching) {
       return AppBar(
         leading: IconButton(
+          tooltip: l.a11yBack,
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () {
             setState(() => _searching = false);
@@ -143,10 +144,12 @@ class _ExpenseListViewState extends State<_ExpenseListView> {
       title: Text(l.navExpenses),
       actions: <Widget>[
         IconButton(
+          tooltip: l.a11ySearchExpenses,
           icon: const Icon(Icons.search_rounded),
           onPressed: () => setState(() => _searching = true),
         ),
         IconButton(
+          tooltip: l.a11yFilterExpenses,
           icon: const Icon(Icons.tune_rounded),
           onPressed: () => _openFilterSheet(context),
         ),

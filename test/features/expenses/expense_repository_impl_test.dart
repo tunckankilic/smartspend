@@ -1,8 +1,10 @@
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 
 import 'package:smartspend/core/database/app_database.dart'
     show AppDatabase, CategoriesCompanion, ExpensesCompanion, ReceiptsCompanion;
+import 'package:smartspend/core/database/daos/expense_dao.dart';
 import 'package:smartspend/core/database/sync_status.dart';
 import 'package:smartspend/core/error/failures.dart';
 import 'package:smartspend/features/expenses/data/datasources/expense_local_data_source.dart';
@@ -14,6 +16,8 @@ import 'package:smartspend/features/expenses/domain/entities/expense_summary.dar
 import 'package:drift/drift.dart' show Value;
 
 import '../../helpers/test_database.dart';
+
+class _ThrowingLocalDataSource extends Mock implements ExpenseLocalDataSource {}
 
 void main() {
   late AppDatabase db;
@@ -327,6 +331,244 @@ void main() {
       expect(s.count, 0);
       expect(s.totalMinor, 0);
       expect(s.currency, 'TRY');
+    });
+  });
+
+  group('watchExpenses', () {
+    test('should emit materialized rows reactively', () async {
+      final int catId = (await db.categoryDao.getAll()).first.id;
+      final Stream<List<Expense>> stream = repo.watchExpenses(
+        ExpenseFilter.empty,
+      );
+
+      await seedExpense(
+        amount: 1200,
+        categoryId: catId,
+        date: DateTime.utc(2026, 5, 5),
+        note: 'watched',
+      );
+
+      final List<Expense> rows = await stream.firstWhere(
+        (List<Expense> r) => r.isNotEmpty,
+      );
+      expect(rows.first.note, 'watched');
+    });
+  });
+
+  group('getExpenseById', () {
+    test('should return the materialized expense when present', () async {
+      final int catId = (await db.categoryDao.getAll()).first.id;
+      final int id = await seedExpense(
+        amount: 999,
+        categoryId: catId,
+        date: DateTime.utc(2026, 5, 9),
+        note: 'byId',
+      );
+
+      final Expense? row = (await repo.getExpenseById(id))
+          .getOrElse(() => throw StateError('left'));
+      expect(row, isNotNull);
+      expect(row!.amount, 999);
+      expect(row.note, 'byId');
+    });
+
+    test('should return null for a missing id', () async {
+      final Expense? row = (await repo.getExpenseById(999999))
+          .getOrElse(() => throw StateError('left'));
+      expect(row, isNull);
+    });
+  });
+
+  group('amount-ascending sort', () {
+    test('should order from smallest to largest amount', () async {
+      final int catId = await seedCategory('AscCat', 'sort');
+      await seedExpense(
+        amount: 300,
+        categoryId: catId,
+        date: DateTime.utc(2026, 5, 1),
+      );
+      await seedExpense(
+        amount: 100,
+        categoryId: catId,
+        date: DateTime.utc(2026, 5, 2),
+      );
+      await seedExpense(
+        amount: 200,
+        categoryId: catId,
+        date: DateTime.utc(2026, 5, 3),
+      );
+
+      const ExpenseFilter f = ExpenseFilter(
+        sortOrder: ExpenseSortOrder.amountAsc,
+      );
+      final List<Expense> rows = (await repo.getExpenses(f))
+          .getOrElse(() => throw StateError('left'));
+      expect(rows.map((Expense e) => e.amount).toList(), <int>[100, 200, 300]);
+    });
+
+    test('should order by oldest date first', () async {
+      final int catId = await seedCategory('DateAscCat', 'sort');
+      await seedExpense(
+        amount: 100,
+        categoryId: catId,
+        date: DateTime.utc(2026, 5, 3),
+      );
+      await seedExpense(
+        amount: 200,
+        categoryId: catId,
+        date: DateTime.utc(2026, 5, 1),
+      );
+
+      const ExpenseFilter f = ExpenseFilter(
+        sortOrder: ExpenseSortOrder.dateAsc,
+      );
+      final List<Expense> rows = (await repo.getExpenses(f))
+          .getOrElse(() => throw StateError('left'));
+      expect(
+        rows.map((Expense e) => e.date).toList(),
+        <DateTime>[DateTime.utc(2026, 5, 1), DateTime.utc(2026, 5, 3)],
+      );
+    });
+  });
+
+  group('tags', () {
+    test('addExpense should attach tags and expose them via getAllTagNames',
+        () async {
+      final int catId = (await db.categoryDao.getAll()).first.id;
+      final Either<Failure, int> add = await repo.addExpense(
+        amount: 4200,
+        categoryId: catId,
+        date: DateTime.utc(2026, 5, 11),
+        isManual: true,
+        tags: <String>['iş', 'seyahat'],
+      );
+      expect(add.isRight(), isTrue);
+
+      final List<String> names = (await repo.getAllTagNames())
+          .getOrElse(() => throw StateError('left'));
+      expect(names, containsAll(<String>['iş', 'seyahat']));
+    });
+
+    test('updateExpense should replace the tag set', () async {
+      final int catId = (await db.categoryDao.getAll()).first.id;
+      final int id = (await repo.addExpense(
+        amount: 1000,
+        categoryId: catId,
+        date: DateTime.utc(2026, 5, 12),
+        isManual: true,
+        tags: <String>['eski'],
+      ))
+          .getOrElse(() => throw StateError('left'));
+
+      final Either<Failure, void> r = await repo.updateExpense(
+        id: id,
+        tags: <String>['yeni'],
+      );
+      expect(r.isRight(), isTrue);
+
+      final List<Expense> rows = (await repo.getExpenses(ExpenseFilter.empty))
+          .getOrElse(() => throw StateError('left'));
+      final Expense updated = rows.firstWhere((Expense e) => e.id == id);
+      expect(updated.tags, <String>['yeni']);
+    });
+  });
+
+  group('failure mapping', () {
+    late _ThrowingLocalDataSource throwing;
+    late ExpenseRepositoryImpl failingRepo;
+
+    setUpAll(() {
+      registerFallbackValue(ExpenseDaoSort.dateDesc);
+      registerFallbackValue(
+        ExpensesCompanion.insert(
+          amount: 0,
+          categoryId: 0,
+          date: DateTime.utc(2026),
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        ),
+      );
+    });
+
+    setUp(() {
+      throwing = _ThrowingLocalDataSource();
+      failingRepo = ExpenseRepositoryImpl(localDataSource: throwing);
+    });
+
+    test('getExpenses should wrap a thrown error in CacheFailure', () async {
+      when(
+        () => throwing.queryExpenses(
+          dateFrom: any(named: 'dateFrom'),
+          dateTo: any(named: 'dateTo'),
+          categoryIds: any(named: 'categoryIds'),
+          minAmount: any(named: 'minAmount'),
+          maxAmount: any(named: 'maxAmount'),
+          sort: any(named: 'sort'),
+        ),
+      ).thenThrow(Exception('boom'));
+
+      final Either<Failure, List<Expense>> r =
+          await failingRepo.getExpenses(ExpenseFilter.empty);
+      expect(r.isLeft(), isTrue);
+      expect(r.swap().getOrElse(() => throw StateError('right')),
+          isA<CacheFailure>());
+    });
+
+    test('getExpenseById should wrap a thrown error', () async {
+      when(() => throwing.getById(any())).thenThrow(Exception('boom'));
+      final Either<Failure, Expense?> r = await failingRepo.getExpenseById(1);
+      expect(r.isLeft(), isTrue);
+    });
+
+    test('getSummary should wrap a thrown error', () async {
+      when(
+        () => throwing.queryExpenses(
+          dateFrom: any(named: 'dateFrom'),
+          dateTo: any(named: 'dateTo'),
+          categoryIds: any(named: 'categoryIds'),
+          minAmount: any(named: 'minAmount'),
+          maxAmount: any(named: 'maxAmount'),
+          sort: any(named: 'sort'),
+        ),
+      ).thenThrow(Exception('boom'));
+      final Either<Failure, ExpenseSummary> r =
+          await failingRepo.getSummary(ExpenseFilter.empty);
+      expect(r.isLeft(), isTrue);
+    });
+
+    test('addExpense should wrap a thrown error', () async {
+      when(() => throwing.insertExpense(any())).thenThrow(Exception('boom'));
+      final Either<Failure, int> r = await failingRepo.addExpense(
+        amount: 100,
+        categoryId: 1,
+        date: DateTime.utc(2026, 5, 1),
+        isManual: true,
+      );
+      expect(r.isLeft(), isTrue);
+    });
+
+    test('updateExpense should wrap a thrown error', () async {
+      when(() => throwing.updateExpense(any(), any()))
+          .thenThrow(Exception('boom'));
+      final Either<Failure, void> r = await failingRepo.updateExpense(
+        id: 1,
+        amount: 100,
+      );
+      expect(r.isLeft(), isTrue);
+    });
+
+    test('deleteExpense should wrap a thrown error', () async {
+      when(() => throwing.softDeleteExpense(any()))
+          .thenThrow(Exception('boom'));
+      final Either<Failure, void> r = await failingRepo.deleteExpense(1);
+      expect(r.isLeft(), isTrue);
+    });
+
+    test('getAllTagNames should wrap a thrown error', () async {
+      when(() => throwing.getAllTagNames()).thenThrow(Exception('boom'));
+      final Either<Failure, List<String>> r =
+          await failingRepo.getAllTagNames();
+      expect(r.isLeft(), isTrue);
     });
   });
 }

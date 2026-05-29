@@ -1,3 +1,5 @@
+// coverage:ignore-file
+// share_plus platform-plugin sink; tests inject a fake SplitShareSink instead.
 import 'package:share_plus/share_plus.dart';
 
 import 'package:smartspend/features/split/presentation/bloc/split_bloc.dart';

@@ -1,3 +1,7 @@
+// coverage:ignore-file
+// Drift schema declarations consumed by the code generator, not executable
+// unit-test logic. Exercised indirectly by every DAO test through the
+// generated database.
 import 'package:drift/drift.dart';
 
 import 'package:smartspend/core/database/sync_status.dart';
@@ -16,6 +20,7 @@ import 'package:smartspend/core/database/sync_status.dart';
 //   `@DriftDatabase` annotation. Keep ordering stable to minimize diff churn
 //   in generated code.
 
+@TableIndex(name: 'idx_receipts_date', columns: <Symbol>{#date})
 class Receipts extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get remoteId => text().nullable()();
@@ -69,6 +74,8 @@ class Categories extends Table {
       text().withDefault(const Constant(SyncStatus.synced))();
 }
 
+@TableIndex(name: 'idx_expenses_date', columns: <Symbol>{#date})
+@TableIndex(name: 'idx_expenses_category', columns: <Symbol>{#categoryId})
 class Expenses extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get remoteId => text().nullable()();

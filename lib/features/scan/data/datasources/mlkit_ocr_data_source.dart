@@ -1,3 +1,6 @@
+// coverage:ignore-file
+// Google ML Kit text-recognition platform-channel wrapper; requires a device
+// and native ML Kit, so it is mocked at the repository layer instead.
 import 'dart:io';
 
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';

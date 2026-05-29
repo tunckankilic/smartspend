@@ -1,3 +1,6 @@
+// coverage:ignore-file
+// camera/image_picker platform-channel wrapper; requires a device, so it is
+// mocked at the repository layer instead.
 import 'dart:io';
 import 'dart:typed_data';
 

@@ -71,6 +71,7 @@ class _AddExpenseView extends StatelessWidget {
             actions: <Widget>[
               if (state is AddExpenseReady && !state.isSubmitting)
                 IconButton(
+                  tooltip: l.a11ySaveExpense,
                   icon: const Icon(Icons.check_rounded),
                   onPressed: () => context
                       .read<AddExpenseBloc>()

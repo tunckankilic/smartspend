@@ -66,8 +66,11 @@ class AppDatabase extends _$AppDatabase {
   ///   v3 — Sprint 7 adds `receipts.warranty_end_date` for the receipt
   ///        archive's warranty-reminder feature. Nullable; older rows
   ///        upgrade with `null` and behave as "no warranty".
+  ///   v4 — Sprint 9 adds covering indexes on the list-screen hot paths:
+  ///        `expenses.date`, `expenses.category_id`, and `receipts.date`.
+  ///        No data change; pure read-performance migration.
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   /// Store `DateTime` columns as ISO-8601 text so timezone information
   /// survives a write/read round-trip. CLAUDE.md mandates UTC storage; the
@@ -93,6 +96,13 @@ class AppDatabase extends _$AppDatabase {
           // column so existing rows survive the upgrade with no default.
           if (from < 3) {
             await m.addColumn(receipts, receipts.warrantyEndDate);
+          }
+          // v3 → v4: create the Sprint 9 read-path indexes on existing
+          // installs (fresh installs get them via createAll).
+          if (from < 4) {
+            await m.create(idxExpensesDate);
+            await m.create(idxExpensesCategory);
+            await m.create(idxReceiptsDate);
           }
         },
       );

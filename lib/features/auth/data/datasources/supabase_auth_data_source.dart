@@ -1,4 +1,6 @@
 // ignore_for_file: prefer_initializing_formals — private field convention.
+// coverage:ignore-file
+// Thin wrapper over Supabase GoTrue client; mocked at the repository layer.
 
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';

@@ -1,3 +1,6 @@
+// coverage:ignore-file
+// Supabase.initialize bootstrap; touches the live SDK at startup, not
+// unit-testable.
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:smartspend/core/constants/supabase_constants.dart';

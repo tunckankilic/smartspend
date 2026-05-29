@@ -455,5 +455,13 @@
     "placeholders": {
       "count": { "type": "int" }
     }
-  }
+  },
+
+  "a11yShowPassword": "Şifreyi göster",
+  "a11yHidePassword": "Şifreyi gizle",
+  "a11ySearchExpenses": "Harcamalarda ara",
+  "a11yFilterExpenses": "Harcamaları filtrele",
+  "a11yBack": "Geri",
+  "a11ySaveExpense": "Harcamayı kaydet",
+  "a11yAddTag": "Etiket ekle"
 }

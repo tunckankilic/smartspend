@@ -446,5 +446,19 @@
     "placeholders": {
       "count": { "type": "int" }
     }
-  }
+  },
+
+  "a11yShowPassword": "Show password",
+  "@a11yShowPassword": {
+    "description": "Screen-reader label for the password reveal toggle"
+  },
+  "a11yHidePassword": "Hide password",
+  "@a11yHidePassword": {
+    "description": "Screen-reader label for the password hide toggle"
+  },
+  "a11ySearchExpenses": "Search expenses",
+  "a11yFilterExpenses": "Filter expenses",
+  "a11yBack": "Back",
+  "a11ySaveExpense": "Save expense",
+  "a11yAddTag": "Add tag"
 }

@@ -446,5 +446,13 @@
     "placeholders": {
       "count": { "type": "int" }
     }
-  }
+  },
+
+  "a11yShowPassword": "Passwort anzeigen",
+  "a11yHidePassword": "Passwort verbergen",
+  "a11ySearchExpenses": "Ausgaben suchen",
+  "a11yFilterExpenses": "Ausgaben filtern",
+  "a11yBack": "Zurück",
+  "a11ySaveExpense": "Ausgabe speichern",
+  "a11yAddTag": "Tag hinzufügen"
 }

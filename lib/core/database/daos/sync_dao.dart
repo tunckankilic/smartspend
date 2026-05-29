@@ -227,6 +227,27 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
         .getSingleOrNull();
   }
 
+  Future<ReceiptItem?> findReceiptItemByRemoteId(String remoteId) {
+    return (select(receiptItems)
+          ..where(($ReceiptItemsTable t) => t.remoteId.equals(remoteId))
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  Future<Tag?> findTagByRemoteId(String remoteId) {
+    return (select(tags)
+          ..where(($TagsTable t) => t.remoteId.equals(remoteId))
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  Future<UserCorrection?> findUserCorrectionByRemoteId(String remoteId) {
+    return (select(userCorrections)
+          ..where(($UserCorrectionsTable t) => t.remoteId.equals(remoteId))
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
   Future<int?> localCategoryIdForRemote(String? remoteId) async {
     if (remoteId == null) return null;
     final Category? row = await findCategoryByRemoteId(remoteId);
@@ -405,6 +426,99 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
     await (update(
       budgets,
     )..where(($BudgetsTable t) => t.id.equals(existing.id))).write(values);
+    return true;
+  }
+
+  Future<bool> applyReceiptItemFromRemote({
+    required String remoteId,
+    required int receiptId,
+    required String name,
+    required double quantity,
+    required int unitPrice,
+    required int totalPrice,
+    required DateTime updatedAt,
+    String? userId,
+    int? categoryId,
+  }) async {
+    final ReceiptItem? existing = await findReceiptItemByRemoteId(remoteId);
+    final ReceiptItemsCompanion values = ReceiptItemsCompanion(
+      remoteId: Value<String?>(remoteId),
+      userId: Value<String?>(userId),
+      receiptId: Value<int>(receiptId),
+      name: Value<String>(name),
+      quantity: Value<double>(quantity),
+      unitPrice: Value<int>(unitPrice),
+      totalPrice: Value<int>(totalPrice),
+      categoryId: Value<int?>(categoryId),
+      updatedAt: Value<DateTime>(updatedAt.toUtc()),
+      syncStatus: const Value<String>(SyncStatus.synced),
+    );
+    if (existing == null) {
+      await into(receiptItems).insert(values);
+      return true;
+    }
+    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) return false;
+    await (update(receiptItems)
+          ..where(($ReceiptItemsTable t) => t.id.equals(existing.id)))
+        .write(values);
+    return true;
+  }
+
+  Future<bool> applyTagFromRemote({
+    required String remoteId,
+    required String name,
+    required DateTime updatedAt,
+    String? userId,
+  }) async {
+    final Tag? existing = await findTagByRemoteId(remoteId);
+    final TagsCompanion values = TagsCompanion(
+      remoteId: Value<String?>(remoteId),
+      userId: Value<String?>(userId),
+      name: Value<String>(name),
+      updatedAt: Value<DateTime>(updatedAt.toUtc()),
+      syncStatus: const Value<String>(SyncStatus.synced),
+    );
+    if (existing == null) {
+      await into(tags).insert(values);
+      return true;
+    }
+    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) return false;
+    await (update(tags)..where(($TagsTable t) => t.id.equals(existing.id)))
+        .write(values);
+    return true;
+  }
+
+  Future<bool> applyUserCorrectionFromRemote({
+    required String remoteId,
+    required String storeName,
+    required int newCategoryId,
+    required int count,
+    required DateTime occurredAt,
+    required DateTime updatedAt,
+    String? userId,
+    int? oldCategoryId,
+  }) async {
+    final UserCorrection? existing =
+        await findUserCorrectionByRemoteId(remoteId);
+    final UserCorrectionsCompanion values = UserCorrectionsCompanion(
+      remoteId: Value<String?>(remoteId),
+      userId: Value<String?>(userId),
+      storeName: Value<String>(storeName),
+      oldCategoryId: Value<int?>(oldCategoryId),
+      newCategoryId: Value<int>(newCategoryId),
+      count: Value<int>(count),
+      occurredAt: Value<DateTime>(occurredAt.toUtc()),
+      updatedAt: Value<DateTime>(updatedAt.toUtc()),
+      syncStatus: const Value<String>(SyncStatus.synced),
+    );
+    if (existing == null) {
+      await into(userCorrections).insert(values);
+      return true;
+    }
+    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) return false;
+    await (update(userCorrections)
+          ..where(($UserCorrectionsTable t) => t.id.equals(existing.id)))
+        .write(values);
     return true;
   }
 }

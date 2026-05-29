@@ -33,4 +33,10 @@ abstract class AuthRepository {
   Future<Either<AuthFailure, Unit>> signOut();
 
   Future<Either<AuthFailure, Unit>> resetPassword(String email);
+
+  /// Irreversibly deletes the caller's account server-side (storage objects +
+  /// `auth.users` row, which cascades to all owned tables) and ends the local
+  /// session. Local Drift cache clearing is the [AuthBloc]'s job once this
+  /// resolves, mirroring [signOut].
+  Future<Either<AuthFailure, Unit>> deleteAccount();
 }

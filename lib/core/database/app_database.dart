@@ -13,6 +13,7 @@ import 'package:smartspend/core/database/daos/sync_dao.dart';
 import 'package:smartspend/core/database/daos/sync_log_dao.dart';
 import 'package:smartspend/core/database/daos/tag_dao.dart';
 import 'package:smartspend/core/database/daos/user_correction_dao.dart';
+import 'package:smartspend/core/database/daos/user_settings_dao.dart';
 import 'package:smartspend/core/database/default_categories.dart';
 import 'package:smartspend/core/database/sync_status.dart';
 import 'package:smartspend/core/database/tables.dart';
@@ -48,6 +49,7 @@ part 'app_database.g.dart';
     SyncLogDao,
     TagDao,
     UserCorrectionDao,
+    UserSettingsDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {

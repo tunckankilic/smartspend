@@ -58,8 +58,9 @@ class ReceiptDetailBloc extends Bloc<ReceiptDetailEvent, ReceiptDetailState> {
     if (detail == null) return;
 
     // Lazy signed-URL resolution: only needed as a fallback when the local
-    // cached file is gone. The widget prefers the local file, so a failure
-    // here is silent — it just leaves the placeholder in place.
+    // cached file is gone. The widget prefers the local file; if the signed
+    // URL cannot be resolved we flag `imageUnavailable` so the UI shows the
+    // `storageImageMissing` notice instead of a bare placeholder.
     final String? objectPath = detail.storageObjectPath;
     if (objectPath == null || objectPath.isEmpty) return;
     final Either<Failure, String> url =
@@ -67,7 +68,7 @@ class ReceiptDetailBloc extends Bloc<ReceiptDetailEvent, ReceiptDetailState> {
     final ReceiptDetailState current = state;
     if (current is! ReceiptDetailReady) return;
     url.fold(
-      (Failure _) {},
+      (Failure _) => emit(current.copyWith(imageUnavailable: true)),
       (String signed) => emit(current.copyWith(signedImageUrl: signed)),
     );
   }

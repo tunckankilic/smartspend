@@ -21,6 +21,12 @@
   "authForgotPasswordTitle": "Şifremi Unuttum",
   "authSignOut": "Çıkış Yap",
   "authSignOutCta": "Çıkış Yap",
+  "authDeleteAccount": "Hesabı sil",
+  "authDeleteAccountCta": "Hesabımı sil",
+  "authDeleteAccountDialogTitle": "Hesap silinsin mi?",
+  "authDeleteAccountDialogBody": "Bu işlem hesabınızı ve tüm verilerinizi — fişler, harcamalar ve bütçeler — kalıcı olarak siler. Geri alınamaz.",
+  "authDeleteAccountConfirm": "Sil",
+  "authDeleteAccountCancel": "Vazgeç",
   "authEmailLabel": "E-posta",
   "authEmailInvalid": "Geçerli bir e-posta gir.",
   "authPasswordLabel": "Şifre",
@@ -417,5 +423,37 @@
   "syncOfflineBanner": "Çevrimdışısın. Değişiklikler bağlanınca eşitlenecek.",
   "syncConflictBanner": "Bazı değişiklikler başka cihazda güncellenip birleştirildi.",
   "storageUploadFailed": "Fiş görseli yüklenemedi. Daha sonra tekrar denenecek.",
-  "storageImageMissing": "Fiş görseli kullanılamıyor."
+  "storageImageMissing": "Fiş görseli kullanılamıyor.",
+  "syncIndicatorFailed": "Eşitleme başarısız",
+
+  "settingsAccountSection": "Hesap",
+  "settingsPreferencesSection": "Tercihler",
+  "settingsDataSection": "Veri ve gizlilik",
+  "settingsLastSync": "Son eşitleme: {time}",
+  "@settingsLastSync": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
+  "settingsLastSyncNever": "Henüz eşitlenmedi",
+  "settingsSyncNow": "Şimdi eşitle",
+  "settingsCurrency": "Varsayılan para birimi",
+  "settingsLanguage": "Dil",
+  "settingsLanguageSystem": "Sistem varsayılanı",
+  "settingsDarkMode": "Koyu tema",
+  "settingsNotifications": "Bildirimler",
+  "settingsNotificationsSubtitle": "Bütçe uyarıları ve hatırlatmalar",
+  "settingsDownloadData": "Verilerimi indir",
+  "settingsDownloadDataSubtitle": "Her şeyi CSV dosyası olarak dışa aktar",
+  "languageTurkish": "Türkçe",
+  "languageEnglish": "English",
+  "languageGerman": "Deutsch",
+  "exportPreparing": "Dışa aktarma hazırlanıyor…",
+  "exportFailed": "Verileriniz dışa aktarılamadı. Lütfen tekrar deneyin.",
+  "exportReady": "Dışa aktarma hazır ({count} satır). İndirme açılıyor…",
+  "@exportReady": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  }
 }

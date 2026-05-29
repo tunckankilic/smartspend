@@ -12,6 +12,7 @@ import 'package:smartspend/core/error/failures.dart' show Failure;
 import 'package:smartspend/features/auth/domain/entities/app_user.dart';
 import 'package:smartspend/features/auth/domain/repositories/auth_repository.dart';
 import 'package:smartspend/features/auth/domain/usecases/apple_sign_in_usecase.dart';
+import 'package:smartspend/features/auth/domain/usecases/delete_account_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/google_sign_in_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/reset_password_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/sign_in_usecase.dart';
@@ -34,6 +35,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required SignInUseCase signIn,
     required SignUpUseCase signUp,
     required SignOutUseCase signOut,
+    required DeleteAccountUseCase deleteAccount,
     required GoogleSignInUseCase googleSignIn,
     required AppleSignInUseCase appleSignIn,
     required ResetPasswordUseCase resetPassword,
@@ -42,6 +44,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         _signIn = signIn,
         _signUp = signUp,
         _signOut = signOut,
+        _deleteAccount = deleteAccount,
         _googleSignIn = googleSignIn,
         _appleSignIn = appleSignIn,
         _resetPassword = resetPassword,
@@ -52,6 +55,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthSignInRequested>(_onSignIn, transformer: sequential());
     on<AuthSignUpRequested>(_onSignUp, transformer: sequential());
     on<AuthSignOutRequested>(_onSignOut, transformer: sequential());
+    on<AuthAccountDeletionRequested>(
+      _onDeleteAccount,
+      transformer: sequential(),
+    );
     on<AuthGoogleRequested>(_onGoogle, transformer: sequential());
     on<AuthAppleRequested>(_onApple, transformer: sequential());
     on<AuthPasswordResetRequested>(_onReset, transformer: sequential());
@@ -66,6 +73,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final SignInUseCase _signIn;
   final SignUpUseCase _signUp;
   final SignOutUseCase _signOut;
+  final DeleteAccountUseCase _deleteAccount;
   final GoogleSignInUseCase _googleSignIn;
   final AppleSignInUseCase _appleSignIn;
   final ResetPasswordUseCase _resetPassword;
@@ -120,6 +128,21 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     emit(const AuthLoading());
     final Either<Failure, Unit> result = await _signOut();
+    await result.fold(
+      (Failure failure) async => emit(AuthFailure(failure)),
+      (_) async {
+        await _database.clearUserData();
+        emit(const Unauthenticated());
+      },
+    );
+  }
+
+  Future<void> _onDeleteAccount(
+    AuthAccountDeletionRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+    final Either<Failure, Unit> result = await _deleteAccount();
     await result.fold(
       (Failure failure) async => emit(AuthFailure(failure)),
       (_) async {

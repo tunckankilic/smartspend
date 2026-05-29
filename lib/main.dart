@@ -16,6 +16,7 @@ import 'package:smartspend/core/services/notification_service.dart';
 import 'package:smartspend/core/services/recurring_expense_scheduler.dart';
 import 'package:smartspend/core/services/sync_service.dart';
 import 'package:smartspend/core/supabase/supabase_client_provider.dart';
+import 'package:smartspend/features/sync/presentation/bloc/sync_cubit.dart';
 
 /// Entry point. Order matters:
 ///   1. Bind Flutter (so plugins are reachable).
@@ -60,11 +61,14 @@ Future<void> main() async {
       // internally so the call is cheap on warm starts. Fire-and-forget
       // so a slow Drift read doesn't block first paint.
       unawaited(sl<RecurringExpenseScheduler>().tick());
-      // Drift ⇄ Supabase sync engine (Sprint 8.3). `start` installs the
-      // connectivity listener + periodic foreground timer; the initial
-      // `sync` is fire-and-forget so a slow network never blocks paint.
+      // Drift ⇄ Supabase sync engine (Sprint 8.3). The service `start`
+      // installs the connectivity listener + periodic foreground timer;
+      // SyncCubit subscribes to its phase stream so the UI stays in sync.
+      // The initial `syncNow` is fire-and-forget so a slow network never
+      // blocks paint.
       sl<SyncService>().start();
-      unawaited(sl<SyncService>().sync());
+      sl<SyncCubit>().start();
+      unawaited(sl<SyncCubit>().syncNow());
       Bloc.observer = AppBlocObserver();
       runApp(const SmartSpendApp());
     },

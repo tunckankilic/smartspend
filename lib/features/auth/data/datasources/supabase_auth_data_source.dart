@@ -34,16 +34,21 @@ abstract class SupabaseAuthDataSource {
   Future<void> signOut();
 
   Future<void> resetPassword(String email);
+
+  Future<void> deleteAccount();
 }
 
 class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
   SupabaseAuthDataSourceImpl({
     required GoTrueClient auth,
+    required FunctionsClient functions,
     GoogleSignIn? googleSignIn,
   })  : _auth = auth,
+        _functions = functions,
         _google = googleSignIn ?? GoogleSignIn.instance;
 
   final GoTrueClient _auth;
+  final FunctionsClient _functions;
   final GoogleSignIn _google;
   bool _googleInitialized = false;
 
@@ -152,6 +157,23 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
       email,
       redirectTo: SupabaseConstants.oauthRedirectUrl,
     );
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    // The Edge Function authenticates via the caller's JWT (attached
+    // automatically by the SDK), purges storage + the auth row, then cascades
+    // to every owned table. `invoke` throws FunctionException on a non-2xx
+    // response — the repository maps that onto AuthFailure.
+    await _functions.invoke(
+      SupabaseConstants.fnDeleteAccount,
+      body: <String, String>{
+        'confirm': SupabaseConstants.deleteAccountConfirmToken,
+      },
+    );
+    // The server already deleted the user; sign out locally to drop the now
+    // orphaned session and tokens.
+    await _auth.signOut();
   }
 
   AppUser _requireUser(AuthResponse response) {

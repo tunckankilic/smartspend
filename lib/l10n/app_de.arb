@@ -18,6 +18,12 @@
   "authForgotPasswordTitle": "Passwort vergessen",
   "authSignOut": "Abmelden",
   "authSignOutCta": "Abmelden",
+  "authDeleteAccount": "Konto löschen",
+  "authDeleteAccountCta": "Mein Konto löschen",
+  "authDeleteAccountDialogTitle": "Konto löschen?",
+  "authDeleteAccountDialogBody": "Dadurch werden dein Konto und alle Daten — Belege, Ausgaben und Budgets — dauerhaft gelöscht. Dies kann nicht rückgängig gemacht werden.",
+  "authDeleteAccountConfirm": "Löschen",
+  "authDeleteAccountCancel": "Abbrechen",
   "authEmailLabel": "E-Mail",
   "authEmailInvalid": "Gib eine gültige E-Mail ein.",
   "authPasswordLabel": "Passwort",
@@ -408,5 +414,37 @@
   "syncOfflineBanner": "Du bist offline. Änderungen werden bei Verbindung synchronisiert.",
   "syncConflictBanner": "Einige Änderungen wurden anderswo aktualisiert und zusammengeführt.",
   "storageUploadFailed": "Beleg-Upload fehlgeschlagen. Wird später erneut versucht.",
-  "storageImageMissing": "Beleg-Bild nicht verfügbar."
+  "storageImageMissing": "Beleg-Bild nicht verfügbar.",
+  "syncIndicatorFailed": "Synchronisierung fehlgeschlagen",
+
+  "settingsAccountSection": "Konto",
+  "settingsPreferencesSection": "Einstellungen",
+  "settingsDataSection": "Daten & Datenschutz",
+  "settingsLastSync": "Letzte Synchronisierung: {time}",
+  "@settingsLastSync": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
+  "settingsLastSyncNever": "Noch nicht synchronisiert",
+  "settingsSyncNow": "Jetzt synchronisieren",
+  "settingsCurrency": "Standardwährung",
+  "settingsLanguage": "Sprache",
+  "settingsLanguageSystem": "Systemstandard",
+  "settingsDarkMode": "Dunkles Design",
+  "settingsNotifications": "Benachrichtigungen",
+  "settingsNotificationsSubtitle": "Budgetwarnungen und Erinnerungen",
+  "settingsDownloadData": "Meine Daten herunterladen",
+  "settingsDownloadDataSubtitle": "Alles als CSV-Datei exportieren",
+  "languageTurkish": "Türkçe",
+  "languageEnglish": "English",
+  "languageGerman": "Deutsch",
+  "exportPreparing": "Export wird vorbereitet…",
+  "exportFailed": "Daten konnten nicht exportiert werden. Bitte erneut versuchen.",
+  "exportReady": "Export bereit ({count} Zeilen). Download wird geöffnet…",
+  "@exportReady": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  }
 }

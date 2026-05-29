@@ -87,6 +87,15 @@ void main() {
       expect(result, equals(const Right<AuthFailure, Unit>(unit)));
     });
 
+    test('deleteAccount returns Right(unit) on success', () async {
+      when(() => dataSource.deleteAccount()).thenAnswer((_) async {});
+
+      final Either<AuthFailure, Unit> result = await repository.deleteAccount();
+
+      expect(result, equals(const Right<AuthFailure, Unit>(unit)));
+      verify(() => dataSource.deleteAccount()).called(1);
+    });
+
     test('resetPassword maps an unknown error to the unknown code', () async {
       when(
         () => dataSource.resetPassword(any()),

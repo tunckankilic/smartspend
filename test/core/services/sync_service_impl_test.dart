@@ -121,6 +121,151 @@ void main() {
     });
   });
 
+  group('pull missing tables', () {
+    String nowIso() => DateTime.now().toUtc().toIso8601String();
+
+    test('should fold a remote tag into Drift', () async {
+      when(() => remote.fetchSince('tags', any())).thenAnswer(
+        (_) async => <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'tag-remote-1',
+            'name': 'work',
+            'updated_at': nowIso(),
+            'user_id': 'user-1',
+          },
+        ],
+      );
+
+      final Either<Failure, SyncReport> result = await service.pull();
+
+      final SyncReport report =
+          result.getOrElse(() => throw StateError('expected Right'));
+      expect(report.pulled, 1);
+      expect(await db.syncDao.findTagByRemoteId('tag-remote-1'), isNotNull);
+    });
+
+    test('should fold a receipt item once its parent receipt is present',
+        () async {
+      when(() => remote.fetchSince('receipts', any())).thenAnswer(
+        (_) async => <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'rcpt-remote-1',
+            'store_name': 'Migros',
+            'date': '2026-05-01',
+            'total': 1299,
+            'currency': 'TRY',
+            'image_path': null,
+            'storage_object_path': null,
+            'raw_ocr_text': null,
+            'confidence_score': null,
+            'warranty_end_date': null,
+            'created_at': nowIso(),
+            'updated_at': nowIso(),
+            'user_id': 'user-1',
+          },
+        ],
+      );
+      when(() => remote.fetchSince('receipt_items', any())).thenAnswer(
+        (_) async => <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'item-remote-1',
+            'receipt_id': 'rcpt-remote-1',
+            'name': 'Süt',
+            'quantity': 2,
+            'unit_price': 1500,
+            'total_price': 3000,
+            'category_id': null,
+            'updated_at': nowIso(),
+            'user_id': 'user-1',
+          },
+        ],
+      );
+
+      final Either<Failure, SyncReport> result = await service.pull();
+
+      final SyncReport report =
+          result.getOrElse(() => throw StateError('expected Right'));
+      // Receipt + item.
+      expect(report.pulled, 2);
+      expect(
+        await db.syncDao.findReceiptItemByRemoteId('item-remote-1'),
+        isNotNull,
+      );
+    });
+
+    test('should skip a receipt item whose parent receipt is missing',
+        () async {
+      when(() => remote.fetchSince('receipt_items', any())).thenAnswer(
+        (_) async => <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'item-remote-2',
+            'receipt_id': 'rcpt-does-not-exist',
+            'name': 'Ekmek',
+            'quantity': 1,
+            'unit_price': 500,
+            'total_price': 500,
+            'category_id': null,
+            'updated_at': nowIso(),
+            'user_id': 'user-1',
+          },
+        ],
+      );
+
+      final Either<Failure, SyncReport> result = await service.pull();
+
+      final SyncReport report =
+          result.getOrElse(() => throw StateError('expected Right'));
+      expect(report.pulled, 0);
+      expect(
+        await db.syncDao.findReceiptItemByRemoteId('item-remote-2'),
+        isNull,
+      );
+    });
+
+    test('should fold a user correction once its category is present',
+        () async {
+      when(() => remote.fetchSince('categories', any())).thenAnswer(
+        (_) async => <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'cat-remote-9',
+            'name': 'Seyahat',
+            'icon': 'flight',
+            'color': 0xFF112233,
+            'is_custom': true,
+            'sort_order': 50,
+            'updated_at': nowIso(),
+            'user_id': 'user-1',
+          },
+        ],
+      );
+      when(() => remote.fetchSince('user_corrections', any())).thenAnswer(
+        (_) async => <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'uc-remote-1',
+            'store_name': 'THY',
+            'old_category_id': null,
+            'new_category_id': 'cat-remote-9',
+            'count': 3,
+            'occurred_at': nowIso(),
+            'updated_at': nowIso(),
+            'user_id': 'user-1',
+          },
+        ],
+      );
+
+      final Either<Failure, SyncReport> result = await service.pull();
+
+      final SyncReport report =
+          result.getOrElse(() => throw StateError('expected Right'));
+      // Category + correction.
+      expect(report.pulled, 2);
+      expect(
+        await db.syncDao.findUserCorrectionByRemoteId('uc-remote-1'),
+        isNotNull,
+      );
+    });
+  });
+
   group('sync', () {
     test('should merge push and pull reports', () async {
       await insertPendingCategory();

@@ -23,6 +23,11 @@ abstract class SupabaseConstants {
   static const String fnGeminiOcrFallback = 'gemini-ocr-fallback';
   static const String fnWeeklySummary = 'weekly-summary';
   static const String fnExportCsv = 'export-csv';
+  static const String fnDeleteAccount = 'delete-account';
+
+  /// Confirmation token the `delete-account` Edge Function requires in the
+  /// request body — guards against accidental invocation.
+  static const String deleteAccountConfirmToken = 'DELETE-MY-ACCOUNT';
 
   /// Signed URL TTL for receipt images.
   static const Duration signedUrlTtl = Duration(hours: 1);

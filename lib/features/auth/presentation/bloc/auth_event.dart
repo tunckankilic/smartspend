@@ -46,6 +46,12 @@ final class AuthSignOutRequested extends AuthEvent {
   const AuthSignOutRequested();
 }
 
+/// User-initiated account deletion — runs the server-side purge then clears
+/// the local Drift cache, mirroring [AuthSignOutRequested].
+final class AuthAccountDeletionRequested extends AuthEvent {
+  const AuthAccountDeletionRequested();
+}
+
 /// Native Google Sign-In.
 final class AuthGoogleRequested extends AuthEvent {
   const AuthGoogleRequested();

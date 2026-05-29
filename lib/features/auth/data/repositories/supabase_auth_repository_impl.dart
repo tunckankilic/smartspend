@@ -74,6 +74,11 @@ class SupabaseAuthRepositoryImpl implements AuthRepository {
     return _guardUnit(() => _dataSource.resetPassword(email));
   }
 
+  @override
+  Future<Either<AuthFailure, Unit>> deleteAccount() {
+    return _guardUnit(_dataSource.deleteAccount);
+  }
+
   Future<Either<AuthFailure, AppUser>> _guard(
     Future<AppUser> Function() action,
   ) async {
@@ -116,6 +121,15 @@ class SupabaseAuthRepositoryImpl implements AuthRepository {
     }
     if (error is PostgrestException) {
       return AuthFailure(message: error.message, code: AuthFailureCode.unknown);
+    }
+    if (error is FunctionException) {
+      // Edge Function returned a non-2xx envelope (e.g. delete-account). The
+      // body carries our {error:{code,message}} shape; keep the message for
+      // logs only and surface a generic code.
+      return AuthFailure(
+        message: 'Edge Function error (status ${error.status}).',
+        code: AuthFailureCode.unknown,
+      );
     }
     if (error is TimeoutException) {
       return const AuthFailure(

@@ -450,6 +450,55 @@ class SupabaseSyncServiceImpl implements SyncService {
         }
       }
 
+      // Receipt items (parent: receipts already pulled above; optional cat).
+      for (final Map<String, dynamic> row in await remote.fetchSince(
+        'receipt_items',
+        since,
+      )) {
+        final int? localReceipt = await database.syncDao
+            .localReceiptIdForRemote(row['receipt_id'] as String?);
+        if (localReceipt == null) continue; // Parent not present locally yet.
+        final int? localCat = await database.syncDao.localCategoryIdForRemote(
+          row['category_id'] as String?,
+        );
+        final bool written = await database.syncDao.applyReceiptItemFromRemote(
+          remoteId: row['id'] as String,
+          receiptId: localReceipt,
+          name: row['name'] as String,
+          quantity: (row['quantity'] as num).toDouble(),
+          unitPrice: (row['unit_price'] as num).toInt(),
+          totalPrice: (row['total_price'] as num).toInt(),
+          updatedAt: DateTime.parse(row['updated_at'] as String),
+          userId: row['user_id'] as String?,
+          categoryId: localCat,
+        );
+        if (written) {
+          pulled++;
+        } else {
+          conflicts++;
+          await _logConflict('receipt_items', row['id'] as String);
+        }
+      }
+
+      // Tags (no parent).
+      for (final Map<String, dynamic> row in await remote.fetchSince(
+        'tags',
+        since,
+      )) {
+        final bool written = await database.syncDao.applyTagFromRemote(
+          remoteId: row['id'] as String,
+          name: row['name'] as String,
+          updatedAt: DateTime.parse(row['updated_at'] as String),
+          userId: row['user_id'] as String?,
+        );
+        if (written) {
+          pulled++;
+        } else {
+          conflicts++;
+          await _logConflict('tags', row['id'] as String);
+        }
+      }
+
       // Expenses (resolve remote FK UUIDs to local ids).
       for (final Map<String, dynamic> row in await remote.fetchSince(
         'expenses',
@@ -506,6 +555,35 @@ class SupabaseSyncServiceImpl implements SyncService {
         } else {
           conflicts++;
           await _logConflict('budgets', row['id'] as String);
+        }
+      }
+
+      // User corrections (parent: categories — new required, old optional).
+      for (final Map<String, dynamic> row in await remote.fetchSince(
+        'user_corrections',
+        since,
+      )) {
+        final int? localNewCat = await database.syncDao
+            .localCategoryIdForRemote(row['new_category_id'] as String?);
+        if (localNewCat == null) continue; // Category not present locally yet.
+        final int? localOldCat = await database.syncDao
+            .localCategoryIdForRemote(row['old_category_id'] as String?);
+        final bool written = await database.syncDao
+            .applyUserCorrectionFromRemote(
+              remoteId: row['id'] as String,
+              storeName: row['store_name'] as String,
+              newCategoryId: localNewCat,
+              count: (row['count'] as num).toInt(),
+              occurredAt: DateTime.parse(row['occurred_at'] as String),
+              updatedAt: DateTime.parse(row['updated_at'] as String),
+              userId: row['user_id'] as String?,
+              oldCategoryId: localOldCat,
+            );
+        if (written) {
+          pulled++;
+        } else {
+          conflicts++;
+          await _logConflict('user_corrections', row['id'] as String);
         }
       }
 

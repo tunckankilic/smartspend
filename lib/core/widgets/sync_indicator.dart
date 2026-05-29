@@ -1,33 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
-import 'package:smartspend/app/injection_container.dart';
-import 'package:smartspend/core/services/sync_service.dart';
+import 'package:smartspend/features/sync/presentation/bloc/sync_cubit.dart';
 import 'package:smartspend/l10n/generated/app_localizations.dart';
 
 /// AppBar status chip for the Drift ⇄ Supabase sync engine (Sprint 8.3).
 ///
-/// Subscribes to [SyncService.watchStatus] and renders a compact icon +
-/// label reflecting the current [SyncPhase]. Tapping it triggers a manual
-/// sync. Designed to live in an `AppBar.actions` list.
+/// Reads [SyncCubit] from the widget tree — never the [SyncService] directly —
+/// and renders a compact icon + label reflecting the current [SyncState].
+/// Tapping it triggers a manual sync. Designed to live in `AppBar.actions`.
 class SyncIndicator extends StatelessWidget {
   const SyncIndicator({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final SyncService service = sl<SyncService>();
     final AppLocalizations l = AppLocalizations.of(context);
     final String locale = Localizations.localeOf(context).toString();
-    return StreamBuilder<SyncPhase>(
-      stream: service.watchStatus(),
-      builder: (BuildContext context, AsyncSnapshot<SyncPhase> snapshot) {
-        final SyncPhase phase =
-            snapshot.data ?? const SyncPhaseSynced();
+    return BlocBuilder<SyncCubit, SyncState>(
+      builder: (BuildContext context, SyncState state) {
         return _SyncChip(
-          phase: phase,
+          state: state,
           l: l,
           locale: locale,
-          onTap: service.sync,
+          onTap: () => context.read<SyncCubit>().syncNow(),
         );
       },
     );
@@ -36,13 +32,13 @@ class SyncIndicator extends StatelessWidget {
 
 class _SyncChip extends StatelessWidget {
   const _SyncChip({
-    required this.phase,
+    required this.state,
     required this.l,
     required this.locale,
     required this.onTap,
   });
 
-  final SyncPhase phase;
+  final SyncState state;
   final AppLocalizations l;
   final String locale;
   final VoidCallback onTap;
@@ -50,25 +46,32 @@ class _SyncChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
-    final (IconData icon, String label, Color color) = switch (phase) {
-      SyncPhaseSyncing() => (
-          Icons.sync,
-          l.syncIndicatorSyncing,
-          scheme.primary,
-        ),
-      SyncPhaseOffline() => (
-          Icons.cloud_off,
-          l.syncIndicatorOffline,
+    final (IconData icon, String label, Color color) = switch (state) {
+      SyncInProgress() => (Icons.sync, l.syncIndicatorSyncing, scheme.primary),
+      SyncOffline() => (Icons.cloud_off, l.syncIndicatorOffline, scheme.error),
+      SyncFailed() => (
+          Icons.sync_problem,
+          l.syncIndicatorFailed,
           scheme.error,
         ),
-      SyncPhasePending(:final int count) => (
+      SyncConflict() => (
+          Icons.merge_type,
+          l.syncConflictBanner,
+          scheme.tertiary,
+        ),
+      SyncPending(:final int count) => (
           Icons.cloud_upload_outlined,
           l.syncIndicatorPending(count),
           scheme.tertiary,
         ),
-      SyncPhaseSynced(lastSyncAt: final DateTime? at) => (
+      SyncSynced(lastSyncAt: final DateTime? at) => (
           Icons.cloud_done_outlined,
           l.syncIndicatorSynced(_formatLastSync(at)),
+          scheme.primary,
+        ),
+      SyncIdle() => (
+          Icons.cloud_done_outlined,
+          l.syncIndicatorSynced(''),
           scheme.primary,
         ),
     };
@@ -92,19 +95,20 @@ class _SyncChip extends StatelessWidget {
   }
 }
 
-/// Full-width strip shown above a page body while the sync engine is in
-/// [SyncPhaseOffline] (Sprint 8.3). Collapses to nothing otherwise so it
-/// can be placed unconditionally at the top of a `Column` / body.
+/// Full-width strip shown above a page body while the sync engine is offline
+/// (Sprint 8.3). Collapses to nothing otherwise so it can be placed
+/// unconditionally at the top of a `Column` / body.
 class SyncOfflineBanner extends StatelessWidget {
   const SyncOfflineBanner({super.key});
 
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l = AppLocalizations.of(context);
-    return StreamBuilder<SyncPhase>(
-      stream: sl<SyncService>().watchStatus(),
-      builder: (BuildContext context, AsyncSnapshot<SyncPhase> snapshot) {
-        if (snapshot.data is! SyncPhaseOffline) {
+    return BlocBuilder<SyncCubit, SyncState>(
+      buildWhen: (SyncState prev, SyncState next) =>
+          (prev is SyncOffline) != (next is SyncOffline),
+      builder: (BuildContext context, SyncState state) {
+        if (state is! SyncOffline) {
           return const SizedBox.shrink();
         }
         final ColorScheme scheme = Theme.of(context).colorScheme;

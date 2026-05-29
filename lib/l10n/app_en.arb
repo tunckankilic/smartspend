@@ -18,6 +18,12 @@
   "authForgotPasswordTitle": "Forgot password",
   "authSignOut": "Sign out",
   "authSignOutCta": "Sign out",
+  "authDeleteAccount": "Delete account",
+  "authDeleteAccountCta": "Delete my account",
+  "authDeleteAccountDialogTitle": "Delete account?",
+  "authDeleteAccountDialogBody": "This permanently deletes your account and all data — receipts, expenses, and budgets. This cannot be undone.",
+  "authDeleteAccountConfirm": "Delete",
+  "authDeleteAccountCancel": "Cancel",
   "authEmailLabel": "Email",
   "authEmailInvalid": "Enter a valid email.",
   "authPasswordLabel": "Password",
@@ -408,5 +414,37 @@
   "syncOfflineBanner": "You're offline. Changes will sync when you reconnect.",
   "syncConflictBanner": "Some changes were updated elsewhere and merged.",
   "storageUploadFailed": "Receipt image upload failed. It will retry later.",
-  "storageImageMissing": "Receipt image unavailable."
+  "storageImageMissing": "Receipt image unavailable.",
+  "syncIndicatorFailed": "Sync failed",
+
+  "settingsAccountSection": "Account",
+  "settingsPreferencesSection": "Preferences",
+  "settingsDataSection": "Data & privacy",
+  "settingsLastSync": "Last sync: {time}",
+  "@settingsLastSync": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
+  "settingsLastSyncNever": "Not synced yet",
+  "settingsSyncNow": "Sync now",
+  "settingsCurrency": "Default currency",
+  "settingsLanguage": "Language",
+  "settingsLanguageSystem": "System default",
+  "settingsDarkMode": "Dark mode",
+  "settingsNotifications": "Notifications",
+  "settingsNotificationsSubtitle": "Budget alerts and reminders",
+  "settingsDownloadData": "Download my data",
+  "settingsDownloadDataSubtitle": "Export everything as a CSV file",
+  "languageTurkish": "Türkçe",
+  "languageEnglish": "English",
+  "languageGerman": "Deutsch",
+  "exportPreparing": "Preparing your export…",
+  "exportFailed": "Couldn't export your data. Please try again.",
+  "exportReady": "Export ready ({count} rows). Opening download…",
+  "@exportReady": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  }
 }

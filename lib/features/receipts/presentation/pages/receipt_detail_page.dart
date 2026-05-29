@@ -117,6 +117,7 @@ class _ReadyBody extends StatelessWidget {
         _DetailImage(
           imagePath: d.imagePath,
           signedImageUrl: state.signedImageUrl,
+          imageUnavailable: state.imageUnavailable,
         ),
         const SizedBox(height: 16),
         Text(store, style: Theme.of(context).textTheme.headlineSmall),
@@ -172,10 +173,12 @@ class _DetailImage extends StatelessWidget {
   const _DetailImage({
     required this.imagePath,
     required this.signedImageUrl,
+    required this.imageUnavailable,
   });
 
   final String? imagePath;
   final String? signedImageUrl;
+  final bool imageUnavailable;
 
   @override
   Widget build(BuildContext context) {
@@ -208,7 +211,10 @@ class _DetailImage extends StatelessWidget {
             _placeholder(context, broken: true),
       );
     } else {
-      child = _placeholder(context, broken: false);
+      // No local file and no signed URL. If a remote image was expected but
+      // could not be resolved, surface the missing-image notice; otherwise
+      // this is simply a receipt without an attached image.
+      child = _placeholder(context, broken: imageUnavailable);
     }
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
@@ -217,13 +223,27 @@ class _DetailImage extends StatelessWidget {
   }
 
   Widget _placeholder(BuildContext context, {required bool broken}) {
+    final AppLocalizations l = AppLocalizations.of(context);
     return Container(
       height: 220,
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       alignment: Alignment.center,
-      child: Icon(
-        broken ? Icons.broken_image : Icons.receipt_long,
-        size: broken ? 48 : 64,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Icon(
+            broken ? Icons.broken_image : Icons.receipt_long,
+            size: broken ? 48 : 64,
+          ),
+          if (broken) ...<Widget>[
+            const SizedBox(height: 8),
+            Text(
+              l.storageImageMissing,
+              style: Theme.of(context).textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ],
       ),
     );
   }

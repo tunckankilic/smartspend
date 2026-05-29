@@ -9,6 +9,7 @@ import 'package:smartspend/app/router.dart';
 import 'package:smartspend/core/services/onboarding_flag_store.dart';
 import 'package:smartspend/core/theme/app_theme.dart';
 import 'package:smartspend/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:smartspend/features/sync/presentation/bloc/sync_cubit.dart';
 import 'package:smartspend/l10n/generated/app_localizations.dart';
 
 /// Root widget for SmartSpend.
@@ -26,12 +27,14 @@ class SmartSpendApp extends StatefulWidget {
 class _SmartSpendAppState extends State<SmartSpendApp> {
   late final AuthBloc _authBloc;
   late final AppBloc _appBloc;
+  late final SyncCubit _syncCubit;
   late final GoRouter _router;
 
   @override
   void initState() {
     super.initState();
     _appBloc = sl<AppBloc>();
+    _syncCubit = sl<SyncCubit>();
     _authBloc = sl<AuthBloc>()..add(const AuthCheckRequested());
     _router = buildRouter(
       authBloc: _authBloc,
@@ -51,6 +54,7 @@ class _SmartSpendAppState extends State<SmartSpendApp> {
       providers: <BlocProvider<Object?>>[
         BlocProvider<AppBloc>.value(value: _appBloc),
         BlocProvider<AuthBloc>.value(value: _authBloc),
+        BlocProvider<SyncCubit>.value(value: _syncCubit),
       ],
       child: BlocBuilder<AppBloc, AppState>(
         builder: (BuildContext context, AppState state) {

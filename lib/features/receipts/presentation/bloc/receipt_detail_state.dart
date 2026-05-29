@@ -20,6 +20,7 @@ final class ReceiptDetailReady extends ReceiptDetailState {
     required this.detail,
     this.signedImageUrl,
     this.transientFailure,
+    this.imageUnavailable = false,
   });
 
   final ReceiptDetail detail;
@@ -29,23 +30,30 @@ final class ReceiptDetailReady extends ReceiptDetailState {
   final String? signedImageUrl;
   final Failure? transientFailure;
 
+  /// True when the receipt has a remote image but neither the local cache
+  /// nor the signed-URL fallback could produce it. Drives the
+  /// `storageImageMissing` notice in the UI.
+  final bool imageUnavailable;
+
   ReceiptDetailReady copyWith({
     ReceiptDetail? detail,
     String? signedImageUrl,
     Failure? transientFailure,
     bool clearTransient = false,
+    bool? imageUnavailable,
   }) {
     return ReceiptDetailReady(
       detail: detail ?? this.detail,
       signedImageUrl: signedImageUrl ?? this.signedImageUrl,
       transientFailure:
           clearTransient ? null : (transientFailure ?? this.transientFailure),
+      imageUnavailable: imageUnavailable ?? this.imageUnavailable,
     );
   }
 
   @override
   List<Object?> get props =>
-      <Object?>[detail, signedImageUrl, transientFailure];
+      <Object?>[detail, signedImageUrl, transientFailure, imageUnavailable];
 }
 
 final class ReceiptDetailError extends ReceiptDetailState {

@@ -13,6 +13,7 @@ import 'package:smartspend/core/database/daos/sync_dao.dart';
 import 'package:smartspend/core/database/daos/sync_log_dao.dart';
 import 'package:smartspend/core/database/daos/tag_dao.dart';
 import 'package:smartspend/core/database/daos/user_correction_dao.dart';
+import 'package:smartspend/core/database/daos/user_settings_dao.dart';
 import 'package:smartspend/core/services/notification_service.dart';
 import 'package:smartspend/core/services/onboarding_flag_store.dart';
 import 'package:smartspend/core/services/recurring_expense_scheduler.dart';
@@ -25,6 +26,7 @@ import 'package:smartspend/features/auth/data/datasources/supabase_auth_data_sou
 import 'package:smartspend/features/auth/data/repositories/supabase_auth_repository_impl.dart';
 import 'package:smartspend/features/auth/domain/repositories/auth_repository.dart';
 import 'package:smartspend/features/auth/domain/usecases/apple_sign_in_usecase.dart';
+import 'package:smartspend/features/auth/domain/usecases/delete_account_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/google_sign_in_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/reset_password_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/sign_in_usecase.dart';
@@ -98,6 +100,18 @@ import 'package:smartspend/features/split/data/share_plus_split_sink.dart';
 import 'package:smartspend/features/split/domain/repositories/split_repository.dart';
 import 'package:smartspend/features/split/domain/usecases/load_split_session.dart';
 import 'package:smartspend/features/split/presentation/bloc/split_bloc.dart';
+import 'package:smartspend/features/settings/data/datasources/export_remote_data_source.dart';
+import 'package:smartspend/features/settings/data/repositories/export_repository_impl.dart';
+import 'package:smartspend/features/settings/data/repositories/settings_repository_impl.dart';
+import 'package:smartspend/features/settings/domain/repositories/export_repository.dart';
+import 'package:smartspend/features/settings/domain/repositories/settings_repository.dart';
+import 'package:smartspend/features/settings/domain/usecases/export_data.dart';
+import 'package:smartspend/features/settings/domain/usecases/get_preferences.dart';
+import 'package:smartspend/features/settings/domain/usecases/set_currency.dart';
+import 'package:smartspend/features/settings/domain/usecases/set_notifications_enabled.dart';
+import 'package:smartspend/features/settings/presentation/bloc/export_cubit.dart';
+import 'package:smartspend/features/settings/presentation/bloc/settings_cubit.dart';
+import 'package:smartspend/features/sync/presentation/bloc/sync_cubit.dart';
 
 /// Process-wide service locator. Always inject via [sl] — never construct
 /// repositories, datasources, or BLoCs by hand.
@@ -143,6 +157,9 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton<UserCorrectionDao>(
       () => sl<AppDatabase>().userCorrectionDao,
     )
+    ..registerLazySingleton<UserSettingsDao>(
+      () => sl<AppDatabase>().userSettingsDao,
+    )
     // Local notifications — single shared plugin instance, initialised in
     // main.dart after DI wiring completes.
     ..registerLazySingleton<NotificationService>(
@@ -164,7 +181,10 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton<AppBloc>(AppBloc.new)
     // Auth feature (Sprint 8.2) -------------------------------------------
     ..registerLazySingleton<SupabaseAuthDataSource>(
-      () => SupabaseAuthDataSourceImpl(auth: sl<SupabaseClient>().auth),
+      () => SupabaseAuthDataSourceImpl(
+        auth: sl<SupabaseClient>().auth,
+        functions: sl<SupabaseClient>().functions,
+      ),
     )
     ..registerLazySingleton<AuthRepository>(
       () => SupabaseAuthRepositoryImpl(
@@ -179,6 +199,9 @@ Future<void> configureDependencies() async {
     )
     ..registerLazySingleton<SignOutUseCase>(
       () => SignOutUseCase(sl<AuthRepository>()),
+    )
+    ..registerLazySingleton<DeleteAccountUseCase>(
+      () => DeleteAccountUseCase(sl<AuthRepository>()),
     )
     ..registerLazySingleton<GoogleSignInUseCase>(
       () => GoogleSignInUseCase(sl<AuthRepository>()),
@@ -195,6 +218,7 @@ Future<void> configureDependencies() async {
         signIn: sl<SignInUseCase>(),
         signUp: sl<SignUpUseCase>(),
         signOut: sl<SignOutUseCase>(),
+        deleteAccount: sl<DeleteAccountUseCase>(),
         googleSignIn: sl<GoogleSignInUseCase>(),
         appleSignIn: sl<AppleSignInUseCase>(),
         resetPassword: sl<ResetPasswordUseCase>(),
@@ -259,6 +283,49 @@ Future<void> configureDependencies() async {
         remote: sl<SyncRemoteDataSource>(),
         connectivity: sl<Connectivity>(),
       ),
+    )
+    // SyncCubit is the presentation owner of the engine — singleton so the
+    // AppBar chip, offline banner, and conflict listener share one
+    // subscription. Started in `main` after wiring.
+    ..registerLazySingleton<SyncCubit>(
+      () => SyncCubit(
+        service: sl<SyncService>(),
+        connectivity: sl<Connectivity>(),
+      ),
+    )
+    // Settings feature (Sprint 8.3) — cloud-synced prefs + CSV export -----
+    ..registerLazySingleton<SettingsRepository>(
+      () => SettingsRepositoryImpl(dao: sl<UserSettingsDao>()),
+    )
+    ..registerLazySingleton<GetPreferencesUseCase>(
+      () => GetPreferencesUseCase(sl<SettingsRepository>()),
+    )
+    ..registerLazySingleton<SetCurrencyUseCase>(
+      () => SetCurrencyUseCase(sl<SettingsRepository>()),
+    )
+    ..registerLazySingleton<SetNotificationsEnabledUseCase>(
+      () => SetNotificationsEnabledUseCase(sl<SettingsRepository>()),
+    )
+    ..registerFactory<SettingsCubit>(
+      () => SettingsCubit(
+        getPreferences: sl<GetPreferencesUseCase>(),
+        setCurrency: sl<SetCurrencyUseCase>(),
+        setNotifications: sl<SetNotificationsEnabledUseCase>(),
+      ),
+    )
+    ..registerLazySingleton<ExportRemoteDataSource>(
+      () => SupabaseExportRemoteDataSource(
+        functions: sl<SupabaseClient>().functions,
+      ),
+    )
+    ..registerLazySingleton<ExportRepository>(
+      () => ExportRepositoryImpl(sl<ExportRemoteDataSource>()),
+    )
+    ..registerLazySingleton<ExportDataUseCase>(
+      () => ExportDataUseCase(sl<ExportRepository>()),
+    )
+    ..registerFactory<ExportCubit>(
+      () => ExportCubit(exportData: sl<ExportDataUseCase>()),
     )
     // ML Kit + Gemini share the OCRDataSource contract. The hybrid one is
     // what the repository asks for; the others are tagged via instanceName

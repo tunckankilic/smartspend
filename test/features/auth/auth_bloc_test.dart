@@ -10,6 +10,7 @@ import 'package:smartspend/core/error/failures.dart' as failures;
 import 'package:smartspend/features/auth/domain/entities/app_user.dart';
 import 'package:smartspend/features/auth/domain/repositories/auth_repository.dart';
 import 'package:smartspend/features/auth/domain/usecases/apple_sign_in_usecase.dart';
+import 'package:smartspend/features/auth/domain/usecases/delete_account_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/google_sign_in_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/reset_password_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/sign_in_usecase.dart';
@@ -26,6 +27,9 @@ class _MockSignInUseCase extends Mock implements SignInUseCase {}
 class _MockSignUpUseCase extends Mock implements SignUpUseCase {}
 
 class _MockSignOutUseCase extends Mock implements SignOutUseCase {}
+
+class _MockDeleteAccountUseCase extends Mock
+    implements DeleteAccountUseCase {}
 
 class _MockGoogleSignInUseCase extends Mock implements GoogleSignInUseCase {}
 
@@ -44,6 +48,7 @@ void main() {
   late _MockSignInUseCase signIn;
   late _MockSignUpUseCase signUp;
   late _MockSignOutUseCase signOut;
+  late _MockDeleteAccountUseCase deleteAccount;
   late _MockGoogleSignInUseCase googleSignIn;
   late _MockAppleSignInUseCase appleSignIn;
   late _MockResetPasswordUseCase resetPassword;
@@ -64,6 +69,7 @@ void main() {
     signIn = _MockSignInUseCase();
     signUp = _MockSignUpUseCase();
     signOut = _MockSignOutUseCase();
+    deleteAccount = _MockDeleteAccountUseCase();
     googleSignIn = _MockGoogleSignInUseCase();
     appleSignIn = _MockAppleSignInUseCase();
     resetPassword = _MockResetPasswordUseCase();
@@ -86,6 +92,7 @@ void main() {
     signIn: signIn,
     signUp: signUp,
     signOut: signOut,
+    deleteAccount: deleteAccount,
     googleSignIn: googleSignIn,
     appleSignIn: appleSignIn,
     resetPassword: resetPassword,
@@ -164,6 +171,30 @@ void main() {
       act: (AuthBloc bloc) => bloc.add(const AuthSignOutRequested()),
       expect: () => <Matcher>[isA<AuthLoading>(), isA<Unauthenticated>()],
       verify: (_) => verify(() => signOut()).called(1),
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'AuthAccountDeletionRequested success emits [AuthLoading, '
+      'Unauthenticated] and clears the local cache',
+      build: build,
+      setUp: () => when(() => deleteAccount()).thenAnswer(
+        (_) async => const Right<failures.AuthFailure, Unit>(unit),
+      ),
+      act: (AuthBloc bloc) =>
+          bloc.add(const AuthAccountDeletionRequested()),
+      expect: () => <Matcher>[isA<AuthLoading>(), isA<Unauthenticated>()],
+      verify: (_) => verify(() => deleteAccount()).called(1),
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'AuthAccountDeletionRequested failure emits [AuthLoading, AuthFailure]',
+      build: build,
+      setUp: () => when(() => deleteAccount()).thenAnswer(
+        (_) async => const Left<failures.AuthFailure, Unit>(tFailure),
+      ),
+      act: (AuthBloc bloc) =>
+          bloc.add(const AuthAccountDeletionRequested()),
+      expect: () => <Matcher>[isA<AuthLoading>(), isA<AuthFailure>()],
     );
 
     blocTest<AuthBloc, AuthState>(

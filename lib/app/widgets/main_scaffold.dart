@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:smartspend/features/sync/presentation/bloc/sync_cubit.dart';
 import 'package:smartspend/l10n/generated/app_localizations.dart';
 
 /// Wraps every tab route inside the shell.
@@ -53,7 +55,17 @@ class MainScaffold extends StatelessWidget {
     ];
 
     return Scaffold(
-      body: navigationShell,
+      body: BlocListener<SyncCubit, SyncState>(
+        listenWhen: (SyncState p, SyncState c) => c is SyncConflict,
+        listener: (BuildContext context, SyncState state) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(content: Text(l.syncConflictBanner)),
+            );
+        },
+        child: navigationShell,
+      ),
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(

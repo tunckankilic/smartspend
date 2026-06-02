@@ -13,6 +13,6 @@ class SharePlusSplitSink implements SplitShareSink {
 
   @override
   Future<void> share(String text) async {
-    await Share.share(text);
+    await SharePlus.instance.share(ShareParams(text: text));
   }
 }

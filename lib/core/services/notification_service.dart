@@ -130,7 +130,7 @@ abstract class NotificationService {
 /// Production implementation backed by `flutter_local_notifications`.
 class FlutterLocalNotificationService implements NotificationService {
   FlutterLocalNotificationService({FlutterLocalNotificationsPlugin? plugin})
-      : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
+    : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
 
   final FlutterLocalNotificationsPlugin _plugin;
   bool _initialised = false;
@@ -155,7 +155,7 @@ class FlutterLocalNotificationService implements NotificationService {
       iOS: darwin,
       macOS: darwin,
     );
-    await _plugin.initialize(settings);
+    await _plugin.initialize(settings: settings);
     _initialised = true;
   }
 
@@ -164,7 +164,8 @@ class FlutterLocalNotificationService implements NotificationService {
     if (Platform.isIOS || Platform.isMacOS) {
       final IOSFlutterLocalNotificationsPlugin? ios = _plugin
           .resolvePlatformSpecificImplementation<
-              IOSFlutterLocalNotificationsPlugin>();
+            IOSFlutterLocalNotificationsPlugin
+          >();
       final bool? granted = await ios?.requestPermissions(
         alert: true,
         badge: true,
@@ -175,7 +176,8 @@ class FlutterLocalNotificationService implements NotificationService {
     if (Platform.isAndroid) {
       final AndroidFlutterLocalNotificationsPlugin? android = _plugin
           .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
+            AndroidFlutterLocalNotificationsPlugin
+          >();
       final bool? granted = await android?.requestNotificationsPermission();
       return granted ?? true; // Android <13 implicitly grants.
     }
@@ -187,15 +189,17 @@ class FlutterLocalNotificationService implements NotificationService {
     if (Platform.isIOS || Platform.isMacOS) {
       final IOSFlutterLocalNotificationsPlugin? ios = _plugin
           .resolvePlatformSpecificImplementation<
-              IOSFlutterLocalNotificationsPlugin>();
-      final NotificationsEnabledOptions? options =
-          await ios?.checkPermissions();
+            IOSFlutterLocalNotificationsPlugin
+          >();
+      final NotificationsEnabledOptions? options = await ios
+          ?.checkPermissions();
       return options?.isEnabled ?? false;
     }
     if (Platform.isAndroid) {
       final AndroidFlutterLocalNotificationsPlugin? android = _plugin
           .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
+            AndroidFlutterLocalNotificationsPlugin
+          >();
       final bool? granted = await android?.areNotificationsEnabled();
       return granted ?? false;
     }
@@ -210,10 +214,10 @@ class FlutterLocalNotificationService implements NotificationService {
     required String body,
   }) async {
     await _plugin.show(
-      budgetNotificationId(budgetId),
-      title,
-      body,
-      _details(
+      id: budgetNotificationId(budgetId),
+      title: title,
+      body: body,
+      notificationDetails: _details(
         channelId: NotificationChannel.budgetAlerts,
         channelName: 'Budget alerts',
         importance: Importance.high,
@@ -228,10 +232,10 @@ class FlutterLocalNotificationService implements NotificationService {
     required String body,
   }) async {
     await _plugin.show(
-      _NotificationIdSpace.weeklySummary,
-      title,
-      body,
-      _details(
+      id: _NotificationIdSpace.weeklySummary,
+      title: title,
+      body: body,
+      notificationDetails: _details(
         channelId: NotificationChannel.weeklySummary,
         channelName: 'Weekly summary',
       ),
@@ -248,19 +252,17 @@ class FlutterLocalNotificationService implements NotificationService {
   }) async {
     final tz.TZDateTime scheduled = tz.TZDateTime.from(when.toUtc(), tz.UTC);
     await _plugin.zonedSchedule(
-      id,
-      title,
-      body,
-      scheduled,
-      _details(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: scheduled,
+      notificationDetails: _details(
         channelId: NotificationChannel.recurringReminders,
         channelName: 'Recurring reminders',
       ),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       // Required by the iOS<10 fallback path. We're iOS16+ minimum (see
       // CLAUDE.md), so wall-clock interpretation is the right pick.
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
       payload: 'recurring:$id',
     );
   }
@@ -274,23 +276,22 @@ class FlutterLocalNotificationService implements NotificationService {
   }) async {
     final tz.TZDateTime scheduled = tz.TZDateTime.from(when.toUtc(), tz.UTC);
     await _plugin.zonedSchedule(
-      id,
-      title,
-      body,
-      scheduled,
-      _details(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: scheduled,
+      notificationDetails: _details(
         channelId: NotificationChannel.warrantyReminders,
         channelName: 'Warranty reminders',
       ),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
+
       payload: 'warranty:$id',
     );
   }
 
   @override
-  Future<void> cancel(int id) => _plugin.cancel(id);
+  Future<void> cancel(int id) => _plugin.cancel(id: id);
 
   @override
   Future<void> cancelAll() => _plugin.cancelAll();

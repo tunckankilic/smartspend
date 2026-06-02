@@ -63,6 +63,33 @@ void main() {
   );
 
   blocTest<ExportCubit, ExportState>(
+    'should carry the PDF format into state and the use-case params',
+    build: () {
+      when(() => exportData(any()))
+          .thenAnswer((_) async => Right<Failure, ExportResult>(result));
+      return build();
+    },
+    act: (ExportCubit c) => c.exportData(format: ExportFormat.pdf),
+    expect: () => <ExportState>[
+      const ExportState(
+        status: ExportStatus.inProgress,
+        format: ExportFormat.pdf,
+      ),
+      ExportState(
+        status: ExportStatus.success,
+        format: ExportFormat.pdf,
+        result: result,
+      ),
+    ],
+    verify: (_) {
+      final ExportParams captured =
+          verify(() => exportData(captureAny())).captured.single
+              as ExportParams;
+      expect(captured.format, ExportFormat.pdf);
+    },
+  );
+
+  blocTest<ExportCubit, ExportState>(
     'should ignore a second export request while one is in flight',
     build: () {
       when(() => exportData(any())).thenAnswer((_) async {

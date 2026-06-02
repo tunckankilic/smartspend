@@ -62,6 +62,58 @@ with a clear owner in the codebase or infrastructure:
 | Error tracking & logs | Sentry (client) + Supabase logs + structured logger |
 | Availability & recovery | Daily backups + offline-first client + sync queue |
 
+The same picture, as a request flowing through the stack:
+
+```mermaid
+flowchart TD
+    subgraph Client["📱 Flutter client (offline-first)"]
+        UI["Presentation — BLoC / Cubit + Widgets"]
+        DOM["Domain — UseCases · Entities · Either&lt;Failure,T&gt;"]
+        DATA["Data — Repositories"]
+        DRIFT[("Drift / SQLite\nlocal cache + sync queue")]
+        SENTRY_C["Sentry SDK\ncrash · perf · breadcrumbs"]
+        UI --> DOM --> DATA
+        DATA --> DRIFT
+        UI -.-> SENTRY_C
+    end
+
+    subgraph Edge["🌐 Network layer"]
+        SYNC["SyncService\npush / pull · last-write-wins"]
+        CDN["Storage CDN\ncached_network_image"]
+    end
+
+    subgraph Backend["☁️ Supabase Cloud"]
+        AUTH["Auth — email · Google · Apple\n(PKCE)"]
+        REST["PostgREST auto-API"]
+        EF["Edge Functions (Deno)\ngemini-ocr · export-csv\nexport-pdf · delete-account\nweekly-summary"]
+        RLS{{"Row Level Security\non every table"}}
+        PG[("Postgres\n+ token-bucket rate limit")]
+        STORE[("Storage — receipts (private)\n+ exports · signed URLs")]
+    end
+
+    subgraph External["🔌 External services"]
+        GEMINI["Gemini Vision\n(OCR fallback)"]
+        SENTRY_S["Sentry\n(server errors + symbols)"]
+    end
+
+    subgraph CICD["🚀 CI/CD"]
+        GH["GitHub"]
+        CM["Codemagic\npr-check · release · supabase-deploy"]
+        TF["TestFlight / App Store"]
+    end
+
+    DATA -->|online| SYNC
+    SYNC --> AUTH
+    SYNC --> REST --> RLS --> PG
+    DATA -->|images| CDN --> STORE
+    EF --> RLS
+    EF --> GEMINI
+    EF -.-> SENTRY_S
+    AUTH --> PG
+    GH --> CM --> TF
+    CM -->|db push + deploy| EF
+```
+
 The goal isn't to over-engineer — it's to demonstrate *awareness* of what a
 real product has to handle, and to make each trade-off on purpose.
 
@@ -86,17 +138,57 @@ real product has to handle, and to make each trade-off on purpose.
 
 ---
 
+## Screenshots
+
+> Screenshots are added under [`assets/screenshots/`](assets/screenshots/)
+> (see the [capture guide](assets/screenshots/README.md)). Placeholders below
+> resolve once the PNGs land.
+
+| Scan | Parse result | Dashboard |
+|---|---|---|
+| ![Receipt scan](assets/screenshots/01-scan.png) | ![Parse result](assets/screenshots/02-parse-result.png) | ![Dashboard](assets/screenshots/03-dashboard.png) |
+
+| Expenses | Budgets | Receipt archive |
+|---|---|---|
+| ![Expenses](assets/screenshots/04-expenses.png) | ![Budgets](assets/screenshots/05-budget.png) | ![Receipt archive](assets/screenshots/06-receipt-archive.png) |
+
+---
+
 ## Architecture
 
 SmartSpend follows **Clean Architecture** with feature-based modules.
 Dependencies flow inward only:
 
+```mermaid
+flowchart LR
+    subgraph P["presentation"]
+        direction TB
+        B["BLoC / Cubit"]
+        W["Widgets / Pages"]
+    end
+    subgraph D["domain (pure Dart)"]
+        direction TB
+        UC["UseCases"]
+        EN["Entities"]
+        FA["Failures"]
+        RI["Repository interfaces"]
+    end
+    subgraph DT["data"]
+        direction TB
+        RIMP["Repository impls"]
+        LDS["Local datasource (Drift)"]
+        RDS["Remote datasource (Supabase)"]
+        MOD["Models / DTOs"]
+    end
+    P -->|depends on| D
+    DT -->|implements| D
+    RIMP --> LDS
+    RIMP --> RDS
 ```
-presentation  →  domain  ←  data
- BLoC / UI       entities    repositories
- pages           use cases   data sources
- widgets         failures    models / DTOs
-```
+
+Dependencies point **inward only**: `presentation → domain ← data`. The
+presentation layer never imports `data`; both outer layers depend on the pure
+`domain`.
 
 - **Presentation** never imports the data layer — it talks to the domain.
 - **Domain** is pure Dart: zero Flutter, Drift, or Supabase types. Every
@@ -121,6 +213,34 @@ land in Drift first with a `pending_*` status. A background `SyncService` then:
   `updated_at`,
 - **isolates per-row failures** — a single bad row is logged and retried next
   run instead of aborting the whole batch.
+
+A write while offline, then reconnecting:
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant B as BLoC / UseCase
+    participant R as Repository
+    participant L as Drift (local)
+    participant S as SyncService
+    participant SB as Supabase
+
+    U->>B: add / edit expense
+    B->>R: save(expense)
+    R->>L: write (status = pending)
+    L-->>R: ok
+    R-->>B: Right(expense)
+    Note over U,L: UI updates instantly — no network needed
+
+    Note over S,SB: network returns
+    S->>L: read pending rows (FK order)
+    S->>SB: push changes
+    SB-->>S: ok / per-row error
+    S->>SB: pull remote changes
+    SB-->>S: rows
+    S->>L: merge (last-write-wins by updated_at)
+    S->>L: mark synced (failed rows retried next run)
+```
 
 ### Security
 
@@ -161,7 +281,7 @@ Quality is enforced, not assumed:
 - **5 integration scenarios** in `integration_test/` exercise the offline-first
   engine end to end: offline-queue drain, sign-out cache wipe, server-pull
   merge, last-write-wins conflict rejection, and isolated push-failure retry.
-- **~80% line coverage** (79.5%), measured with generated sources excluded.
+- **~80% line coverage** (79.3%), measured with generated sources excluded.
 - **RLS policies** are tested separately with pgTAP.
 
 ```bash
@@ -195,6 +315,31 @@ the codegen commands above after a fresh checkout.
 flutter analyze --fatal-infos   # must be 0 issues
 flutter test                    # must be all green
 ```
+
+---
+
+## Continuous integration
+
+CI/CD runs on [Codemagic](https://codemagic.io) — see
+[`codemagic.yaml`](codemagic.yaml). Three workflows:
+
+| Workflow | Trigger | Does |
+|---|---|---|
+| `pr-check` | pull request | codegen → `flutter analyze --fatal-infos` → `flutter test --coverage` → coverage gate (≥ 79.0%, target 80%) → `supabase db lint` + pgTAP → unsigned iOS build |
+| `release` | `v*` tag push | tests → signed IPA → Sentry dSYM upload → TestFlight |
+| `supabase-deploy` | `main` push | `supabase db push` + Edge Function deploy *(enabled only after the first manual deploy)* |
+
+Secrets live in Codemagic environment groups (`supabase`, `sentry`,
+`appstore_connect`) and never appear in source. The Flutter binary only ever
+receives the anon key and public client IDs via `--dart-define-from-file=.env`;
+`service_role` and Gemini keys stay server-side.
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for branch naming, conventional commits,
+the codegen/l10n steps, how to run the test suites, and the PR checklist.
 
 ---
 

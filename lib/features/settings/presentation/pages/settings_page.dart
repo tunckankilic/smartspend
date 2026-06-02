@@ -8,6 +8,7 @@ import 'package:smartspend/app/injection_container.dart';
 import 'package:smartspend/core/utils/currency_formatter.dart';
 import 'package:smartspend/features/auth/domain/entities/app_user.dart';
 import 'package:smartspend/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:smartspend/features/settings/domain/entities/export_result.dart';
 import 'package:smartspend/features/settings/domain/entities/user_preferences.dart';
 import 'package:smartspend/features/settings/presentation/bloc/export_cubit.dart';
 import 'package:smartspend/features/settings/presentation/bloc/settings_cubit.dart';
@@ -109,6 +110,43 @@ class ExportResultData {
 
   final String url;
   final int rowCount;
+}
+
+/// A single export action row (CSV or PDF). Shows a spinner when [busy], and
+/// is disabled while [anyBusy] so the two exports can't run at once.
+class _ExportTile extends StatelessWidget {
+  const _ExportTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.busy,
+    required this.anyBusy,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool busy;
+  final bool anyBusy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      trailing: busy
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : null,
+      onTap: anyBusy ? null : onTap,
+    );
+  }
 }
 
 class _AccountSection extends StatelessWidget {
@@ -323,23 +361,31 @@ class _DataSection extends StatelessWidget {
       children: <Widget>[
         _SectionHeader(l.settingsDataSection),
         BlocBuilder<ExportCubit, ExportState>(
-          buildWhen: (ExportState p, ExportState c) => p.status != c.status,
+          buildWhen: (ExportState p, ExportState c) =>
+              p.status != c.status || p.format != c.format,
           builder: (BuildContext context, ExportState state) {
-            final bool busy = state.status == ExportStatus.inProgress;
-            return ListTile(
-              leading: const Icon(Icons.download_rounded),
-              title: Text(l.settingsDownloadData),
-              subtitle: Text(l.settingsDownloadDataSubtitle),
-              trailing: busy
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : null,
-              onTap: busy
-                  ? null
-                  : () => context.read<ExportCubit>().exportData(),
+            final bool inProgress = state.status == ExportStatus.inProgress;
+            return Column(
+              children: <Widget>[
+                _ExportTile(
+                  icon: Icons.download_rounded,
+                  title: l.settingsDownloadData,
+                  subtitle: l.settingsDownloadDataSubtitle,
+                  busy: inProgress && state.format == ExportFormat.csv,
+                  anyBusy: inProgress,
+                  onTap: () => context.read<ExportCubit>().exportData(),
+                ),
+                _ExportTile(
+                  icon: Icons.picture_as_pdf_rounded,
+                  title: l.settingsDownloadPdf,
+                  subtitle: l.settingsDownloadPdfSubtitle,
+                  busy: inProgress && state.format == ExportFormat.pdf,
+                  anyBusy: inProgress,
+                  onTap: () => context
+                      .read<ExportCubit>()
+                      .exportData(format: ExportFormat.pdf),
+                ),
+              ],
             );
           },
         ),

@@ -10,8 +10,10 @@ import 'package:smartspend/features/settings/domain/usecases/export_data.dart';
 
 part 'export_state.dart';
 
-/// Drives the "download my data" action: requests a server-side CSV export
-/// and surfaces the signed URL (or a failure) for the UI to act on.
+/// Drives the "download my data" action: requests a server-side export
+/// (CSV or PDF) and surfaces the signed URL (or a failure) for the UI to act
+/// on. The in-progress [ExportState.format] lets the UI show a per-button
+/// spinner.
 class ExportCubit extends Cubit<ExportState> {
   ExportCubit({required ExportDataUseCase exportData})
     : _exportData = exportData,
@@ -19,11 +21,21 @@ class ExportCubit extends Cubit<ExportState> {
 
   final ExportDataUseCase _exportData;
 
-  Future<void> exportData({DateTime? from, DateTime? to}) async {
+  Future<void> exportData({
+    DateTime? from,
+    DateTime? to,
+    ExportFormat format = ExportFormat.csv,
+  }) async {
     if (state.status == ExportStatus.inProgress) return;
-    emit(state.copyWith(status: ExportStatus.inProgress, clearFailure: true));
+    emit(
+      state.copyWith(
+        status: ExportStatus.inProgress,
+        format: format,
+        clearFailure: true,
+      ),
+    );
     final Either<Failure, ExportResult> result =
-        await _exportData(ExportParams(from: from, to: to));
+        await _exportData(ExportParams(from: from, to: to, format: format));
     result.fold(
       (Failure f) => emit(
         state.copyWith(status: ExportStatus.failure, failure: f),

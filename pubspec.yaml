@@ -63,11 +63,11 @@ dependencies:
   fl_chart: ^1.1.0
 
   # Local notifications (budget alerts, recurring reminders) — Sprint 6
-  flutter_local_notifications: ^17.2.4
-  timezone: ^0.9.4
+  flutter_local_notifications: ^21.0.0
+  timezone: ^0.11.0
 
   # System share sheet (Sprint 7: split-summary share — WhatsApp/SMS/etc.).
-  share_plus: ^10.1.4
+  share_plus: ^13.1.0
 
   # Opens the signed CSV-export download URL (Sprint 8.3: "download my data").
   url_launcher: ^6.3.1

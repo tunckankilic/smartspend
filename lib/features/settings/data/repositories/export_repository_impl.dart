@@ -15,11 +15,13 @@ class ExportRepositoryImpl implements ExportRepository {
   Future<Either<Failure, ExportResult>> exportExpenses({
     DateTime? from,
     DateTime? to,
+    ExportFormat format = ExportFormat.csv,
   }) async {
     try {
       final ExportResult result = await _remote.exportExpenses(
         from: from,
         to: to,
+        format: format,
       );
       return Right<Failure, ExportResult>(result);
     } on ServerException catch (e) {

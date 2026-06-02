@@ -445,6 +445,8 @@
   "settingsNotificationsSubtitle": "Bütçe uyarıları ve hatırlatmalar",
   "settingsDownloadData": "Verilerimi indir",
   "settingsDownloadDataSubtitle": "Her şeyi CSV dosyası olarak dışa aktar",
+  "settingsDownloadPdf": "PDF raporu indir",
+  "settingsDownloadPdfSubtitle": "Aylık harcama raporunu PDF olarak dışa aktar",
   "languageTurkish": "Türkçe",
   "languageEnglish": "English",
   "languageGerman": "Deutsch",

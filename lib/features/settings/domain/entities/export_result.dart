@@ -1,6 +1,10 @@
 import 'package:equatable/equatable.dart';
 
-/// Result of a server-side CSV export — a signed download URL plus metadata.
+/// The file format a server-side export produces. Each maps to its own
+/// Edge Function (`export-csv` / `export-pdf`).
+enum ExportFormat { csv, pdf }
+
+/// Result of a server-side export — a signed download URL plus metadata.
 class ExportResult extends Equatable {
   const ExportResult({
     required this.url,

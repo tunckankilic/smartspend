@@ -80,14 +80,45 @@ void main() {
         expiresAt: DateTime.utc(2026, 6, 2),
         rowCount: 42,
       );
-      when(() => export.exportExpenses(from: from, to: to))
-          .thenAnswer((_) async => Right<Failure, ExportResult>(expected));
+      when(
+        () => export.exportExpenses(
+          from: from,
+          to: to,
+          format: ExportFormat.csv,
+        ),
+      ).thenAnswer((_) async => Right<Failure, ExportResult>(expected));
 
       final Either<Failure, ExportResult> result =
           await ExportDataUseCase(export)(ExportParams(from: from, to: to));
 
       expect(result, Right<Failure, ExportResult>(expected));
-      verify(() => export.exportExpenses(from: from, to: to)).called(1);
+      verify(
+        () => export.exportExpenses(
+          from: from,
+          to: to,
+          format: ExportFormat.csv,
+        ),
+      ).called(1);
+    });
+
+    test('should forward the PDF format to the repository', () async {
+      final ExportResult expected = ExportResult(
+        url: 'https://example.test/export.pdf',
+        expiresAt: DateTime.utc(2026, 6, 2),
+        rowCount: 7,
+      );
+      when(
+        () => export.exportExpenses(format: ExportFormat.pdf),
+      ).thenAnswer((_) async => Right<Failure, ExportResult>(expected));
+
+      final Either<Failure, ExportResult> result = await ExportDataUseCase(
+        export,
+      )(const ExportParams(format: ExportFormat.pdf));
+
+      expect(result, Right<Failure, ExportResult>(expected));
+      verify(
+        () => export.exportExpenses(format: ExportFormat.pdf),
+      ).called(1);
     });
 
     test('ExportParams props include from and to', () {

@@ -157,4 +157,25 @@ void main() {
 
     verify(() => exportData(any())).called(1);
   });
+
+  testWidgets('requests a PDF export when "Download PDF report" is tapped', (
+    WidgetTester tester,
+  ) async {
+    when(() => exportData(any())).thenAnswer(
+      (_) async =>
+          const Left<Failure, ExportResult>(ServerFailure(message: 'x')),
+    );
+    await tester.pumpWidget(wrap());
+    await tester.pumpAndSettle();
+
+    final Finder tile = find.widgetWithText(ListTile, 'Download PDF report');
+    await tester.ensureVisible(tile);
+    await tester.pumpAndSettle();
+    await tester.tap(tile);
+    await tester.pump();
+
+    final ExportParams captured =
+        verify(() => exportData(captureAny())).captured.single as ExportParams;
+    expect(captured.format, ExportFormat.pdf);
+  });
 }

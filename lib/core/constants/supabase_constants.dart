@@ -23,6 +23,7 @@ abstract class SupabaseConstants {
   static const String fnGeminiOcrFallback = 'gemini-ocr-fallback';
   static const String fnWeeklySummary = 'weekly-summary';
   static const String fnExportCsv = 'export-csv';
+  static const String fnExportPdf = 'export-pdf';
   static const String fnDeleteAccount = 'delete-account';
 
   /// Confirmation token the `delete-account` Edge Function requires in the

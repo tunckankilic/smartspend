@@ -436,6 +436,8 @@
   "settingsNotificationsSubtitle": "Budget alerts and reminders",
   "settingsDownloadData": "Download my data",
   "settingsDownloadDataSubtitle": "Export everything as a CSV file",
+  "settingsDownloadPdf": "Download PDF report",
+  "settingsDownloadPdfSubtitle": "Export your monthly spending report as a PDF",
   "languageTurkish": "Türkçe",
   "languageEnglish": "English",
   "languageGerman": "Deutsch",

@@ -10,13 +10,17 @@ import 'package:smartspend/core/constants/supabase_constants.dart';
 import 'package:smartspend/core/error/exceptions.dart';
 import 'package:smartspend/features/settings/domain/entities/export_result.dart';
 
-/// Calls the `export-csv` Supabase Edge Function.
+/// Calls the `export-csv` / `export-pdf` Supabase Edge Functions.
 ///
 /// The function authenticates via the caller's JWT (attached automatically by
-/// the SDK), queries the user's own expenses under RLS, writes a CSV to the
+/// the SDK), queries the user's own expenses under RLS, writes the file to the
 /// `exports/{user_id}/…` bucket, and returns a 24h signed download URL.
 abstract class ExportRemoteDataSource {
-  Future<ExportResult> exportExpenses({DateTime? from, DateTime? to});
+  Future<ExportResult> exportExpenses({
+    DateTime? from,
+    DateTime? to,
+    ExportFormat format,
+  });
 }
 
 class SupabaseExportRemoteDataSource implements ExportRemoteDataSource {
@@ -27,8 +31,19 @@ class SupabaseExportRemoteDataSource implements ExportRemoteDataSource {
 
   static final DateFormat _dateParam = DateFormat('yyyy-MM-dd');
 
+  /// Maps an [ExportFormat] to its Edge Function name.
+  static String _functionName(ExportFormat format) => switch (format) {
+    ExportFormat.csv => SupabaseConstants.fnExportCsv,
+    ExportFormat.pdf => SupabaseConstants.fnExportPdf,
+  };
+
   @override
-  Future<ExportResult> exportExpenses({DateTime? from, DateTime? to}) async {
+  Future<ExportResult> exportExpenses({
+    DateTime? from,
+    DateTime? to,
+    ExportFormat format = ExportFormat.csv,
+  }) async {
+    final String fnName = _functionName(format);
     final Map<String, dynamic> query = <String, dynamic>{
       if (from != null) 'from_date': _dateParam.format(from),
       if (to != null) 'to_date': _dateParam.format(to),
@@ -36,36 +51,36 @@ class SupabaseExportRemoteDataSource implements ExportRemoteDataSource {
 
     try {
       final FunctionResponse response = await _functions.invoke(
-        SupabaseConstants.fnExportCsv,
+        fnName,
         method: HttpMethod.get,
         queryParameters: query.isEmpty ? null : query,
       );
 
       if (response.status >= 400) {
         throw ServerException(
-          message: 'export-csv returned HTTP ${response.status}.',
+          message: '$fnName returned HTTP ${response.status}.',
         );
       }
 
       final Object? data = response.data;
       if (data is! Map<String, Object?>) {
-        throw const ServerException(
-          message: 'export-csv returned an unexpected payload shape.',
+        throw ServerException(
+          message: '$fnName returned an unexpected payload shape.',
         );
       }
       final Object? payload = data['data'];
       if (payload is! Map<String, Object?>) {
-        throw const ServerException(
-          message: 'export-csv response missing "data" envelope.',
+        throw ServerException(
+          message: '$fnName response missing "data" envelope.',
         );
       }
       return _parse(payload);
     } on ServerException {
       rethrow;
     } on FunctionException catch (e) {
-      throw ServerException(message: 'export-csv failed: ${e.status}');
+      throw ServerException(message: '$fnName failed: ${e.status}');
     } on Exception catch (e) {
-      throw ServerException(message: 'export-csv transport error: $e');
+      throw ServerException(message: '$fnName transport error: $e');
     }
   }
 

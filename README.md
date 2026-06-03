@@ -251,6 +251,44 @@ and secrets never ship in source or reach the client.
 
 ---
 
+## Engineering decisions
+
+Every choice here is a trade-off made on purpose, not a default:
+
+- **BLoC + Cubit, not Riverpod/GetX/Provider.** Wanted explicit, testable event
+  → state transitions with first-class `bloc_test` support, and a single
+  `BlocObserver` to feed Sentry breadcrumbs. Cost: more boilerplate than
+  Riverpod — accepted for traceability.
+- **Money as `int` (minor units), never `double`.** Floating point can't
+  represent currency exactly; all amounts are integer kuruş/cents and only
+  formatted to a locale string at the edge. Cost: manual scaling in formatters.
+- **Offline-first with last-write-wins.** Reads come from Drift so the UI never
+  blocks on the network; writes are local-first and synced later. LWW (by
+  `updated_at`) is simple and predictable for a single-user-multi-device app.
+  Cost: no field-level merge — acceptable here, where conflicting edits to the
+  *same* row from two devices are rare. A CRDT/vector-clock would be
+  over-engineering for the use case.
+- **Errors as values (`Either<Failure, T>`).** Domain and data layers never
+  throw; failures are typed and pattern-matched. Makes the unhappy path
+  impossible to forget. Cost: ceremony at every call site.
+- **Drift *and* Supabase (two sources).** Drift is the read source and offline
+  cache; Supabase is the source of truth when online. The repository hides the
+  arbitration so BLoCs stay source-agnostic.
+- **RLS on every table, tested with pgTAP.** Security lives in the database, not
+  just the client — even a compromised client can only ever touch its owner's
+  rows. The policies are version-controlled and have their own test suite.
+- **On-device OCR first, Gemini only as fallback.** ML Kit is free, private, and
+  has no round-trip; the paid Gemini call is reserved for hard receipts and
+  gated by a server-side token bucket. Optimizes for cost and privacy.
+- **Secrets only in Edge Functions.** The app ships nothing but the anon key
+  (gated by RLS) and public client IDs; `service_role` and the Gemini key live
+  server-side and are derived from the JWT, never trusted from the client.
+- **Clean Architecture, strictly.** Dependencies point inward; the domain is
+  pure Dart. Cost: more files per feature — paid back in testability and the
+  ability to swap Drift/Supabase without touching the UI.
+
+---
+
 ## Tech stack
 
 | Concern | Choice |

@@ -21,9 +21,14 @@
 
 import {
   PDFDocument,
+  type PDFFont,
   StandardFonts,
   rgb,
 } from "https://esm.sh/pdf-lib@1.17.1";
+// fontkit ships a CommonJS default export but its .d.ts declares none, so a
+// default import fails type-checking. Import the namespace and unwrap the
+// runtime default.
+import * as fontkitNs from "https://esm.sh/@pdf-lib/fontkit@1.1.1";
 
 import { corsHeaders } from "../_shared/cors.ts";
 import {
@@ -37,8 +42,42 @@ import {
 // deno-lint-ignore no-explicit-any
 declare const Deno: any;
 
+// Runtime fontkit object (default export under esm.sh CJS interop).
+// deno-lint-ignore no-explicit-any
+const fontkit: any = (fontkitNs as any).default ?? fontkitNs;
+
 const EXPORTS_BUCKET = "exports";
 const SIGNED_URL_TTL_SECONDS = 24 * 60 * 60; // 24h.
+
+// Unicode font (Roboto) so Turkish letters (ı İ ş ğ) and German umlauts render
+// exactly. The built-in Helvetica only covers WinAnsi and would otherwise drop
+// Turkish-specific glyphs. Pinned, complete TTFs (full Latin + Latin Extended).
+const FONT_REGULAR_URL =
+  "https://cdn.jsdelivr.net/npm/@expo-google-fonts/roboto@0.2.3/Roboto_400Regular.ttf";
+const FONT_BOLD_URL =
+  "https://cdn.jsdelivr.net/npm/@expo-google-fonts/roboto@0.2.3/Roboto_700Bold.ttf";
+
+/// Font bytes are fetched once per isolate (cold start) and reused. Cached on
+/// success only, so a transient network failure is retried on the next call.
+let _fontBytes: [Uint8Array, Uint8Array] | null = null;
+
+/// Loader signature so tests can inject deterministic / failing fonts.
+export type FontLoader = () => Promise<[Uint8Array, Uint8Array]>;
+
+async function loadUnicodeFontBytes(): Promise<[Uint8Array, Uint8Array]> {
+  if (_fontBytes) return _fontBytes;
+  const fetchTtf = async (url: string): Promise<Uint8Array> => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`font fetch ${res.status}`);
+    return new Uint8Array(await res.arrayBuffer());
+  };
+  const bytes: [Uint8Array, Uint8Array] = [
+    await fetchTtf(FONT_REGULAR_URL),
+    await fetchTtf(FONT_BOLD_URL),
+  ];
+  _fontBytes = bytes;
+  return bytes;
+}
 
 interface ExportData {
   url: string;
@@ -209,11 +248,32 @@ export function formatMinor(amountMinor: number): string {
   return `${sign}${major}.${minor}`;
 }
 
-/// Render the report model to PDF bytes. Paginates at 40 rows per page.
-export async function renderPdf(model: ReportModel): Promise<Uint8Array> {
+/// Render the report model to PDF bytes. Paginates at 32 rows per page.
+///
+/// Embeds a Unicode font (Roboto) so Turkish + German render exactly. If the
+/// font can't be loaded (e.g. transient network failure at cold start), it
+/// falls back to the built-in Helvetica with Turkish-only transliteration so
+/// the export never fails. [fontLoader] is injectable for tests.
+export async function renderPdf(
+  model: ReportModel,
+  fontLoader: FontLoader = loadUnicodeFontBytes,
+): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  const font = await doc.embedFont(StandardFonts.Helvetica);
-  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+
+  let font: PDFFont;
+  let bold: PDFFont;
+  let sanitize: (s: string) => string;
+  try {
+    doc.registerFontkit(fontkit);
+    const [regularBytes, boldBytes] = await fontLoader();
+    font = await doc.embedFont(regularBytes, { subset: true });
+    bold = await doc.embedFont(boldBytes, { subset: true });
+    sanitize = (s) => s; // Unicode font — no transliteration needed.
+  } catch (_) {
+    font = await doc.embedFont(StandardFonts.Helvetica);
+    bold = await doc.embedFont(StandardFonts.HelveticaBold);
+    sanitize = winAnsiSafe; // WinAnsi fallback — map Turkish-only glyphs.
+  }
 
   const pageWidth = 595; // A4 portrait points.
   const pageHeight = 842;
@@ -264,9 +324,21 @@ export async function renderPdf(model: ReportModel): Promise<Uint8Array> {
     f = font,
     color = ink,
   ) => {
-    page.drawText(trunc(date, 14), { x: cols[0], y, size: 9, font: f, color });
-    page.drawText(trunc(store, 26), { x: cols[1], y, size: 9, font: f, color });
-    page.drawText(trunc(category, 20), {
+    page.drawText(trunc(date, 14, sanitize), {
+      x: cols[0],
+      y,
+      size: 9,
+      font: f,
+      color,
+    });
+    page.drawText(trunc(store, 26, sanitize), {
+      x: cols[1],
+      y,
+      size: 9,
+      font: f,
+      color,
+    });
+    page.drawText(trunc(category, 20, sanitize), {
       x: cols[2],
       y,
       size: 9,
@@ -324,16 +396,20 @@ export async function renderPdf(model: ReportModel): Promise<Uint8Array> {
   return doc.save();
 }
 
-function trunc(s: string, max: number): string {
-  const safe = winAnsiSafe(s);
+function trunc(
+  s: string,
+  max: number,
+  sanitize: (s: string) => string,
+): string {
+  const safe = sanitize(s);
   return safe.length > max ? `${safe.slice(0, max - 1)}...` : safe;
 }
 
-/// The built-in Helvetica font encodes WinAnsi (CP1252), which covers German
-/// umlauts (ä ö ü ß) but NOT the Turkish-specific letters ı İ ş ğ. We
-/// transliterate those few glyphs so user data (store / category names) never
-/// crashes PDF generation. Future improvement: embed a Unicode TrueType font
-/// via `@pdf-lib/fontkit` to render Turkish exactly.
+/// WinAnsi (CP1252) — used only by the Helvetica fallback path — covers German
+/// umlauts (ä ö ü ß) but NOT the Turkish-specific letters ı İ ş ğ. When the
+/// Unicode font (Roboto) can't be loaded, we transliterate those few glyphs so
+/// user data (store / category names) never crashes PDF generation. The normal
+/// path embeds Roboto and renders Turkish exactly — no transliteration.
 const _winAnsiMap: Record<string, string> = {
   "ı": "i",
   "İ": "I",

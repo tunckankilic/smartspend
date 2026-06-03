@@ -164,27 +164,25 @@ workflows:
       - name: Set up code signing
         script: |
           xcode-project use-profiles
-      - name: Build signed IPA
+      - name: Build signed IPA (with Dart debug symbols)
         script: |
+          # --split-debug-info emits the Dart symbol files Sentry needs to
+          # symbolicate Dart-level stack traces (not just native iOS frames).
           flutter build ipa --release \
             --build-name="$VERSION" \
             --build-number="$BUILD" \
+            --split-debug-info=build/symbols \
             --dart-define=SENTRY_RELEASE="${VERSION}+${BUILD}" \
             --dart-define-from-file=.env \
             --export-options-plist=/Users/builder/export_options.plist
-      - name: Upload iOS debug symbols (dSYMs) to Sentry
+      - name: Upload symbols to Sentry (iOS dSYMs + Dart symbols)
         script: |
-          # Symbolicates native iOS crashes. SENTRY_AUTH_TOKEN, SENTRY_ORG and
-          # SENTRY_PROJECT come from the `sentry` env group.
-          # NOTE: Dart/Flutter source-map upload requires the
-          # `sentry_dart_plugin` dev dependency + sentry.properties, which is a
-          # follow-up app-side change (out of scope for this codemagic.yaml).
-          curl -sL https://sentry.io/get-cli/ | bash
-          sentry-cli releases new "${VERSION}+${BUILD}"
-          find build/ -name "*.dSYM" -print0 \
-            | xargs -0 sentry-cli debug-files upload \
-                --org "$SENTRY_ORG" --project "$SENTRY_PROJECT" || true
-          sentry-cli releases finalize "${VERSION}+${BUILD}"
+          # sentry_dart_plugin reads org/project from pubspec.yaml's `sentry:`
+          # block and the auth token from SENTRY_AUTH_TOKEN (sentry env group).
+          # SENTRY_RELEASE was exported above. Non-fatal: a symbol-upload hiccup
+          # must not block shipping the build to TestFlight.
+          export SENTRY_RELEASE="${VERSION}+${BUILD}"
+          dart run sentry_dart_plugin || echo "WARN: Sentry symbol upload failed"
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
@@ -237,7 +235,11 @@ workflows:
           supabase functions deploy delete-account
           supabase functions deploy export-csv
           supabase functions deploy export-pdf
-          supabase functions deploy weekly-summary
+          # weekly-summary is DEFERRED from v1 — its Deno.serve entry-point is
+          # still commented out (unfinished stub). Re-enable this line once the
+          # function is finished and supabase/cron/weekly_summary_cron.sql is
+          # applied. Deploying it now would ship a function with no handler.
+          # supabase functions deploy weekly-summary
         # NOTE: Edge Function SECRETS (GEMINI_API_KEY, SUPABASE_SERVICE_ROLE_KEY)
         # are set once via `supabase secrets set …` — that is a MANUAL step, not
         # automated here, so secrets never pass through CI logs.
@@ -258,8 +260,8 @@ workflows:
 #   group "sentry"
 #     SENTRY_DSN              client DSN
 #     SENTRY_AUTH_TOKEN       upload token                          [secure]
-#     SENTRY_ORG             Sentry org slug
-#     SENTRY_PROJECT         Sentry project slug
+#     (org/project live in pubspec.yaml's `sentry:` block — replace
+#      REPLACE_WITH_SENTRY_ORG there; not secrets, so no env var needed)
 #
 #   group "appstore_connect"
 #     Created automatically by the App Store Connect API key integration

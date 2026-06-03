@@ -9,6 +9,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - **PDF export** — monthly spending report generated server-side by the
   `export-pdf` Edge Function, downloadable from Settings alongside CSV export.
+  Renders Turkish (ı/İ/ş/ğ) and German exactly via an embedded Roboto Unicode
+  font, with a graceful Helvetica fallback if the font can't be fetched.
 - **CI/CD** — Codemagic pipeline (`codemagic.yaml`) with `pr-check`, `release`
   (TestFlight), and `supabase-deploy` workflows.
 - **Docs** — Mermaid architecture diagrams in the README, `CONTRIBUTING.md`,

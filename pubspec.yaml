@@ -96,6 +96,21 @@ dev_dependencies:
   drift_dev: ^2.21.0
   injectable_generator: ^3.0.2
 
+  # Release tooling: uploads iOS dSYMs + Dart (split-debug-info) symbols to
+  # Sentry so release crashes symbolicate. Run via `dart run sentry_dart_plugin`
+  # in the Codemagic `release` workflow after the build.
+  sentry_dart_plugin: ^2.4.0
+
+# sentry_dart_plugin configuration. org/project are not secrets; the auth token
+# is read from the SENTRY_AUTH_TOKEN env var in CI (never committed). The
+# release name is passed via SENTRY_RELEASE in the release workflow.
+sentry:
+  upload_debug_symbols: true
+  upload_sources: false
+  upload_source_maps: false
+  project: smartspend
+  org: REPLACE_WITH_SENTRY_ORG
+
 flutter:
   uses-material-design: true
   generate: true

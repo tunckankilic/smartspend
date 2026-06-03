@@ -4,6 +4,10 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<!-- App uses only standard HTTPS/TLS encryption → export-compliance exempt.
+	     Declaring this skips the "missing compliance" prompt on every upload. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSCameraUsageDescription</key>
 	<string>SmartSpend uses the camera to scan receipts and extract expense details automatically.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -22,11 +26,33 @@
 				<string>site.tunckankilic.smartspend</string>
 			</array>
 		</dict>
+		<!-- Google Sign-In on iOS requires the REVERSED iOS OAuth client id as a
+		     URL scheme. Replace the placeholder below with the reversed form of
+		     GOOGLE_IOS_CLIENT_ID, e.g. if the client id is
+		     1234-abcd.apps.googleusercontent.com the scheme is
+		     com.googleusercontent.apps.1234-abcd. Until replaced, Google sign-in
+		     will not return to the app. -->
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>google-signin</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.REPLACE_WITH_REVERSED_IOS_CLIENT_ID</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>tr</string>
+		<string>de</string>
 	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Smartspend</string>
+	<string>SmartSpend</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

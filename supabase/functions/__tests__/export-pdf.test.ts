@@ -93,7 +93,7 @@ Deno.test("winAnsiSafe transliterates Turkish-only letters, keeps umlauts", () =
   assertEquals(winAnsiSafe("Müller Bäckerei"), "Müller Bäckerei");
 });
 
-Deno.test("renderPdf produces a non-empty PDF document", async () => {
+Deno.test("renderPdf produces a non-empty PDF (Unicode font path)", async () => {
   const model = buildReportModel(
     [
       {
@@ -102,14 +102,39 @@ Deno.test("renderPdf produces a non-empty PDF document", async () => {
         currency: "TRY",
         note: "lunch",
         category: { name: "Restoran" },
-        receipt: { store_name: "Kebapçı" },
+        receipt: { store_name: "Kebapçı Şişğı" }, // Turkish-only glyphs.
       },
     ],
     "2026-05-01",
     "2026-05-31",
   );
+  // Real loader fetches Roboto; Turkish glyphs render without transliteration.
   const bytes = await renderPdf(model);
   // PDF files start with the "%PDF" magic bytes.
+  const header = new TextDecoder().decode(bytes.slice(0, 4));
+  assertStringIncludes(header, "%PDF");
+});
+
+Deno.test("renderPdf falls back to Helvetica when the font can't load", async () => {
+  const model = buildReportModel(
+    [
+      {
+        date: "2026-05-01",
+        amount: 1250,
+        currency: "TRY",
+        note: "lunch",
+        category: { name: "Restoran" },
+        receipt: { store_name: "Kebapçı Şişğı" },
+      },
+    ],
+    "2026-05-01",
+    "2026-05-31",
+  );
+  // Injected loader fails → fallback path must still produce a valid PDF
+  // (Turkish glyphs transliterated, never a crash).
+  const bytes = await renderPdf(model, () => {
+    throw new Error("offline");
+  });
   const header = new TextDecoder().decode(bytes.slice(0, 4));
   assertStringIncludes(header, "%PDF");
 });

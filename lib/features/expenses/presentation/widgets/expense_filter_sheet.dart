@@ -101,8 +101,10 @@ class _ExpenseFilterSheetState extends State<ExpenseFilterSheet> {
             const SizedBox(height: 16),
 
             // Date range -----------------------------------------------
-            Text(l.expenseListFilterDateRange,
-                style: theme.textTheme.titleSmall),
+            Text(
+              l.expenseListFilterDateRange,
+              style: theme.textTheme.titleSmall,
+            ),
             const SizedBox(height: 8),
             Row(
               children: <Widget>[
@@ -153,37 +155,40 @@ class _ExpenseFilterSheetState extends State<ExpenseFilterSheet> {
             ),
 
             const SizedBox(height: 16),
-            Text(l.expenseListFilterCategories,
-                style: theme.textTheme.titleSmall),
+            Text(
+              l.expenseListFilterCategories,
+              style: theme.textTheme.titleSmall,
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 4,
               children: widget.categories
-                  .map((Category c) => FilterChip(
-                        avatar: Icon(
-                          iconForCategory(c.icon),
-                          size: 16,
-                          color: Color(c.color),
-                        ),
-                        label: Text(c.name),
-                        selected: _categoryIds.contains(c.id),
-                        onSelected: (bool sel) {
-                          setState(() {
-                            if (sel) {
-                              _categoryIds.add(c.id);
-                            } else {
-                              _categoryIds.remove(c.id);
-                            }
-                          });
-                        },
-                      ))
+                  .map(
+                    (Category c) => FilterChip(
+                      avatar: Icon(
+                        iconForCategory(c.icon),
+                        size: 16,
+                        color: Color(c.color),
+                      ),
+                      label: Text(c.name),
+                      selected: _categoryIds.contains(c.id),
+                      onSelected: (bool sel) {
+                        setState(() {
+                          if (sel) {
+                            _categoryIds.add(c.id);
+                          } else {
+                            _categoryIds.remove(c.id);
+                          }
+                        });
+                      },
+                    ),
+                  )
                   .toList(growable: false),
             ),
 
             const SizedBox(height: 16),
-            Text(l.expenseListFilterAmount,
-                style: theme.textTheme.titleSmall),
+            Text(l.expenseListFilterAmount, style: theme.textTheme.titleSmall),
             const SizedBox(height: 8),
             Row(
               children: <Widget>[
@@ -197,8 +202,7 @@ class _ExpenseFilterSheetState extends State<ExpenseFilterSheet> {
                       labelText: l.expenseListFilterMin,
                       border: const OutlineInputBorder(),
                     ),
-                    onChanged: (String v) =>
-                        _minAmount = parseMinorInput(v),
+                    onChanged: (String v) => _minAmount = parseMinorInput(v),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -212,8 +216,7 @@ class _ExpenseFilterSheetState extends State<ExpenseFilterSheet> {
                       labelText: l.expenseListFilterMax,
                       border: const OutlineInputBorder(),
                     ),
-                    onChanged: (String v) =>
-                        _maxAmount = parseMinorInput(v),
+                    onChanged: (String v) => _maxAmount = parseMinorInput(v),
                   ),
                 ),
               ],
@@ -224,13 +227,15 @@ class _ExpenseFilterSheetState extends State<ExpenseFilterSheet> {
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
-              children: ExpenseSortOrder.values.map((ExpenseSortOrder o) {
-                return ChoiceChip(
-                  label: Text(_sortLabel(l, o)),
-                  selected: _sort == o,
-                  onSelected: (_) => setState(() => _sort = o),
-                );
-              }).toList(growable: false),
+              children: ExpenseSortOrder.values
+                  .map((ExpenseSortOrder o) {
+                    return ChoiceChip(
+                      label: Text(_sortLabel(l, o)),
+                      selected: _sort == o,
+                      onSelected: (_) => setState(() => _sort = o),
+                    );
+                  })
+                  .toList(growable: false),
             ),
 
             const SizedBox(height: 24),

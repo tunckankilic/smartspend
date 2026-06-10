@@ -56,8 +56,9 @@ class _TagInputState extends State<TagInput> {
   Widget build(BuildContext context) {
     final AppLocalizations l = AppLocalizations.of(context);
     final ThemeData theme = Theme.of(context);
-    final Set<String> currentLower =
-        widget.tags.map((String t) => t.toLowerCase()).toSet();
+    final Set<String> currentLower = widget.tags
+        .map((String t) => t.toLowerCase())
+        .toSet();
     final List<String> remainingSuggestions = widget.suggestions
         .where((String s) => !currentLower.contains(s.toLowerCase()))
         .toList(growable: false);
@@ -95,8 +96,7 @@ class _TagInputState extends State<TagInput> {
           onChanged: (String value) {
             // Auto-commit on comma — matches the prompt's chip-input UX.
             if (value.contains(',')) {
-              final String trimmed =
-                  value.replaceAll(',', '').trim();
+              final String trimmed = value.replaceAll(',', '').trim();
               if (trimmed.isNotEmpty) {
                 widget.onAdd(trimmed);
               }

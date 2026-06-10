@@ -46,13 +46,13 @@ class AddExpenseBloc extends Bloc<AddExpenseEvent, AddExpenseState> {
     required ListCategoriesUseCase listCategories,
     required CreateCategoryUseCase createCategory,
     required SuggestTagsForExpenseUseCase suggestTags,
-  })  : _add = addExpense,
-        _update = updateExpense,
-        _getAllTags = getAllTags,
-        _listCategories = listCategories,
-        _createCategory = createCategory,
-        _suggestTags = suggestTags,
-        super(const AddExpenseInitial()) {
+  }) : _add = addExpense,
+       _update = updateExpense,
+       _getAllTags = getAllTags,
+       _listCategories = listCategories,
+       _createCategory = createCategory,
+       _suggestTags = suggestTags,
+       super(const AddExpenseInitial()) {
     // Field-mutation handlers use `sequential()` because note + tag
     // changes share state (smart-tag suggestions read `tags`), and the
     // default concurrent transformer would race when the UI dispatches
@@ -142,13 +142,16 @@ class AddExpenseBloc extends Bloc<AddExpenseEvent, AddExpenseState> {
   }
 
   Future<(List<Category>, List<String>)> _bootstrap() async {
-    final Either<Failure, List<Category>> catsResult =
-        await _listCategories(const ListCategoriesParams());
-    final List<Category> categories =
-        catsResult.getOrElse(() => const <Category>[]);
+    final Either<Failure, List<Category>> catsResult = await _listCategories(
+      const ListCategoriesParams(),
+    );
+    final List<Category> categories = catsResult.getOrElse(
+      () => const <Category>[],
+    );
 
-    final Either<Failure, List<String>> tagsResult =
-        await _getAllTags(const NoParams());
+    final Either<Failure, List<String>> tagsResult = await _getAllTags(
+      const NoParams(),
+    );
     final List<String> tags = tagsResult.getOrElse(() => const <String>[]);
     return (categories, tags);
   }
@@ -156,8 +159,8 @@ class AddExpenseBloc extends Bloc<AddExpenseEvent, AddExpenseState> {
   Category? _guessDefaultCategory(List<Category> cats) {
     if (cats.isEmpty) return null;
     return cats.firstWhere(
-      (Category c) => c.icon == 'shopping_cart' ||
-          c.name.toLowerCase() == 'market',
+      (Category c) =>
+          c.icon == 'shopping_cart' || c.name.toLowerCase() == 'market',
       orElse: () => cats.first,
     );
   }
@@ -376,8 +379,7 @@ class AddExpenseBloc extends Bloc<AddExpenseEvent, AddExpenseState> {
           date: current.date,
           note: current.note,
           isRecurring: current.isRecurring,
-          recurringPeriod:
-              current.isRecurring ? current.recurringPeriod : null,
+          recurringPeriod: current.isRecurring ? current.recurringPeriod : null,
           tags: current.tags,
         ),
       );
@@ -402,8 +404,7 @@ class AddExpenseBloc extends Bloc<AddExpenseEvent, AddExpenseState> {
         note: current.note,
         clearNote: current.note == null,
         isRecurring: current.isRecurring,
-        recurringPeriod:
-            current.isRecurring ? current.recurringPeriod : null,
+        recurringPeriod: current.isRecurring ? current.recurringPeriod : null,
         clearRecurringPeriod: !current.isRecurring,
         tags: current.tags,
       ),
@@ -418,8 +419,7 @@ class AddExpenseBloc extends Bloc<AddExpenseEvent, AddExpenseState> {
   }
 
   Set<AddExpenseValidationError> _validate(AddExpenseReady s) {
-    final Set<AddExpenseValidationError> errors =
-        <AddExpenseValidationError>{};
+    final Set<AddExpenseValidationError> errors = <AddExpenseValidationError>{};
     if (s.amountMinor == null || s.amountMinor! <= 0) {
       errors.add(AddExpenseValidationError.invalidAmount);
     }

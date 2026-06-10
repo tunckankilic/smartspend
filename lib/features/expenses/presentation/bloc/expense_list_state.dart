@@ -63,8 +63,12 @@ final class ExpenseListLoaded extends ExpenseListState {
   }
 
   @override
-  List<Object?> get props =>
-      <Object?>[...super.props, expenses, summary, transientError];
+  List<Object?> get props => <Object?>[
+    ...super.props,
+    expenses,
+    summary,
+    transientError,
+  ];
 }
 
 /// Hard failure — the stream / initial load couldn't produce any data.

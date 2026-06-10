@@ -5,24 +5,11 @@ import 'dart:async';
 import 'package:dartz/dartz.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:smartspend/core/error/failure_codes.dart';
 import 'package:smartspend/core/error/failures.dart';
 import 'package:smartspend/features/auth/data/datasources/supabase_auth_data_source.dart';
 import 'package:smartspend/features/auth/domain/entities/app_user.dart';
 import 'package:smartspend/features/auth/domain/repositories/auth_repository.dart';
-
-/// Machine-readable [AuthFailure.code]s. The presentation layer maps these
-/// onto localized strings; the human-readable `message` is for logging only.
-abstract class AuthFailureCode {
-  AuthFailureCode._();
-
-  static const String invalidCredentials = 'invalid_credentials';
-  static const String emailNotConfirmed = 'email_not_confirmed';
-  static const String userExists = 'user_already_exists';
-  static const String weakPassword = 'weak_password';
-  static const String network = 'network';
-  static const String cancelled = 'cancelled';
-  static const String unknown = 'unknown';
-}
 
 class SupabaseAuthRepositoryImpl implements AuthRepository {
   const SupabaseAuthRepositoryImpl({required SupabaseAuthDataSource dataSource})

@@ -10,11 +10,13 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'package:smartspend/core/error/exceptions.dart';
+import 'package:smartspend/core/error/failure_codes.dart';
 
-/// Sentinel code emitted when the user backs out of the system camera /
-/// gallery picker. Repository implementations translate this into a
-/// silent return-to-initial rather than a surfaced error.
-const String kCameraCancelledCode = 'cancelled';
+// kCameraCancelledCode now lives in core/error/failure_codes.dart so the
+// presentation layer can branch on it without importing this data source.
+// Re-exported here for existing data-layer importers.
+export 'package:smartspend/core/error/failure_codes.dart'
+    show kCameraCancelledCode;
 
 /// Wraps the platform image picker so the repository stays decoupled from
 /// the `image_picker` and `image` packages.

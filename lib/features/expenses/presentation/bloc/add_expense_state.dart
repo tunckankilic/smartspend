@@ -117,8 +117,7 @@ final class AddExpenseReady extends AddExpenseState {
       mode: mode ?? this.mode,
       editingId: editingId ?? this.editingId,
       amountInput: amountInput ?? this.amountInput,
-      amountMinor:
-          clearAmountMinor ? null : (amountMinor ?? this.amountMinor),
+      amountMinor: clearAmountMinor ? null : (amountMinor ?? this.amountMinor),
       category: clearCategory ? null : (category ?? this.category),
       date: date ?? this.date,
       note: clearNote ? null : (note ?? this.note),
@@ -137,22 +136,22 @@ final class AddExpenseReady extends AddExpenseState {
 
   @override
   List<Object?> get props => <Object?>[
-        mode,
-        editingId,
-        amountInput,
-        amountMinor,
-        category,
-        date,
-        note,
-        tags,
-        isRecurring,
-        recurringPeriod,
-        categories,
-        availableTags,
-        validationErrors,
-        isSubmitting,
-        suggestedTags,
-      ];
+    mode,
+    editingId,
+    amountInput,
+    amountMinor,
+    category,
+    date,
+    note,
+    tags,
+    isRecurring,
+    recurringPeriod,
+    categories,
+    availableTags,
+    validationErrors,
+    isSubmitting,
+    suggestedTags,
+  ];
 }
 
 /// Terminal success — caller should pop. [savedId] is the local Drift

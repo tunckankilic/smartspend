@@ -467,5 +467,30 @@
   "a11yFilterExpenses": "Harcamaları filtrele",
   "a11yBack": "Geri",
   "a11ySaveExpense": "Harcamayı kaydet",
-  "a11yAddTag": "Etiket ekle"
+  "a11yAddTag": "Etiket ekle",
+
+  "expenseListPeriodAll": "Tümü",
+  "expenseListPeriodWeek": "Bu Hafta",
+  "expenseListPeriodMonth": "Bu Ay",
+  "expenseListPeriod3Months": "Son 3 Ay",
+
+  "budgetSummaryBudgetLabel": "Bütçe",
+  "budgetSummarySpentLabel": "Harcanan",
+  "budgetSummaryDaysLeftLabel": "Kalan Gün",
+  "budgetSummaryDaysValue": "{count} gün",
+  "@budgetSummaryDaysValue": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "addExpenseCategoryMore": "Tümü",
+
+  "scanCameraAiBadge": "AI Otomatik Algılama",
+  "scanCameraFrameHint": "Fişi çerçeveye yerleştir",
+  "scanCameraTip": "İpucu: Fişi düz bir zemine koy, iyi ışıkta ve tamamı kadrajda olacak şekilde çek.",
+  "a11yShutter": "Fotoğraf çek",
+  "a11yToggleFlash": "Flaşı değiştir",
+  "a11yOpenGallery": "Galeriden seç",
+  "a11yCloseCamera": "Kamerayı kapat"
 }

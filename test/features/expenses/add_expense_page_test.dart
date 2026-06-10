@@ -12,8 +12,17 @@ import 'package:smartspend/l10n/generated/app_localizations.dart';
 class _MockAddExpenseBloc extends MockBloc<AddExpenseEvent, AddExpenseState>
     implements AddExpenseBloc {}
 
+const Category _groceries = Category(
+  id: 1,
+  name: 'Groceries',
+  icon: 'shopping_cart',
+  color: 0xFF4CAF50,
+  isCustom: false,
+);
+
 AddExpenseReady _ready({
   Category? category,
+  List<Category> categories = const <Category>[],
   Set<AddExpenseValidationError> errors = const <AddExpenseValidationError>{},
   bool isSubmitting = false,
 }) {
@@ -22,7 +31,7 @@ AddExpenseReady _ready({
     amountInput: '',
     amountMinor: null,
     date: DateTime.utc(2026, 5, 1),
-    categories: const <Category>[],
+    categories: categories,
     availableTags: const <String>[],
     category: category,
     validationErrors: errors,
@@ -72,8 +81,32 @@ void main() {
       await tester.pump();
 
       expect(find.text('New expense'), findsOneWidget);
-      expect(find.text('Pick a category'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('categoryTile.more')),
+        findsOneWidget,
+      );
       expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+    });
+
+    testWidgets('renders category tiles and dispatches selection on tap', (
+      WidgetTester tester,
+    ) async {
+      when(
+        () => bloc.state,
+      ).thenReturn(_ready(categories: const <Category>[_groceries]));
+      await tester.pumpWidget(_wrap());
+      await tester.pump();
+
+      expect(find.text('Groceries'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey<String>('categoryTile.1')));
+      await tester.pump();
+
+      verify(
+        () => bloc.add(
+          const AddExpenseCategorySelected(category: _groceries),
+        ),
+      ).called(1);
     });
 
     testWidgets('surfaces inline validation errors from the state', (

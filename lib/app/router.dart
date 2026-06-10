@@ -21,14 +21,16 @@ import 'package:smartspend/features/onboarding/presentation/pages/onboarding_pag
 import 'package:smartspend/features/receipts/presentation/pages/receipt_archive_page.dart';
 import 'package:smartspend/features/receipts/presentation/pages/receipt_detail_page.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
+import 'package:smartspend/features/scan/presentation/pages/scan_camera_page.dart';
 import 'package:smartspend/features/scan/presentation/pages/scan_page.dart';
 import 'package:smartspend/features/scan/presentation/pages/scan_result_page.dart';
 import 'package:smartspend/features/settings/presentation/pages/settings_page.dart';
 import 'package:smartspend/features/split/presentation/pages/split_page.dart';
 
 /// Stable GoRouter keys for navigator hot-restart safety.
-final GlobalKey<NavigatorState> _rootKey =
-    GlobalKey<NavigatorState>(debugLabel: 'root');
+final GlobalKey<NavigatorState> _rootKey = GlobalKey<NavigatorState>(
+  debugLabel: 'root',
+);
 
 /// Build the app-wide [GoRouter].
 ///
@@ -92,6 +94,13 @@ GoRouter buildRouter({
         builder: (BuildContext c, GoRouterState s) => const AuthCallbackPage(),
       ),
 
+      // In-app camera — full screen on the root navigator so the tab bar
+      // never overlaps the viewfinder. Pops with a [ScanCameraResult].
+      GoRoute(
+        path: '/scan/camera',
+        parentNavigatorKey: _rootKey,
+        builder: (BuildContext c, GoRouterState s) => const ScanCameraPage(),
+      ),
       // Receipt edit screen — opened on top of the shell so the user gets
       // full screen for review and is forced to consciously cancel/save
       // instead of swiping back into a partial edit.
@@ -148,13 +157,14 @@ GoRouter buildRouter({
         },
       ),
       StatefulShellRoute.indexedStack(
-        builder: (
-          BuildContext context,
-          GoRouterState state,
-          StatefulNavigationShell shell,
-        ) {
-          return MainScaffold(navigationShell: shell);
-        },
+        builder:
+            (
+              BuildContext context,
+              GoRouterState state,
+              StatefulNavigationShell shell,
+            ) {
+              return MainScaffold(navigationShell: shell);
+            },
         branches: <StatefulShellBranch>[
           StatefulShellBranch(
             routes: <RouteBase>[
@@ -226,8 +236,9 @@ GoRouter buildRouter({
 /// [GoRouter.refreshListenable] can re-evaluate redirects on state changes.
 class _BlocListenable extends ChangeNotifier {
   _BlocListenable(Stream<Object?> stream) {
-    _subscription =
-        stream.asBroadcastStream().listen((Object? _) => notifyListeners());
+    _subscription = stream.asBroadcastStream().listen(
+      (Object? _) => notifyListeners(),
+    );
   }
 
   late final StreamSubscription<Object?> _subscription;

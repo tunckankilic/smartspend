@@ -80,8 +80,9 @@ class BudgetCategoryTile extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: snapshot.category == null
                             ? trackColor
-                            : Color(snapshot.category!.color)
-                                .withValues(alpha: 0.18),
+                            : Color(
+                                snapshot.category!.color,
+                              ).withValues(alpha: 0.18),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -102,13 +103,10 @@ class BudgetCategoryTile extends StatelessWidget {
                     ),
                     Text(
                       l.budgetPercentSpent(percent.toString()),
-                      style: Theme.of(context)
-                          .textTheme
-                          .labelLarge
-                          ?.copyWith(
-                            color: toneColor,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: toneColor,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -157,10 +155,9 @@ class BudgetCategoryTile extends StatelessWidget {
                                 locale: locale,
                               ),
                             ),
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: toneColor),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: toneColor),
                     ),
                   ],
                 ),

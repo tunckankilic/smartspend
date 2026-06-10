@@ -464,5 +464,30 @@
   "a11yFilterExpenses": "Filter expenses",
   "a11yBack": "Back",
   "a11ySaveExpense": "Save expense",
-  "a11yAddTag": "Add tag"
+  "a11yAddTag": "Add tag",
+
+  "expenseListPeriodAll": "All",
+  "expenseListPeriodWeek": "This Week",
+  "expenseListPeriodMonth": "This Month",
+  "expenseListPeriod3Months": "Last 3 Months",
+
+  "budgetSummaryBudgetLabel": "Budget",
+  "budgetSummarySpentLabel": "Spent",
+  "budgetSummaryDaysLeftLabel": "Days Left",
+  "budgetSummaryDaysValue": "{count, plural, =1{1 day} other{{count} days}}",
+  "@budgetSummaryDaysValue": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "addExpenseCategoryMore": "All",
+
+  "scanCameraAiBadge": "AI Auto-Detect",
+  "scanCameraFrameHint": "Align the receipt within the frame",
+  "scanCameraTip": "Tip: Place the receipt on a flat surface, use good lighting, and keep it fully in frame.",
+  "a11yShutter": "Take photo",
+  "a11yToggleFlash": "Toggle flash",
+  "a11yOpenGallery": "Pick from gallery",
+  "a11yCloseCamera": "Close camera"
 }

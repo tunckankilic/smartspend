@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:smartspend/app/injection_container.dart';
 import 'package:smartspend/core/utils/currency_formatter.dart';
 import 'package:smartspend/core/widgets/category_icon.dart';
+import 'package:smartspend/features/categories/domain/entities/category.dart';
 import 'package:smartspend/features/categories/presentation/widgets/category_picker_sheet.dart';
 import 'package:smartspend/features/expenses/domain/entities/expense.dart';
 import 'package:smartspend/features/expenses/domain/entities/recurring_period.dart';
@@ -61,8 +62,8 @@ class _AddExpenseView extends StatelessWidget {
         }
       },
       builder: (BuildContext context, AddExpenseState state) {
-        final bool isEdit = state is AddExpenseReady &&
-            state.mode == AddExpenseMode.edit;
+        final bool isEdit =
+            state is AddExpenseReady && state.mode == AddExpenseMode.edit;
         return Scaffold(
           appBar: AppBar(
             title: Text(
@@ -73,9 +74,9 @@ class _AddExpenseView extends StatelessWidget {
                 IconButton(
                   tooltip: l.a11ySaveExpense,
                   icon: const Icon(Icons.check_rounded),
-                  onPressed: () => context
-                      .read<AddExpenseBloc>()
-                      .add(const AddExpenseSubmitted()),
+                  onPressed: () => context.read<AddExpenseBloc>().add(
+                    const AddExpenseSubmitted(),
+                  ),
                 ),
               if (state is AddExpenseReady && state.isSubmitting)
                 const Padding(
@@ -89,14 +90,13 @@ class _AddExpenseView extends StatelessWidget {
             ],
           ),
           body: switch (state) {
-            AddExpenseInitial() ||
-            AddExpenseLoading() =>
-              const Center(child: CircularProgressIndicator()),
-            AddExpenseSaved() =>
-              const Center(child: CircularProgressIndicator()),
-            AddExpenseFailure() ||
-            AddExpenseReady() =>
-              _Form(state: state),
+            AddExpenseInitial() || AddExpenseLoading() => const Center(
+              child: CircularProgressIndicator(),
+            ),
+            AddExpenseSaved() => const Center(
+              child: CircularProgressIndicator(),
+            ),
+            AddExpenseFailure() || AddExpenseReady() => _Form(state: state),
           },
         );
       },
@@ -114,6 +114,14 @@ class _Form extends StatefulWidget {
 }
 
 class _FormState extends State<_Form> {
+  /// Wireframe quick-amount shortcuts, in minor units (kuruş).
+  static const List<int> _kQuickAmountsMinor = <int>[
+    5000,
+    10000,
+    25000,
+    50000,
+  ];
+
   late final TextEditingController _amountCtrl;
   late final TextEditingController _noteCtrl;
 
@@ -169,8 +177,7 @@ class _FormState extends State<_Form> {
         Center(
           child: TextField(
             controller: _amountCtrl,
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: <TextInputFormatter>[
               FilteringTextInputFormatter.allow(RegExp('[0-9.,]')),
             ],
@@ -182,8 +189,10 @@ class _FormState extends State<_Form> {
             decoration: InputDecoration(
               hintText: '0,00',
               border: InputBorder.none,
-              errorText: ready.validationErrors
-                      .contains(AddExpenseValidationError.invalidAmount)
+              errorText:
+                  ready.validationErrors.contains(
+                    AddExpenseValidationError.invalidAmount,
+                  )
                   ? l.addExpenseErrorAmount
                   : null,
             ),
@@ -204,43 +213,47 @@ class _FormState extends State<_Form> {
               ),
             ),
           ),
+        const SizedBox(height: 12),
+
+        // Quick amounts -----------------------------------------------------
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          children: _kQuickAmountsMinor
+              .map(
+                (int minor) => ActionChip(
+                  key: ValueKey<String>('quickAmount.$minor'),
+                  label: Text(
+                    _quickAmountLabel(minor, _currencyHint(ready), locale),
+                  ),
+                  onPressed: () => bloc.add(
+                    AddExpenseAmountChanged(
+                      input: (minor ~/ 100).toString(),
+                    ),
+                  ),
+                ),
+              )
+              .toList(growable: false),
+        ),
         const SizedBox(height: 24),
 
         // Category --------------------------------------------------------
         Text(l.addExpenseCategoryLabel, style: theme.textTheme.labelLarge),
         const SizedBox(height: 8),
-        InkWell(
-          onTap: () => _pickCategory(context, ready),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: ready.validationErrors
-                        .contains(AddExpenseValidationError.missingCategory)
-                    ? theme.colorScheme.error
-                    : theme.colorScheme.outlineVariant,
-              ),
-            ),
-            child: Row(
-              children: <Widget>[
-                if (ready.category != null) ...<Widget>[
-                  Icon(
-                    iconForCategory(ready.category!.icon),
-                    color: Color(ready.category!.color),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(child: Text(ready.category!.name)),
-                ] else
-                  Expanded(child: Text(l.addExpenseCategoryHint)),
-                const Icon(Icons.chevron_right_rounded),
-              ],
-            ),
+        _CategoryGrid(
+          categories: ready.categories,
+          selected: ready.category,
+          hasError: ready.validationErrors.contains(
+            AddExpenseValidationError.missingCategory,
           ),
+          moreLabel: l.addExpenseCategoryMore,
+          onSelected: (Category c) =>
+              bloc.add(AddExpenseCategorySelected(category: c)),
+          onMore: () => _pickCategory(context, ready),
         ),
-        if (ready.validationErrors
-            .contains(AddExpenseValidationError.missingCategory))
+        if (ready.validationErrors.contains(
+          AddExpenseValidationError.missingCategory,
+        ))
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
@@ -273,8 +286,9 @@ class _FormState extends State<_Form> {
             alignment: Alignment.centerLeft,
           ),
         ),
-        if (ready.validationErrors
-            .contains(AddExpenseValidationError.futureDate))
+        if (ready.validationErrors.contains(
+          AddExpenseValidationError.futureDate,
+        ))
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
@@ -294,8 +308,7 @@ class _FormState extends State<_Form> {
             border: const OutlineInputBorder(),
           ),
           maxLines: 2,
-          onChanged: (String v) =>
-              bloc.add(AddExpenseNoteChanged(note: v)),
+          onChanged: (String v) => bloc.add(AddExpenseNoteChanged(note: v)),
         ),
 
         const SizedBox(height: 16),
@@ -310,8 +323,7 @@ class _FormState extends State<_Form> {
             ready.availableTags,
           ),
           onAdd: (String t) => bloc.add(AddExpenseTagAdded(tag: t)),
-          onRemove: (String t) =>
-              bloc.add(AddExpenseTagRemoved(tag: t)),
+          onRemove: (String t) => bloc.add(AddExpenseTagRemoved(tag: t)),
         ),
 
         const SizedBox(height: 16),
@@ -322,8 +334,7 @@ class _FormState extends State<_Form> {
           title: Text(l.addExpenseRecurringLabel),
           subtitle: Text(l.addExpenseRecurringHint),
           value: ready.isRecurring,
-          onChanged: (bool v) =>
-              bloc.add(AddExpenseRecurringToggled(value: v)),
+          onChanged: (bool v) => bloc.add(AddExpenseRecurringToggled(value: v)),
         ),
         if (ready.isRecurring) ...<Widget>[
           const SizedBox(height: 4),
@@ -340,14 +351,14 @@ class _FormState extends State<_Form> {
                 )
                 .toList(growable: false),
           ),
-          if (ready.validationErrors
-              .contains(AddExpenseValidationError.missingRecurringPeriod))
+          if (ready.validationErrors.contains(
+            AddExpenseValidationError.missingRecurringPeriod,
+          ))
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 l.addExpenseErrorRecurringPeriod,
-                style:
-                    TextStyle(color: theme.colorScheme.error, fontSize: 12),
+                style: TextStyle(color: theme.colorScheme.error, fontSize: 12),
               ),
             ),
         ],
@@ -412,6 +423,18 @@ class _FormState extends State<_Form> {
     return out;
   }
 
+  /// Whole-unit chip label, e.g. `₺50` — no decimals so the chips stay
+  /// compact like the wireframe.
+  String _quickAmountLabel(int minor, String currency, String locale) {
+    final NumberFormat fmt = NumberFormat.currency(
+      locale: locale,
+      name: currency,
+      symbol: currencySymbol(currency),
+      decimalDigits: 0,
+    );
+    return fmt.format(minor / 100);
+  }
+
   String _currencyHint(AddExpenseReady ready) {
     // Sprint 5 will wire user_settings.default_currency. For now the
     // form always shows TRY — manual entries inherit the device default.
@@ -427,5 +450,146 @@ class _FormState extends State<_Form> {
       case RecurringPeriod.yearly:
         return l.expenseDetailRecurringYearly;
     }
+  }
+}
+
+/// Wireframe 05's inline category grid — the most common categories as
+/// tappable icon tiles, plus a trailing "all" tile that opens the full
+/// [CategoryPickerSheet] (which also hosts the "+ new category" flow).
+class _CategoryGrid extends StatelessWidget {
+  const _CategoryGrid({
+    required this.categories,
+    required this.selected,
+    required this.hasError,
+    required this.moreLabel,
+    required this.onSelected,
+    required this.onMore,
+  });
+
+  /// Tiles per row; with [_kVisibleCount] = 7 this renders two rows,
+  /// the last cell being the "all" tile.
+  static const int _kColumns = 4;
+  static const int _kVisibleCount = 7;
+
+  final List<Category> categories;
+  final Category? selected;
+  final bool hasError;
+  final String moreLabel;
+  final ValueChanged<Category> onSelected;
+  final VoidCallback onMore;
+
+  /// First [_kVisibleCount] categories, but always including [selected]
+  /// (a sheet-picked category surfaces in the grid instead of vanishing).
+  List<Category> get _visible {
+    final List<Category> out = <Category>[];
+    if (selected != null) out.add(selected!);
+    for (final Category c in categories) {
+      if (out.length >= _kVisibleCount) break;
+      if (selected != null && c.id == selected!.id) continue;
+      out.add(c);
+    }
+    return out;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final List<Category> visible = _visible;
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: hasError
+              ? theme.colorScheme.error
+              : theme.colorScheme.outlineVariant,
+        ),
+      ),
+      child: GridView.count(
+        crossAxisCount: _kColumns,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        mainAxisSpacing: 4,
+        crossAxisSpacing: 4,
+        childAspectRatio: 0.95,
+        children: <Widget>[
+          for (final Category c in visible)
+            _CategoryTile(
+              key: ValueKey<String>('categoryTile.${c.id}'),
+              icon: iconForCategory(c.icon),
+              color: Color(c.color),
+              label: c.name,
+              isSelected: selected?.id == c.id,
+              onTap: () => onSelected(c),
+            ),
+          _CategoryTile(
+            key: const ValueKey<String>('categoryTile.more'),
+            icon: Icons.grid_view_rounded,
+            color: theme.colorScheme.primary,
+            label: moreLabel,
+            isSelected: false,
+            onTap: onMore,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryTile extends StatelessWidget {
+  const _CategoryTile({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+    super.key,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: isSelected
+              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.45)
+              : null,
+          border: isSelected
+              ? Border.all(color: theme.colorScheme.primary, width: 2)
+              : null,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: color.withValues(alpha: 0.15),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                label,
+                style: theme.textTheme.labelSmall,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

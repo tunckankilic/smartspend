@@ -71,9 +71,7 @@ class _BudgetCreateSheetState extends State<BudgetCreateSheet> {
     super.initState();
     final BudgetSnapshot? e = widget.editing;
     _amountCtrl = TextEditingController(
-      text: e == null
-          ? ''
-          : (e.budget.amountMinor / 100).toStringAsFixed(2),
+      text: e == null ? '' : (e.budget.amountMinor / 100).toStringAsFixed(2),
     );
     _period = e?.budget.period ?? BudgetPeriod.monthly;
     _categoryId = e?.budget.categoryId;

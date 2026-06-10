@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:smartspend/core/error/failure_codes.dart';
 import 'package:smartspend/core/error/failures.dart';
 import 'package:smartspend/features/auth/data/datasources/supabase_auth_data_source.dart';
 import 'package:smartspend/features/auth/data/repositories/supabase_auth_repository_impl.dart';

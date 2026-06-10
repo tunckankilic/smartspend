@@ -79,8 +79,11 @@ final class BudgetLoaded extends BudgetState {
   }
 
   @override
-  List<Object?> get props =>
-      <Object?>[snapshots, notificationsEnabled, transientFailure];
+  List<Object?> get props => <Object?>[
+    snapshots,
+    notificationsEnabled,
+    transientFailure,
+  ];
 }
 
 /// Terminal stream error. The page renders a retry CTA that dispatches

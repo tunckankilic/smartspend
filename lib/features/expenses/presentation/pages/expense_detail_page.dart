@@ -24,8 +24,8 @@ class ExpenseDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<ExpenseDetailBloc>(
-      create: (_) => sl<ExpenseDetailBloc>()
-        ..add(ExpenseDetailRequested(id: expenseId)),
+      create: (_) =>
+          sl<ExpenseDetailBloc>()..add(ExpenseDetailRequested(id: expenseId)),
       child: const _ExpenseDetailView(),
     );
   }
@@ -51,8 +51,9 @@ class _ExpenseDetailView extends StatelessWidget {
               return IconButton(
                 icon: const Icon(Icons.edit_outlined),
                 tooltip: l.expenseDetailEdit,
-                onPressed: () => GoRouter.of(context)
-                    .push('/expenses/${e.id}/edit', extra: e),
+                onPressed: () => GoRouter.of(
+                  context,
+                ).push('/expenses/${e.id}/edit', extra: e),
               );
             },
           ),
@@ -74,15 +75,17 @@ class _ExpenseDetailView extends StatelessWidget {
         },
         builder: (BuildContext context, ExpenseDetailState state) {
           return switch (state) {
-            ExpenseDetailInitial() ||
-            ExpenseDetailLoading() =>
-              const Center(child: CircularProgressIndicator()),
+            ExpenseDetailInitial() || ExpenseDetailLoading() => const Center(
+              child: CircularProgressIndicator(),
+            ),
             ExpenseDetailLoaded(expense: final Expense? e) =>
               e == null ? _NotFound(l: l) : _Loaded(expense: e),
-            ExpenseDetailDeleted() =>
-              const Center(child: CircularProgressIndicator()),
-            ExpenseDetailError(:final Failure failure) =>
-              _ErrorBody(message: _failureMessage(l, failure)),
+            ExpenseDetailDeleted() => const Center(
+              child: CircularProgressIndicator(),
+            ),
+            ExpenseDetailError(:final Failure failure) => _ErrorBody(
+              message: _failureMessage(l, failure),
+            ),
           };
         },
       ),
@@ -110,8 +113,9 @@ class _Loaded extends StatelessWidget {
             children: <Widget>[
               CircleAvatar(
                 radius: 36,
-                backgroundColor:
-                    Color(expense.category.color).withValues(alpha: 0.18),
+                backgroundColor: Color(
+                  expense.category.color,
+                ).withValues(alpha: 0.18),
                 foregroundColor: Color(expense.category.color),
                 child: Icon(
                   iconForCategory(expense.category.icon),
@@ -251,7 +255,8 @@ class _Loaded extends StatelessWidget {
 
   Future<void> _confirmDelete(BuildContext context) async {
     final AppLocalizations l = AppLocalizations.of(context);
-    final bool ok = await showDialog<bool>(
+    final bool ok =
+        await showDialog<bool>(
           context: context,
           builder: (BuildContext ctx) => AlertDialog(
             title: Text(l.expenseDetailDeleteTitle),
@@ -273,9 +278,9 @@ class _Loaded extends StatelessWidget {
         ) ??
         false;
     if (ok && context.mounted) {
-      context
-          .read<ExpenseDetailBloc>()
-          .add(const ExpenseDetailDeletedRequested());
+      context.read<ExpenseDetailBloc>().add(
+        const ExpenseDetailDeletedRequested(),
+      );
     }
   }
 }

@@ -36,18 +36,16 @@ class BudgetPermissionBanner extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       l.budgetPermissionBannerTitle,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleSmall
-                          ?.copyWith(color: cs.onErrorContainer),
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: cs.onErrorContainer,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       l.budgetPermissionBannerBody,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: cs.onErrorContainer),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: cs.onErrorContainer,
+                      ),
                     ),
                   ],
                 ),

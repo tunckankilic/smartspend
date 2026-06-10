@@ -33,8 +33,12 @@ final class BudgetCreated extends BudgetEvent {
   final int? categoryId;
 
   @override
-  List<Object?> get props =>
-      <Object?>[amountMinor, period, startDate, categoryId];
+  List<Object?> get props => <Object?>[
+    amountMinor,
+    period,
+    startDate,
+    categoryId,
+  ];
 }
 
 /// User edited an existing budget. `null` fields mean "leave unchanged".
@@ -54,8 +58,13 @@ final class BudgetUpdated extends BudgetEvent {
   final bool? isActive;
 
   @override
-  List<Object?> get props =>
-      <Object?>[id, amountMinor, period, startDate, isActive];
+  List<Object?> get props => <Object?>[
+    id,
+    amountMinor,
+    period,
+    startDate,
+    isActive,
+  ];
 }
 
 /// User swiped a budget tile (or hit the trash icon in the edit sheet).

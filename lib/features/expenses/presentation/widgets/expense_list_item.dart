@@ -29,8 +29,9 @@ class ExpenseListItem extends StatelessWidget {
     final AppLocalizations l = AppLocalizations.of(context);
     final ThemeData theme = Theme.of(context);
     final Color tint = Color(expense.category.color);
-    final DateFormat dayFormat =
-        DateFormat.MMMd(Localizations.localeOf(context).toLanguageTag());
+    final DateFormat dayFormat = DateFormat.MMMd(
+      Localizations.localeOf(context).toLanguageTag(),
+    );
     final String dayLabel = dayFormat.format(expense.date.toLocal());
 
     return Dismissible(

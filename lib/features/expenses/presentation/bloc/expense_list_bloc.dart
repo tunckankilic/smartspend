@@ -42,10 +42,10 @@ class ExpenseListBloc extends Bloc<ExpenseListEvent, ExpenseListState> {
     required ExpenseRepository repository,
     required GetExpenseSummaryUseCase getSummary,
     required DeleteExpenseUseCase deleteExpense,
-  })  : _repository = repository,
-        _getSummary = getSummary,
-        _deleteExpense = deleteExpense,
-        super(const ExpenseListInitial()) {
+  }) : _repository = repository,
+       _getSummary = getSummary,
+       _deleteExpense = deleteExpense,
+       super(const ExpenseListInitial()) {
     on<ExpensesSubscribed>(_onSubscribed);
     on<_ExpensesSnapshotReceived>(_onSnapshot);
     on<_ExpensesSnapshotErrored>(_onSnapshotError);
@@ -62,12 +62,13 @@ class ExpenseListBloc extends Bloc<ExpenseListEvent, ExpenseListState> {
     // queries while the user is still typing.
     on<SearchQueried>(
       _onSearchQueried,
-      transformer: (
-        Stream<SearchQueried> events,
-        Stream<SearchQueried> Function(SearchQueried) mapper,
-      ) {
-        return events.debounce(_kSearchDebounce).switchMap(mapper);
-      },
+      transformer:
+          (
+            Stream<SearchQueried> events,
+            Stream<SearchQueried> Function(SearchQueried) mapper,
+          ) {
+            return events.debounce(_kSearchDebounce).switchMap(mapper);
+          },
     );
 
     on<ExpenseDeleted>(_onDeleted);
@@ -100,24 +101,27 @@ class ExpenseListBloc extends Bloc<ExpenseListEvent, ExpenseListState> {
 
   Future<void> _openSubscription(ExpenseFilter filter) async {
     await _streamSub?.cancel();
-    _streamSub = _repository.watchExpenses(filter).listen(
-      (List<Expense> rows) => add(_ExpensesSnapshotReceived(rows)),
-      onError: (Object e, StackTrace _) {
-        add(
-          _ExpensesSnapshotErrored(
-            CacheFailure(message: 'expense stream failed: $e'),
-          ),
+    _streamSub = _repository
+        .watchExpenses(filter)
+        .listen(
+          (List<Expense> rows) => add(_ExpensesSnapshotReceived(rows)),
+          onError: (Object e, StackTrace _) {
+            add(
+              _ExpensesSnapshotErrored(
+                CacheFailure(message: 'expense stream failed: $e'),
+              ),
+            );
+          },
         );
-      },
-    );
   }
 
   Future<void> _onSnapshot(
     _ExpensesSnapshotReceived event,
     Emitter<ExpenseListState> emit,
   ) async {
-    final Either<Failure, ExpenseSummary> summary =
-        await _getSummary(GetExpenseSummaryParams(filter: state.filter));
+    final Either<Failure, ExpenseSummary> summary = await _getSummary(
+      GetExpenseSummaryParams(filter: state.filter),
+    );
     final ExpenseSummary safeSummary = summary.getOrElse(
       () => ExpenseSummary.empty,
     );
@@ -239,8 +243,9 @@ class ExpenseListBloc extends Bloc<ExpenseListEvent, ExpenseListState> {
     ExpenseDeleted event,
     Emitter<ExpenseListState> emit,
   ) async {
-    final Either<Failure, void> result =
-        await _deleteExpense(DeleteExpenseParams(id: event.id));
+    final Either<Failure, void> result = await _deleteExpense(
+      DeleteExpenseParams(id: event.id),
+    );
     result.fold(
       (Failure f) {
         final ExpenseListState current = state;

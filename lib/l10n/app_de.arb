@@ -458,5 +458,30 @@
   "a11yFilterExpenses": "Ausgaben filtern",
   "a11yBack": "Zurück",
   "a11ySaveExpense": "Ausgabe speichern",
-  "a11yAddTag": "Tag hinzufügen"
+  "a11yAddTag": "Tag hinzufügen",
+
+  "expenseListPeriodAll": "Alle",
+  "expenseListPeriodWeek": "Diese Woche",
+  "expenseListPeriodMonth": "Dieser Monat",
+  "expenseListPeriod3Months": "Letzte 3 Monate",
+
+  "budgetSummaryBudgetLabel": "Budget",
+  "budgetSummarySpentLabel": "Ausgegeben",
+  "budgetSummaryDaysLeftLabel": "Verbleibende Tage",
+  "budgetSummaryDaysValue": "{count, plural, =1{1 Tag} other{{count} Tage}}",
+  "@budgetSummaryDaysValue": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "addExpenseCategoryMore": "Alle",
+
+  "scanCameraAiBadge": "KI-Erkennung",
+  "scanCameraFrameHint": "Beleg im Rahmen ausrichten",
+  "scanCameraTip": "Tipp: Lege den Beleg auf eine ebene Fläche, sorge für gutes Licht und halte ihn vollständig im Bild.",
+  "a11yShutter": "Foto aufnehmen",
+  "a11yToggleFlash": "Blitz umschalten",
+  "a11yOpenGallery": "Aus Galerie wählen",
+  "a11yCloseCamera": "Kamera schließen"
 }

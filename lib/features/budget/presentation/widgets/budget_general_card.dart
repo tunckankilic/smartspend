@@ -58,13 +58,10 @@ class BudgetGeneralCard extends StatelessWidget {
                     ),
                     child: Text(
                       _periodLabel(l, snapshot.budget.period),
-                      style: Theme.of(context)
-                          .textTheme
-                          .labelMedium
-                          ?.copyWith(
-                            color: budgetToneColor(snapshot.status.tone),
-                            fontWeight: FontWeight.w600,
-                          ),
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: budgetToneColor(snapshot.status.tone),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
@@ -130,9 +127,9 @@ class BudgetGeneralCard extends StatelessWidget {
                             ),
                           ),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: budgetToneColor(snapshot.status.tone),
-                          fontWeight: FontWeight.w600,
-                        ),
+                      color: budgetToneColor(snapshot.status.tone),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),

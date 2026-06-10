@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:smartspend/app/injection_container.dart';
 import 'package:smartspend/core/error/failures.dart';
 import 'package:smartspend/features/scan/presentation/bloc/scan_bloc.dart';
+import 'package:smartspend/features/scan/presentation/pages/scan_camera_page.dart';
 import 'package:smartspend/l10n/generated/app_localizations.dart';
 
 /// Entry point for the Scan tab.
@@ -69,6 +70,24 @@ class _ScanView extends StatelessWidget {
 class _IntroPanel extends StatelessWidget {
   const _IntroPanel();
 
+  /// Push the in-app camera (wireframe 02). The page pops with a
+  /// [ScanCameraResult]; if the camera could not start we fall back to
+  /// the system camera via [CameraOpened], which owns the permission UX.
+  Future<void> _openCamera(BuildContext context, ScanBloc bloc) async {
+    final ScanCameraResult? result = await GoRouter.of(
+      context,
+    ).push<ScanCameraResult>('/scan/camera');
+    if (result == null) return; // User closed the camera — stay idle.
+    switch (result) {
+      case ScanCameraCaptured(image: final File img):
+        bloc.add(ImageCaptured(image: img));
+      case ScanCameraGalleryRequested():
+        bloc.add(const GalleryOpened());
+      case ScanCameraUnavailable():
+        bloc.add(const CameraOpened());
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l = AppLocalizations.of(context);
@@ -100,7 +119,7 @@ class _IntroPanel extends StatelessWidget {
           ),
           const Spacer(),
           FilledButton.icon(
-            onPressed: () => bloc.add(const CameraOpened()),
+            onPressed: () => _openCamera(context, bloc),
             icon: const Icon(Icons.camera_alt_rounded),
             label: Text(l.scanActionCapture),
             style: FilledButton.styleFrom(

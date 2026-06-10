@@ -50,7 +50,6 @@ List<ExpenseGroup> groupByDate(
   // Stable order: today → yesterday → thisWeek → thisMonth → earlier.
   return ExpenseGroupKey.values
       .where(buckets.containsKey)
-      .map((ExpenseGroupKey k) =>
-          ExpenseGroup(key: k, expenses: buckets[k]!))
+      .map((ExpenseGroupKey k) => ExpenseGroup(key: k, expenses: buckets[k]!))
       .toList(growable: false);
 }

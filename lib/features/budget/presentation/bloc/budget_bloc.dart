@@ -56,15 +56,15 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
     required ListCategoriesUseCase listCategories,
     required NotificationService notifications,
     DateTime Function()? now,
-  })  : _watchBudgets = watchBudgets,
-        _createBudget = createBudget,
-        _updateBudget = updateBudget,
-        _deleteBudget = deleteBudget,
-        _expenseRepository = expenseRepository,
-        _listCategories = listCategories,
-        _notifications = notifications,
-        _now = now ?? DateTime.now,
-        super(const BudgetInitial()) {
+  }) : _watchBudgets = watchBudgets,
+       _createBudget = createBudget,
+       _updateBudget = updateBudget,
+       _deleteBudget = deleteBudget,
+       _expenseRepository = expenseRepository,
+       _listCategories = listCategories,
+       _notifications = notifications,
+       _now = now ?? DateTime.now,
+       super(const BudgetInitial()) {
     on<BudgetSubscribed>(_onSubscribed);
     on<BudgetCreated>(_onCreated, transformer: sequential());
     on<BudgetUpdated>(_onUpdated, transformer: sequential());
@@ -126,8 +126,9 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
 
     // Categories are a one-shot read — Sprint 4's repository already
     // caches them and the list is short, so we don't bother watching it.
-    final Either<Failure, List<Category>> cats =
-        await _listCategories(const ListCategoriesParams());
+    final Either<Failure, List<Category>> cats = await _listCategories(
+      const ListCategoriesParams(),
+    );
     _latestCategories = cats.getOrElse(() => const <Category>[]);
 
     // Permission check is cheap and we want the banner state on the
@@ -151,14 +152,14 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
     _expenseSub = _expenseRepository
         .watchExpenses(ExpenseFilter.empty)
         .listen(
-      (List<Expense> rows) {
-        _latestExpenses = rows;
-        add(const _ExpensesTicked());
-      },
-      onError: (Object e, StackTrace _) {
-        add(_StreamErrored(CacheFailure(message: e.toString())));
-      },
-    );
+          (List<Expense> rows) {
+            _latestExpenses = rows;
+            add(const _ExpensesTicked());
+          },
+          onError: (Object e, StackTrace _) {
+            add(_StreamErrored(CacheFailure(message: e.toString())));
+          },
+        );
   }
 
   Future<void> _onCreated(
@@ -206,8 +207,9 @@ class BudgetBloc extends Bloc<BudgetEvent, BudgetState> {
     // Forget the crossings memory so a re-created budget with the same
     // id space starts fresh.
     _knownCrossings.remove(event.id);
-    final Either<Failure, void> result =
-        await _deleteBudget(DeleteBudgetParams(id: event.id));
+    final Either<Failure, void> result = await _deleteBudget(
+      DeleteBudgetParams(id: event.id),
+    );
     result.fold(
       (Failure f) => emit(_currentLoadedOrFailure(f)),
       (_) {},

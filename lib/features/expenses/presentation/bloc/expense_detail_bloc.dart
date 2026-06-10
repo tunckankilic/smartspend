@@ -25,9 +25,9 @@ class ExpenseDetailBloc extends Bloc<ExpenseDetailEvent, ExpenseDetailState> {
   ExpenseDetailBloc({
     required GetExpenseByIdUseCase getExpenseById,
     required DeleteExpenseUseCase deleteExpense,
-  })  : _getById = getExpenseById,
-        _delete = deleteExpense,
-        super(const ExpenseDetailInitial()) {
+  }) : _getById = getExpenseById,
+       _delete = deleteExpense,
+       super(const ExpenseDetailInitial()) {
     on<ExpenseDetailRequested>(_onRequested);
     on<ExpenseDetailDeletedRequested>(_onDelete);
   }
@@ -40,8 +40,9 @@ class ExpenseDetailBloc extends Bloc<ExpenseDetailEvent, ExpenseDetailState> {
     Emitter<ExpenseDetailState> emit,
   ) async {
     emit(const ExpenseDetailLoading());
-    final Either<Failure, Expense?> result =
-        await _getById(GetExpenseByIdParams(id: event.id));
+    final Either<Failure, Expense?> result = await _getById(
+      GetExpenseByIdParams(id: event.id),
+    );
     result.fold(
       (Failure f) => emit(ExpenseDetailError(failure: f)),
       (Expense? expense) => emit(ExpenseDetailLoaded(expense: expense)),
@@ -54,8 +55,9 @@ class ExpenseDetailBloc extends Bloc<ExpenseDetailEvent, ExpenseDetailState> {
   ) async {
     final ExpenseDetailState current = state;
     if (current is! ExpenseDetailLoaded || current.expense == null) return;
-    final Either<Failure, void> result =
-        await _delete(DeleteExpenseParams(id: current.expense!.id));
+    final Either<Failure, void> result = await _delete(
+      DeleteExpenseParams(id: current.expense!.id),
+    );
     result.fold(
       (Failure f) => emit(ExpenseDetailError(failure: f)),
       (_) => emit(const ExpenseDetailDeleted()),

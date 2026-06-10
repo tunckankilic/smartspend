@@ -1,5 +1,5 @@
+import 'package:smartspend/core/error/failure_codes.dart';
 import 'package:smartspend/core/error/failures.dart';
-import 'package:smartspend/features/auth/data/repositories/supabase_auth_repository_impl.dart';
 import 'package:smartspend/l10n/generated/app_localizations.dart';
 
 /// Maps an [AuthFailure.code] onto a localized, user-facing message. The

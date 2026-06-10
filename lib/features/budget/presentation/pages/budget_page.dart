@@ -10,6 +10,7 @@ import 'package:smartspend/features/budget/presentation/widgets/budget_create_sh
 import 'package:smartspend/features/budget/presentation/widgets/budget_empty_state.dart';
 import 'package:smartspend/features/budget/presentation/widgets/budget_general_card.dart';
 import 'package:smartspend/features/budget/presentation/widgets/budget_permission_banner.dart';
+import 'package:smartspend/features/budget/presentation/widgets/budget_summary_row.dart';
 import 'package:smartspend/l10n/generated/app_localizations.dart';
 
 /// Budget tab entry point — wires the page-scoped [BudgetBloc] and
@@ -59,8 +60,7 @@ class _BudgetView extends StatelessWidget {
         builder: (BuildContext ctx, BudgetState state) {
           return switch (state) {
             BudgetInitial() ||
-            BudgetLoading() =>
-              const Center(child: CircularProgressIndicator()),
+            BudgetLoading() => const Center(child: CircularProgressIndicator()),
             BudgetError(:final failure) => _ErrorView(message: failure.message),
             BudgetLoaded() => _LoadedView(state: state),
           };
@@ -114,9 +114,9 @@ class _LoadedView extends StatelessWidget {
         if (!state.notificationsEnabled)
           SliverToBoxAdapter(
             child: BudgetPermissionBanner(
-              onRequest: () => context
-                  .read<BudgetBloc>()
-                  .add(const BudgetPermissionRequested()),
+              onRequest: () => context.read<BudgetBloc>().add(
+                const BudgetPermissionRequested(),
+              ),
             ),
           ),
         if (state.isEmpty)
@@ -127,9 +127,15 @@ class _LoadedView extends StatelessWidget {
             ),
           )
         else ...<Widget>[
-          if (general != null)
+          if (general != null) ...<Widget>[
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              sliver: SliverToBoxAdapter(
+                child: BudgetSummaryRow(snapshot: general),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               sliver: SliverToBoxAdapter(
                 child: BudgetGeneralCard(
                   snapshot: general,
@@ -137,6 +143,7 @@ class _LoadedView extends StatelessWidget {
                 ),
               ),
             ),
+          ],
           if (categories.isNotEmpty)
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
@@ -156,9 +163,9 @@ class _LoadedView extends StatelessWidget {
                 child: BudgetCategoryTile(
                   snapshot: s,
                   onTap: () => _openCreate(context, editing: s),
-                  onDelete: () => context
-                      .read<BudgetBloc>()
-                      .add(BudgetDeleted(id: s.budget.id)),
+                  onDelete: () => context.read<BudgetBloc>().add(
+                    BudgetDeleted(id: s.budget.id),
+                  ),
                 ),
               );
             },
@@ -174,8 +181,10 @@ class _LoadedView extends StatelessWidget {
     required BudgetSnapshot? editing,
   }) async {
     final BudgetBloc bloc = context.read<BudgetBloc>();
-    final BudgetSheetResult? r =
-        await BudgetCreateSheet.show(context, editing: editing);
+    final BudgetSheetResult? r = await BudgetCreateSheet.show(
+      context,
+      editing: editing,
+    );
     if (r == null) return;
     if (r.deleted && editing != null) {
       bloc.add(BudgetDeleted(id: editing.budget.id));

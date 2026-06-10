@@ -13,9 +13,11 @@ import 'package:smartspend/features/categories/domain/usecases/list_categories.d
 import 'package:smartspend/features/expenses/domain/entities/expense.dart';
 import 'package:smartspend/features/expenses/domain/entities/expense_filter.dart';
 import 'package:smartspend/features/expenses/presentation/bloc/expense_list_bloc.dart';
+import 'package:smartspend/features/expenses/presentation/widgets/expense_category_chips.dart';
 import 'package:smartspend/features/expenses/presentation/widgets/expense_filter_sheet.dart';
 import 'package:smartspend/features/expenses/presentation/widgets/expense_group.dart';
 import 'package:smartspend/features/expenses/presentation/widgets/expense_list_item.dart';
+import 'package:smartspend/features/expenses/presentation/widgets/expense_period_chips.dart';
 import 'package:smartspend/l10n/generated/app_localizations.dart';
 
 /// Expenses tab — Sprint 3.1.
@@ -63,10 +65,27 @@ class _ExpenseListViewState extends State<_ExpenseListView> {
   bool _searching = false;
   late final TextEditingController _searchCtrl;
 
+  /// Backs the inline category chip row. Loaded once on mount — category
+  /// edits are rare enough that the filter sheet's on-demand fetch covers
+  /// staleness.
+  List<Category> _categories = const <Category>[];
+
   @override
   void initState() {
     super.initState();
     _searchCtrl = TextEditingController();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    final Either<Failure, List<Category>> result =
+        await sl<ListCategoriesUseCase>()(const ListCategoriesParams());
+    if (!mounted) return;
+    result.fold(
+      // Chip row simply stays hidden — the filter sheet remains available.
+      (Failure f) {},
+      (List<Category> categories) => setState(() => _categories = categories),
+    );
   }
 
   @override
@@ -101,10 +120,14 @@ class _ExpenseListViewState extends State<_ExpenseListView> {
           return switch (state) {
             ExpenseListInitial() => const _LoadingBody(),
             ExpenseListLoading() => const _LoadingBody(),
-            ExpenseListLoaded(:final List<Expense> expenses) =>
-              _LoadedBody(state: state, expenses: expenses),
-            ExpenseListError(:final Failure failure) =>
-              _ErrorBody(message: _failureMessage(l, failure)),
+            ExpenseListLoaded(:final List<Expense> expenses) => _LoadedBody(
+              state: state,
+              expenses: expenses,
+              categories: _categories,
+            ),
+            ExpenseListError(:final Failure failure) => _ErrorBody(
+              message: _failureMessage(l, failure),
+            ),
           };
         },
       ),
@@ -162,8 +185,9 @@ class _ExpenseListViewState extends State<_ExpenseListView> {
     final ExpenseListBloc bloc = context.read<ExpenseListBloc>();
     final Either<Failure, List<Category>> result =
         await sl<ListCategoriesUseCase>()(const ListCategoriesParams());
-    final List<Category> categories =
-        result.getOrElse(() => const <Category>[]);
+    final List<Category> categories = result.getOrElse(
+      () => const <Category>[],
+    );
     if (!context.mounted) return;
     final ExpenseFilter? next = await ExpenseFilterSheet.show(
       context,
@@ -186,15 +210,53 @@ class _LoadingBody extends StatelessWidget {
 }
 
 class _LoadedBody extends StatelessWidget {
-  const _LoadedBody({required this.state, required this.expenses});
+  const _LoadedBody({
+    required this.state,
+    required this.expenses,
+    required this.categories,
+  });
 
   final ExpenseListLoaded state;
   final List<Expense> expenses;
+
+  /// Categories backing the inline chip row; empty while loading (the
+  /// row is simply omitted).
+  final List<Category> categories;
 
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l = AppLocalizations.of(context);
     final ExpenseListBloc bloc = context.read<ExpenseListBloc>();
+
+    final Widget filterChips = Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          ExpensePeriodChips(
+            filter: state.filter,
+            onChanged: (ExpenseFilter next) =>
+                bloc.add(FilterChanged(filter: next)),
+          ),
+          if (categories.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 8),
+            ExpenseCategoryChips(
+              categories: categories,
+              selectedIds: state.filter.categoryIds,
+              onToggled: (int id) {
+                final Set<int> next = <int>{...state.filter.categoryIds};
+                if (!next.remove(id)) next.add(id);
+                bloc.add(
+                  FilterChanged(
+                    filter: state.filter.copyWith(categoryIds: next),
+                  ),
+                );
+              },
+            ),
+          ],
+        ],
+      ),
+    );
 
     if (expenses.isEmpty) {
       return RefreshIndicator(
@@ -202,6 +264,7 @@ class _LoadedBody extends StatelessWidget {
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: <Widget>[
+            SliverToBoxAdapter(child: filterChips),
             SliverFillRemaining(
               hasScrollBody: false,
               child: _EmptyState(filter: state.filter),
@@ -225,6 +288,7 @@ class _LoadedBody extends StatelessWidget {
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: <Widget>[
+          SliverToBoxAdapter(child: filterChips),
           SliverToBoxAdapter(
             child: _SummaryHeader(state: state),
           ),
@@ -238,8 +302,7 @@ class _LoadedBody extends StatelessWidget {
               final Expense e = entry.expense!;
               return ExpenseListItem(
                 expense: e,
-                onTap: () =>
-                    GoRouter.of(context).push('/expenses/${e.id}'),
+                onTap: () => GoRouter.of(context).push('/expenses/${e.id}'),
                 onDelete: () => bloc.add(ExpenseDeleted(id: e.id)),
               );
             },

@@ -429,6 +429,8 @@
   "settingsAccountSection": "Hesap",
   "settingsPreferencesSection": "Tercihler",
   "settingsDataSection": "Veri ve gizlilik",
+  "settingsPrivacyPolicy": "Gizlilik Politikası",
+  "settingsTermsOfUse": "Kullanım Şartları",
   "settingsLastSync": "Son eşitleme: {time}",
   "@settingsLastSync": {
     "placeholders": {

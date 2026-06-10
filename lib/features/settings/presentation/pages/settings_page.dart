@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:smartspend/app/bloc/app_bloc.dart';
 import 'package:smartspend/app/injection_container.dart';
+import 'package:smartspend/core/constants/app_constants.dart';
 import 'package:smartspend/core/utils/currency_formatter.dart';
 import 'package:smartspend/features/auth/domain/entities/app_user.dart';
 import 'package:smartspend/features/auth/presentation/bloc/auth_bloc.dart';
@@ -389,6 +390,17 @@ class _DataSection extends StatelessWidget {
             );
           },
         ),
+        _LegalTile(
+          icon: Icons.privacy_tip_outlined,
+          title: l.settingsPrivacyPolicy,
+          url: AppConstants.privacyPolicyUrl,
+        ),
+        _LegalTile(
+          icon: Icons.description_outlined,
+          title: l.settingsTermsOfUse,
+          url: AppConstants.termsOfUseUrl,
+        ),
+        const Divider(height: 1),
         ListTile(
           leading: Icon(Icons.delete_forever_rounded, color: colors.error),
           title: Text(
@@ -432,6 +444,33 @@ class _DataSection extends StatelessWidget {
     if (confirmed ?? false) {
       bloc.add(const AuthAccountDeletionRequested());
     }
+  }
+}
+
+/// Opens a legal document (privacy policy / terms) in the external browser.
+/// The URLs live in [AppConstants] — fill the placeholders before release.
+class _LegalTile extends StatelessWidget {
+  const _LegalTile({
+    required this.icon,
+    required this.title,
+    required this.url,
+  });
+
+  final IconData icon;
+  final String title;
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      trailing: const Icon(Icons.open_in_new_rounded, size: 18),
+      onTap: () => launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      ),
+    );
   }
 }
 

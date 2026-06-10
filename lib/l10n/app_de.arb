@@ -420,6 +420,8 @@
   "settingsAccountSection": "Konto",
   "settingsPreferencesSection": "Einstellungen",
   "settingsDataSection": "Daten & Datenschutz",
+  "settingsPrivacyPolicy": "Datenschutzrichtlinie",
+  "settingsTermsOfUse": "Nutzungsbedingungen",
   "settingsLastSync": "Letzte Synchronisierung: {time}",
   "@settingsLastSync": {
     "placeholders": {

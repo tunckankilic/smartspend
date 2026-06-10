@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import 'package:smartspend/core/constants/app_constants.dart';
 import 'package:smartspend/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:smartspend/features/auth/presentation/widgets/auth_failure_message.dart';
 import 'package:smartspend/l10n/generated/app_localizations.dart';
@@ -33,6 +35,10 @@ class _SignUpPageState extends State<SignUpPage> {
     _password.dispose();
     _confirm.dispose();
     super.dispose();
+  }
+
+  Future<void> _openLegal(String url) async {
+    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
 
   void _submit() {
@@ -158,6 +164,28 @@ class _SignUpPageState extends State<SignUpPage> {
                           _termsError = false;
                         }
                       }),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 12),
+                      child: Wrap(
+                        spacing: 8,
+                        children: <Widget>[
+                          TextButton(
+                            onPressed: busy
+                                ? null
+                                : () => _openLegal(
+                                    AppConstants.privacyPolicyUrl,
+                                  ),
+                            child: Text(l.settingsPrivacyPolicy),
+                          ),
+                          TextButton(
+                            onPressed: busy
+                                ? null
+                                : () => _openLegal(AppConstants.termsOfUseUrl),
+                            child: Text(l.settingsTermsOfUse),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 16),
                     FilledButton(

@@ -13,6 +13,21 @@ abstract class AppConstants {
   static const String oauthCallbackUrl =
       'site.tunckankilic.smartspend://login-callback';
 
+  // ───────────────────────────────────────────────────────────────────────
+  // TODO(release): replace with the PUBLIC privacy-policy URL before submit.
+  // Must be the same URL entered in App Store Connect → App Privacy. Source
+  // text lives in docs/internal/appstore/privacy_policy_{en,tr,de}.md.
+  // ───────────────────────────────────────────────────────────────────────
+  static const String privacyPolicyUrl =
+      'https://REPLACE_WITH_PRIVACY_POLICY_URL';
+
+  // ───────────────────────────────────────────────────────────────────────
+  // TODO(release): replace with the PUBLIC terms-of-use URL before submit.
+  // If you decide NOT to host Terms, remove the Terms link from Settings and
+  // the sign-up screen and drop "Terms of Use" from authTermsLabel instead.
+  // ───────────────────────────────────────────────────────────────────────
+  static const String termsOfUseUrl = 'https://REPLACE_WITH_TERMS_OF_USE_URL';
+
   /// Default currency used when the user has not set one yet.
   static const String defaultCurrency = 'TRY';
 

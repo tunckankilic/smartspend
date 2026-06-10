@@ -420,6 +420,8 @@
   "settingsAccountSection": "Account",
   "settingsPreferencesSection": "Preferences",
   "settingsDataSection": "Data & privacy",
+  "settingsPrivacyPolicy": "Privacy Policy",
+  "settingsTermsOfUse": "Terms of Use",
   "settingsLastSync": "Last sync: {time}",
   "@settingsLastSync": {
     "placeholders": {

@@ -140,12 +140,17 @@ workflows:
         bundle_identifier: site.tunckankilic.smartspend
     integrations:
       app_store_connect: SmartSpend App Store Connect Key  # p8 API key
-    triggering:
-      events:
-        - tag
-      tag_patterns:
-        - pattern: "v*"
-          include: true
+    # ⚠️ TEMPORARILY DISABLED — v1.0.0 ships MANUALLY via Transporter.
+    # The auto-trigger on `v*` tags is commented out so tagging the release
+    # does NOT kick off a Codemagic build/TestFlight upload that would race
+    # the manual Transporter flow. Re-enable (uncomment) once CI shipping is
+    # adopted in a later update.
+    # triggering:
+    #   events:
+    #     - tag
+    #   tag_patterns:
+    #     - pattern: "v*"
+    #       include: true
     scripts:
       - *write_env
       - *flutter_packages
@@ -211,13 +216,18 @@ workflows:
     environment:
       groups:
         - supabase   # SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-      cancel_previous_builds: true
+    # ⚠️ TEMPORARILY DISABLED — the FIRST prod Supabase deploy is done MANUALLY
+    # (supabase db push + functions deploy). The auto-trigger on `main` push is
+    # commented out so merging Day-11-Release → main does NOT fire an
+    # uncontrolled prod deploy. Re-enable (uncomment) ONLY after the first
+    # manual deploy is verified.
+    # triggering:
+    #   events:
+    #     - push
+    #   branch_patterns:
+    #     - pattern: main
+    #       include: true
+    #   cancel_previous_builds: true
     scripts:
       - name: Install Supabase CLI
         script: |

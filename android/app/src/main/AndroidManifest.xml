@@ -1,4 +1,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Receipt scanning (Sprint 2). image_picker delegates to the system
+         camera; declaring CAMERA lets us optionally surface flash controls
+         in later sprints. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Android 13+ scoped photo access. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- Android 12 and below fall back to legacy storage permission. -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!-- Tablets without a camera should still install. -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
     <application
         android:label="smartspend"
         android:name="${applicationName}"
@@ -23,6 +39,17 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- Supabase PKCE / OAuth deep-link callback (Sprint 8.2).
+                 Must mirror the redirect URL registered in the Supabase
+                 dashboard: site.tunckankilic.smartspend://login-callback -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="site.tunckankilic.smartspend"
+                    android:host="login-callback"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

@@ -1,0 +1,493 @@
+{
+  "@@locale": "en",
+  "appTitle": "SmartSpend",
+
+  "navDashboard": "Overview",
+  "navScan": "Scan",
+  "navExpenses": "Expenses",
+  "navBudget": "Budget",
+  "navSettings": "Settings",
+
+  "placeholderScan": "Receipt scanning arrives in Sprint 2.",
+  "placeholderExpenses": "Expense list arrives in Sprint 3.",
+  "placeholderBudget": "Budget screen arrives in Sprint 6.",
+  "placeholderSettings": "Account settings arrive in Sprint 8.",
+
+  "authSignInTitle": "Sign in",
+  "authSignUpTitle": "Create account",
+  "authForgotPasswordTitle": "Forgot password",
+  "authSignOut": "Sign out",
+  "authSignOutCta": "Sign out",
+  "authDeleteAccount": "Delete account",
+  "authDeleteAccountCta": "Delete my account",
+  "authDeleteAccountDialogTitle": "Delete account?",
+  "authDeleteAccountDialogBody": "This permanently deletes your account and all data — receipts, expenses, and budgets. This cannot be undone.",
+  "authDeleteAccountConfirm": "Delete",
+  "authDeleteAccountCancel": "Cancel",
+  "authEmailLabel": "Email",
+  "authEmailInvalid": "Enter a valid email.",
+  "authPasswordLabel": "Password",
+  "authPasswordConfirmLabel": "Confirm password",
+  "authPasswordTooShort": "Password must be at least 8 characters.",
+  "authPasswordWeak": "Password must contain an uppercase letter and a digit.",
+  "authPasswordMismatch": "Passwords don't match.",
+  "authSignInCta": "Sign in",
+  "authSignUpCta": "Create account",
+  "authForgotPasswordCta": "Send reset link",
+  "authForgotPasswordLink": "Forgot password",
+  "authGoogleSignInCta": "Continue with Google",
+  "authAppleSignInCta": "Continue with Apple",
+  "authNoAccount": "No account? Create one",
+  "authHaveAccount": "Already have an account? Sign in",
+  "authPasswordResetSent": "Reset link sent",
+  "authPasswordResetHint": "Tap the link in your email to reset your password.",
+  "authTermsLabel": "I accept the Terms of Use and Privacy Policy.",
+  "authTermsRequired": "You must accept the terms to continue.",
+  "authSignUpCheckEmailTitle": "Verify your email",
+  "authSignUpCheckEmailBody": "We sent a verification link to {email}. Tap it to activate your account.",
+  "@authSignUpCheckEmailBody": {
+    "placeholders": { "email": { "type": "String" } }
+  },
+  "authBackToSignIn": "Back to sign in",
+  "authCallbackLoading": "Signing in…",
+  "authInvalidCredentials": "Invalid email or password.",
+  "authEmailNotConfirmed": "Please confirm your email first.",
+  "authNetworkError": "Connection error. Check your internet.",
+  "authGenericError": "Something went wrong. Please try again.",
+
+  "onboardingTitle": "Welcome to SmartSpend",
+  "onboardingContinue": "Get started",
+
+  "scanTitle": "Scan receipt",
+  "scanIntroHeadline": "Snap a receipt, let SmartSpend handle the rest.",
+  "scanIntroBody": "Use the camera to capture a receipt or pick one from your library. SmartSpend reads the text, splits out the line items, and saves the expense.",
+  "scanActionCapture": "Open camera",
+  "scanActionGallery": "Pick from gallery",
+  "scanActionScan": "Start scan",
+  "scanActionRetake": "Retake",
+  "scanActionCancel": "Cancel",
+  "scanActionDone": "Done",
+  "scanProcessing": "Working…",
+  "scanProcessingHint": "Just a second, preparing your image.",
+  "scanPreviewTitle": "Image ready",
+  "scanPreviewBody": "If the receipt looks sharp, kick off the scan.",
+  "scanSuccessTitle": "Scan complete",
+  "scanSuccessBody": "The edit screen lands in Sprint 2.3. For now you can save it or capture another receipt.",
+  "scanSavedTitle": "Receipt saved",
+  "scanSavedBody": "Your expense has been added to SmartSpend.",
+  "scanErrorTitle": "Something went wrong",
+  "scanErrorRetry": "Try again",
+  "scanPermissionDenied": "Camera or photo access was denied. Grant permission in Settings to continue.",
+  "scanGenericError": "Couldn't fetch the image. Please try again.",
+
+  "editTitle": "Edit receipt",
+  "editStoreLabel": "Store name",
+  "editStoreHint": "e.g. Tesco, Aldi, Whole Foods",
+  "editDateLabel": "Date",
+  "editCurrencyLabel": "Currency",
+  "editDefaultCategoryLabel": "Default category",
+  "editDefaultCategoryHint": "Applied to items without a specific category",
+  "editItemsHeader": "Items",
+  "editItemNameLabel": "Item name",
+  "editItemQuantityLabel": "Qty",
+  "editItemPriceLabel": "Price",
+  "editItemCategoryLabel": "Category",
+  "editAddItem": "Add item",
+  "editRemoveItem": "Remove",
+  "editComputedTotal": "Computed total",
+  "editTotalMismatch": "OCR total ({ocr}) doesn't match the computed total ({computed}).",
+  "editSave": "Save",
+  "editRetake": "Retake",
+  "editCancel": "Cancel",
+  "editSaving": "Saving…",
+  "editSavedSnack": "Receipt saved.",
+  "editErrorEmptyItems": "At least one valid item is required.",
+  "editErrorNonPositiveTotal": "Total must be greater than zero.",
+  "editErrorFutureDate": "The date can't be in the future.",
+  "editErrorMissingDefaultCategory": "Pick a default category first.",
+  "editErrorSaveFailed": "Couldn't save the receipt.",
+  "editPickCategoryTitle": "Pick a category",
+  "editPickCategorySearch": "Search categories",
+  "editPickCategoryAdd": "New category",
+  "editNewCategoryTitle": "New category",
+  "editNewCategoryNameLabel": "Category name",
+  "editNewCategoryCreate": "Create",
+
+  "expenseListSearchHint": "Search store or note",
+  "expenseListAdd": "Add expense",
+  "expenseListManualSoon": "Manual entry arrives in Sprint 3.2.",
+  "expenseListSummaryTitle": "Total in view",
+  "expenseListSummaryCount": "{count, plural, =0{No expenses} =1{1 expense} other{{count} expenses}}",
+  "@expenseListSummaryCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "expenseListGroupToday": "Today",
+  "expenseListGroupYesterday": "Yesterday",
+  "expenseListGroupThisWeek": "This week",
+  "expenseListGroupThisMonth": "This month",
+  "expenseListGroupEarlier": "Earlier",
+  "expenseListEmptyTitle": "No expenses yet",
+  "expenseListEmptyBody": "Scan a receipt or add one manually to get started.",
+  "expenseListEmptyFilteredTitle": "No matches",
+  "expenseListEmptyFilteredBody": "Try widening your filters or clearing the search.",
+  "expenseListDeleteTitle": "Delete expense?",
+  "expenseListDeleteBody": "This can't be undone.",
+  "expenseListDeleteConfirm": "Delete",
+  "expenseListPendingSync": "Pending sync",
+  "expenseListRecurring": "Recurring",
+
+  "expenseListFilterTitle": "Filter expenses",
+  "expenseListFilterDateRange": "Date range",
+  "expenseListFilterDateFrom": "From",
+  "expenseListFilterDateTo": "To",
+  "expenseListFilterCategories": "Categories",
+  "expenseListFilterAmount": "Amount range",
+  "expenseListFilterMin": "Min",
+  "expenseListFilterMax": "Max",
+  "expenseListFilterApply": "Apply",
+  "expenseListFilterClear": "Clear all",
+  "expenseListSortTitle": "Sort by",
+  "expenseListSortDateDesc": "Newest first",
+  "expenseListSortDateAsc": "Oldest first",
+  "expenseListSortAmountDesc": "Highest first",
+  "expenseListSortAmountAsc": "Lowest first",
+  "expenseListErrorCache": "Couldn't load your expenses.",
+  "expenseListErrorNetwork": "You're offline. Showing local data.",
+  "expenseListErrorGeneric": "Something went wrong.",
+
+  "expenseDetailTitle": "Expense",
+  "expenseDetailNoteLabel": "Note",
+  "expenseDetailOriginLabel": "Source",
+  "expenseDetailOriginManual": "Manual entry",
+  "expenseDetailOriginScan": "Scanned receipt",
+  "expenseDetailRecurringLabel": "Recurring",
+  "expenseDetailRecurringWeekly": "Weekly",
+  "expenseDetailRecurringMonthly": "Monthly",
+  "expenseDetailRecurringYearly": "Yearly",
+  "expenseDetailReceiptLabel": "Original receipt",
+  "expenseDetailReceiptImageSoon": "Receipt image arrives in Sprint 8.",
+  "expenseDetailSyncLabel": "Sync",
+  "expenseDetailSyncPending": "Waiting for the next sync.",
+  "expenseDetailDelete": "Delete",
+  "expenseDetailDeleteTitle": "Delete this expense?",
+  "expenseDetailDeleteBody": "Removes it from your list. Cannot be undone.",
+  "expenseDetailDeletedSnack": "Expense deleted.",
+  "expenseDetailNotFound": "Expense not found.",
+  "expenseDetailEdit": "Edit",
+  "expenseDetailTagsLabel": "Tags",
+
+  "addExpenseTitleNew": "New expense",
+  "addExpenseTitleEdit": "Edit expense",
+  "addExpenseCategoryLabel": "Category",
+  "addExpenseCategoryHint": "Pick a category",
+  "addExpenseDateLabel": "Date",
+  "addExpenseNoteLabel": "Note",
+  "addExpenseNoteHint": "Optional — describe this expense",
+  "addExpenseTagsLabel": "Tags",
+  "addExpenseTagsHint": "Type and press enter or comma to add",
+  "addExpenseTagsSuggestions": "Recently used",
+  "addExpenseRecurringLabel": "Recurring expense",
+  "addExpenseRecurringHint": "Auto-scheduling lands in Sprint 6.",
+  "addExpenseSave": "Save expense",
+  "addExpenseSaveChanges": "Save changes",
+  "addExpenseSavedSnack": "Saved.",
+  "addExpenseSaveFailed": "Couldn't save. Try again.",
+  "addExpenseErrorAmount": "Amount must be greater than zero.",
+  "addExpenseErrorCategory": "Pick a category.",
+  "addExpenseErrorFutureDate": "The date can't be in the future.",
+  "addExpenseErrorRecurringPeriod": "Pick a recurrence period.",
+
+  "dashboardGreetingMorning": "Good morning",
+  "dashboardGreetingAfternoon": "Good afternoon",
+  "dashboardGreetingEvening": "Good evening",
+  "dashboardGreetingNight": "Good night",
+  "dashboardSummaryThisWeekLabel": "This week",
+  "dashboardSummaryThisMonthLabel": "This month",
+  "dashboardSummaryLast3MonthsLabel": "Last 3 months",
+  "dashboardSummaryCustomLabel": "Custom range",
+  "dashboardSummaryDeltaUp": "↑ {percent}% vs previous period",
+  "@dashboardSummaryDeltaUp": {
+    "placeholders": { "percent": { "type": "String" } }
+  },
+  "dashboardSummaryDeltaDown": "↓ {percent}% vs previous period",
+  "@dashboardSummaryDeltaDown": {
+    "placeholders": { "percent": { "type": "String" } }
+  },
+  "dashboardSummaryDeltaNone": "No data for the previous period.",
+  "dashboardPeriodWeek": "Week",
+  "dashboardPeriodMonth": "Month",
+  "dashboardPeriod3Months": "3 months",
+  "dashboardPeriodCustom": "Custom",
+  "dashboardPickRangeTitle": "Pick a date range",
+  "dashboardQuickActionScan": "Scan",
+  "dashboardQuickActionAdd": "Add",
+  "dashboardQuickActionBudget": "Budget",
+  "dashboardQuickActionReport": "Report",
+  "dashboardReportComingSoon": "Reports land in Sprint 10.",
+  "dashboardSectionWeekly": "Daily spending",
+  "dashboardSectionCategories": "Categories",
+  "dashboardSectionRecent": "Recent expenses",
+  "dashboardRecentSeeAll": "See all",
+  "dashboardEmptyTitle": "No expenses yet",
+  "dashboardEmptyBody": "Scan a receipt or add one manually to get started.",
+  "dashboardInsightSpike": "You spent {percent}% more on {category} than last period.",
+  "@dashboardInsightSpike": {
+    "placeholders": {
+      "category": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "dashboardErrorTitle": "Couldn't load the dashboard.",
+  "dashboardErrorRetry": "Try again",
+
+  "budgetTitle": "Budget",
+  "budgetGeneralLabel": "Total budget",
+  "budgetCategoriesSection": "Category budgets",
+  "budgetEmptyTitle": "No budgets yet",
+  "budgetEmptyBody": "Set a monthly or weekly budget to keep your spending on track.",
+  "budgetEmptyCta": "Create your first budget",
+  "budgetCreateFab": "Add budget",
+  "budgetSheetTitleCreate": "New budget",
+  "budgetSheetTitleEdit": "Edit budget",
+  "budgetSheetAmountLabel": "Amount",
+  "budgetSheetAmountHint": "e.g. 5000.00",
+  "budgetSheetPeriodLabel": "Period",
+  "budgetSheetCategoryLabel": "Category",
+  "budgetSheetCategoryGeneral": "General (all expenses)",
+  "budgetSheetCategoryPick": "Pick a category",
+  "budgetSheetSubmit": "Save",
+  "budgetSheetDelete": "Delete budget",
+  "budgetPeriodWeekly": "Weekly",
+  "budgetPeriodMonthly": "Monthly",
+  "budgetPeriodYearly": "Yearly",
+  "budgetSpentOfTotal": "{spent} / {total}",
+  "@budgetSpentOfTotal": {
+    "placeholders": {
+      "spent": { "type": "String" },
+      "total": { "type": "String" }
+    }
+  },
+  "budgetRemaining": "Remaining: {remaining}",
+  "@budgetRemaining": {
+    "placeholders": { "remaining": { "type": "String" } }
+  },
+  "budgetOverspent": "Over by {amount}",
+  "@budgetOverspent": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
+  "budgetPercentSpent": "{percent}% spent",
+  "@budgetPercentSpent": {
+    "placeholders": { "percent": { "type": "String" } }
+  },
+  "budgetPermissionBannerTitle": "Notifications are off",
+  "budgetPermissionBannerBody": "Turn on notifications to get budget alerts and weekly summaries.",
+  "budgetPermissionBannerAction": "Enable",
+  "budgetWriteFailed": "Couldn't save: {message}",
+  "@budgetWriteFailed": {
+    "placeholders": { "message": { "type": "String" } }
+  },
+  "budgetAmountInvalid": "Amount must be greater than zero.",
+  "budgetErrorTitle": "Couldn't load budgets.",
+  "budgetErrorRetry": "Try again",
+  "budgetDeleteConfirmTitle": "Delete this budget?",
+  "budgetDeleteConfirmBody": "The budget will be removed. Your expense history stays untouched.",
+  "budgetDeleteConfirm": "Delete",
+  "budgetDeleteCancel": "Cancel",
+
+  "dashboardInsightBudgetWarning": "Your {category} budget is at {percent}% — close to the limit.",
+  "@dashboardInsightBudgetWarning": {
+    "placeholders": {
+      "category": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "dashboardInsightBudgetExceeded": "You're over your {category} budget ({percent}%).",
+  "@dashboardInsightBudgetExceeded": {
+    "placeholders": {
+      "category": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "dashboardInsightBudgetAchievement": "Nice work — you're under your {category} budget.",
+  "@dashboardInsightBudgetAchievement": {
+    "placeholders": { "category": { "type": "String" } }
+  },
+  "dashboardInsightFrequency": "You spent on {tag} {count} times this period, totalling {total}.",
+  "@dashboardInsightFrequency": {
+    "placeholders": {
+      "tag": { "type": "String" },
+      "count": { "type": "String" },
+      "total": { "type": "String" }
+    }
+  },
+  "dashboardInsightDayOfWeek": "On {weekday}s you spend {percent}% more than your daily average.",
+  "@dashboardInsightDayOfWeek": {
+    "placeholders": {
+      "weekday": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "weekdayMonday": "Monday",
+  "weekdayTuesday": "Tuesday",
+  "weekdayWednesday": "Wednesday",
+  "weekdayThursday": "Thursday",
+  "weekdayFriday": "Friday",
+  "weekdaySaturday": "Saturday",
+  "weekdaySunday": "Sunday",
+
+  "splitTitle": "Split Bill",
+  "splitParticipantsLabel": "Participants",
+  "splitParticipantHint": "Add a name",
+  "splitParticipantAdd": "Add",
+  "splitParticipantsEmpty": "No participants yet. Add at least one person to split.",
+  "splitTypeEqual": "Equal",
+  "splitTypeCustom": "Custom",
+  "splitItemsLabel": "Items",
+  "splitAssignSheetHint": "Who shared this item?",
+  "splitAssignSave": "Save",
+  "splitAssignClear": "Clear",
+  "splitSummaryTitle": "Summary",
+  "splitSummaryEmpty": "Add a participant first.",
+  "splitSummaryTotal": "Total",
+  "splitShareButton": "Share Summary",
+  "splitShareHeading": "SmartSpend Bill Summary",
+  "splitShareHeader": "{store} — {date}",
+  "@splitShareHeader": {
+    "placeholders": {
+      "store": { "type": "String" },
+      "date": { "type": "String" }
+    }
+  },
+  "splitSharePerPerson": "{name}: {amount}",
+  "@splitSharePerPerson": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "amount": { "type": "String" }
+    }
+  },
+  "splitShareTotal": "Total: {amount}",
+  "@splitShareTotal": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    }
+  },
+  "splitLoadFailed": "Couldn't load the receipt. Please try again.",
+  "splitShareFailed": "Sharing failed.",
+
+  "archiveTitle": "Receipt Archive",
+  "archiveSearchHint": "Search by store",
+  "archiveViewGrid": "Grid view",
+  "archiveViewList": "List view",
+  "archiveEmpty": "No archived receipts yet. Scan one first.",
+  "archiveEmptyFiltered": "No receipts match this filter.",
+  "archiveLoadFailed": "Couldn't load the archive.",
+  "archiveUnknownStore": "Unknown store",
+
+  "receiptDetailTitle": "Receipt Details",
+  "receiptDetailMissing": "Receipt not found.",
+  "receiptDetailItemsLabel": "Items",
+  "receiptDetailItemsEmpty": "This receipt has no items.",
+  "warrantySectionTitle": "Warranty Tracking",
+  "warrantyReminderHint": "We'll remind you 30 days before it expires.",
+  "warrantyAbsent": "No warranty set.",
+  "warrantyAdd": "Add Warranty",
+  "warrantyChange": "Change",
+  "warrantyClear": "Clear",
+  "warrantyWriteFailed": "Couldn't save the warranty.",
+
+  "syncIndicatorSynced": "Synced {lastSyncAt}",
+  "@syncIndicatorSynced": {
+    "placeholders": {
+      "lastSyncAt": { "type": "String" }
+    }
+  },
+  "syncIndicatorSyncing": "Syncing…",
+  "syncIndicatorPending": "{count} pending",
+  "@syncIndicatorPending": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "syncIndicatorOffline": "Offline",
+  "syncOfflineBanner": "You're offline. Changes will sync when you reconnect.",
+  "syncConflictBanner": "Some changes were updated elsewhere and merged.",
+  "storageUploadFailed": "Receipt image upload failed. It will retry later.",
+  "storageImageMissing": "Receipt image unavailable.",
+  "syncIndicatorFailed": "Sync failed",
+
+  "settingsAccountSection": "Account",
+  "settingsPreferencesSection": "Preferences",
+  "settingsDataSection": "Data & privacy",
+  "settingsPrivacyPolicy": "Privacy Policy",
+  "settingsTermsOfUse": "Terms of Use",
+  "settingsLastSync": "Last sync: {time}",
+  "@settingsLastSync": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
+  "settingsLastSyncNever": "Not synced yet",
+  "settingsSyncNow": "Sync now",
+  "settingsCurrency": "Default currency",
+  "settingsLanguage": "Language",
+  "settingsLanguageSystem": "System default",
+  "settingsDarkMode": "Dark mode",
+  "settingsNotifications": "Notifications",
+  "settingsNotificationsSubtitle": "Budget alerts and reminders",
+  "settingsDownloadData": "Download my data",
+  "settingsDownloadDataSubtitle": "Export everything as a CSV file",
+  "settingsDownloadPdf": "Download PDF report",
+  "settingsDownloadPdfSubtitle": "Export your monthly spending report as a PDF",
+  "languageTurkish": "Türkçe",
+  "languageEnglish": "English",
+  "languageGerman": "Deutsch",
+  "exportPreparing": "Preparing your export…",
+  "exportFailed": "Couldn't export your data. Please try again.",
+  "exportReady": "Export ready ({count} rows). Opening download…",
+  "@exportReady": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "a11yShowPassword": "Show password",
+  "@a11yShowPassword": {
+    "description": "Screen-reader label for the password reveal toggle"
+  },
+  "a11yHidePassword": "Hide password",
+  "@a11yHidePassword": {
+    "description": "Screen-reader label for the password hide toggle"
+  },
+  "a11ySearchExpenses": "Search expenses",
+  "a11yFilterExpenses": "Filter expenses",
+  "a11yBack": "Back",
+  "a11ySaveExpense": "Save expense",
+  "a11yAddTag": "Add tag",
+
+  "expenseListPeriodAll": "All",
+  "expenseListPeriodWeek": "This Week",
+  "expenseListPeriodMonth": "This Month",
+  "expenseListPeriod3Months": "Last 3 Months",
+
+  "budgetSummaryBudgetLabel": "Budget",
+  "budgetSummarySpentLabel": "Spent",
+  "budgetSummaryDaysLeftLabel": "Days Left",
+  "budgetSummaryDaysValue": "{count, plural, =1{1 day} other{{count} days}}",
+  "@budgetSummaryDaysValue": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "addExpenseCategoryMore": "All",
+
+  "scanCameraAiBadge": "AI Auto-Detect",
+  "scanCameraFrameHint": "Align the receipt within the frame",
+  "scanCameraTip": "Tip: Place the receipt on a flat surface, use good lighting, and keep it fully in frame.",
+  "a11yShutter": "Take photo",
+  "a11yToggleFlash": "Toggle flash",
+  "a11yOpenGallery": "Pick from gallery",
+  "a11yCloseCamera": "Close camera"
+}

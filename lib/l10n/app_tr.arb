@@ -1,0 +1,496 @@
+{
+  "@@locale": "tr",
+  "appTitle": "SmartSpend",
+  "@appTitle": {
+    "description": "App name shown in the title bar"
+  },
+
+  "navDashboard": "Özet",
+  "navScan": "Tara",
+  "navExpenses": "Harcamalar",
+  "navBudget": "Bütçe",
+  "navSettings": "Ayarlar",
+
+  "placeholderScan": "Sprint 2'de fiş tarama burada açılacak.",
+  "placeholderExpenses": "Sprint 3'te harcama listesi burada görünecek.",
+  "placeholderBudget": "Sprint 6'da bütçe ekranı burada açılacak.",
+  "placeholderSettings": "Sprint 8'de hesap ayarları burada açılacak.",
+
+  "authSignInTitle": "Giriş Yap",
+  "authSignUpTitle": "Hesap Oluştur",
+  "authForgotPasswordTitle": "Şifremi Unuttum",
+  "authSignOut": "Çıkış Yap",
+  "authSignOutCta": "Çıkış Yap",
+  "authDeleteAccount": "Hesabı sil",
+  "authDeleteAccountCta": "Hesabımı sil",
+  "authDeleteAccountDialogTitle": "Hesap silinsin mi?",
+  "authDeleteAccountDialogBody": "Bu işlem hesabınızı ve tüm verilerinizi — fişler, harcamalar ve bütçeler — kalıcı olarak siler. Geri alınamaz.",
+  "authDeleteAccountConfirm": "Sil",
+  "authDeleteAccountCancel": "Vazgeç",
+  "authEmailLabel": "E-posta",
+  "authEmailInvalid": "Geçerli bir e-posta gir.",
+  "authPasswordLabel": "Şifre",
+  "authPasswordConfirmLabel": "Şifre (tekrar)",
+  "authPasswordTooShort": "Şifre en az 8 karakter olmalı.",
+  "authPasswordWeak": "Şifre en az bir büyük harf ve bir rakam içermeli.",
+  "authPasswordMismatch": "Şifreler eşleşmiyor.",
+  "authSignInCta": "Giriş Yap",
+  "authSignUpCta": "Hesap Oluştur",
+  "authForgotPasswordCta": "Sıfırlama bağlantısı gönder",
+  "authForgotPasswordLink": "Şifremi unuttum",
+  "authGoogleSignInCta": "Google ile devam et",
+  "authAppleSignInCta": "Apple ile devam et",
+  "authNoAccount": "Hesabın yok mu? Hesap oluştur",
+  "authHaveAccount": "Zaten hesabın var mı? Giriş yap",
+  "authPasswordResetSent": "Sıfırlama bağlantısı gönderildi",
+  "authPasswordResetHint": "E-postandaki bağlantıya tıklayarak şifreni sıfırla.",
+  "authTermsLabel": "Kullanım Şartları ve Gizlilik Politikası'nı kabul ediyorum.",
+  "authTermsRequired": "Devam etmek için şartları kabul etmelisin.",
+  "authSignUpCheckEmailTitle": "E-postanı doğrula",
+  "authSignUpCheckEmailBody": "{email} adresine bir doğrulama bağlantısı gönderdik. Hesabını etkinleştirmek için bağlantıya tıkla.",
+  "@authSignUpCheckEmailBody": {
+    "placeholders": { "email": { "type": "String" } }
+  },
+  "authBackToSignIn": "Girişe dön",
+  "authCallbackLoading": "Oturum açılıyor…",
+  "authInvalidCredentials": "E-posta veya şifre hatalı.",
+  "authEmailNotConfirmed": "Önce e-posta adresini doğrulamalısın.",
+  "authNetworkError": "Bağlantı hatası. İnternetini kontrol et.",
+  "authGenericError": "Bir şeyler ters gitti. Lütfen tekrar dene.",
+
+  "onboardingTitle": "SmartSpend'e hoş geldin",
+  "onboardingContinue": "Başlayalım",
+
+  "scanTitle": "Fiş Tara",
+  "scanIntroHeadline": "Fişini tara, gerisini bana bırak.",
+  "scanIntroBody": "Kamerayla fişin fotoğrafını çek ya da galeriden bir görsel seç. SmartSpend metni okur, ürünleri ayırır ve harcamanı kaydeder.",
+  "scanActionCapture": "Kamerayı Aç",
+  "scanActionGallery": "Galeriden Seç",
+  "scanActionScan": "Taramayı Başlat",
+  "scanActionRetake": "Tekrar Çek",
+  "scanActionCancel": "Vazgeç",
+  "scanActionDone": "Tamam",
+  "scanProcessing": "İşleniyor…",
+  "scanProcessingHint": "Bir saniye, görseli hazırlıyorum.",
+  "scanPreviewTitle": "Görüntü hazır",
+  "scanPreviewBody": "Fiş net görünüyorsa taramayı başlatabilirsin.",
+  "scanSuccessTitle": "Tarama tamamlandı",
+  "scanSuccessBody": "Düzenleme ekranı Sprint 2.3'te açılacak. Şimdilik kaydedebilir veya yeni bir fiş tarayabilirsin.",
+  "scanSavedTitle": "Fiş kaydedildi",
+  "scanSavedBody": "Harcaman SmartSpend'e eklendi.",
+  "scanErrorTitle": "Bir şeyler ters gitti",
+  "scanErrorRetry": "Tekrar Dene",
+  "scanPermissionDenied": "Kamera veya galeri izni reddedildi. Ayarlardan izin verebilirsin.",
+  "scanGenericError": "Görüntü alınamadı. Lütfen tekrar dene.",
+
+  "editTitle": "Fişi Düzenle",
+  "editStoreLabel": "Mağaza adı",
+  "editStoreHint": "Örn. BİM, Migros, A101",
+  "editDateLabel": "Tarih",
+  "editCurrencyLabel": "Para birimi",
+  "editDefaultCategoryLabel": "Varsayılan kategori",
+  "editDefaultCategoryHint": "Kategori atanmamış ürünlere uygulanır",
+  "editItemsHeader": "Ürünler",
+  "editItemNameLabel": "Ürün adı",
+  "editItemQuantityLabel": "Miktar",
+  "editItemPriceLabel": "Fiyat",
+  "editItemCategoryLabel": "Kategori",
+  "editAddItem": "Ürün Ekle",
+  "editRemoveItem": "Sil",
+  "editComputedTotal": "Hesaplanan toplam",
+  "editTotalMismatch": "OCR toplamı ({ocr}) hesaplanan toplamla uyuşmuyor ({computed}).",
+  "@editTotalMismatch": {
+    "placeholders": {
+      "ocr": {"type": "String"},
+      "computed": {"type": "String"}
+    }
+  },
+  "editSave": "Kaydet",
+  "editRetake": "Tekrar Tara",
+  "editCancel": "İptal",
+  "editSaving": "Kaydediliyor…",
+  "editSavedSnack": "Fiş kaydedildi.",
+  "editErrorEmptyItems": "En az bir geçerli ürün girilmeli.",
+  "editErrorNonPositiveTotal": "Toplam tutar sıfırdan büyük olmalı.",
+  "editErrorFutureDate": "Tarih gelecekte olamaz.",
+  "editErrorMissingDefaultCategory": "Önce varsayılan kategoriyi seç.",
+  "editErrorSaveFailed": "Kaydetme sırasında bir hata oluştu.",
+  "editPickCategoryTitle": "Kategori Seç",
+  "editPickCategorySearch": "Kategori ara",
+  "editPickCategoryAdd": "Yeni Kategori",
+  "editNewCategoryTitle": "Yeni Kategori",
+  "editNewCategoryNameLabel": "Kategori adı",
+  "editNewCategoryCreate": "Oluştur",
+
+  "expenseListSearchHint": "Mağaza veya not ara",
+  "expenseListAdd": "Harcama Ekle",
+  "expenseListManualSoon": "Manuel giriş Sprint 3.2'de açılacak.",
+  "expenseListSummaryTitle": "Görünen toplam",
+  "expenseListSummaryCount": "{count, plural, =0{Harcama yok} =1{1 harcama} other{{count} harcama}}",
+  "@expenseListSummaryCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "expenseListGroupToday": "Bugün",
+  "expenseListGroupYesterday": "Dün",
+  "expenseListGroupThisWeek": "Bu hafta",
+  "expenseListGroupThisMonth": "Bu ay",
+  "expenseListGroupEarlier": "Daha eski",
+  "expenseListEmptyTitle": "Henüz harcama yok",
+  "expenseListEmptyBody": "Fiş tara ya da manuel olarak ekleyerek başla.",
+  "expenseListEmptyFilteredTitle": "Eşleşme yok",
+  "expenseListEmptyFilteredBody": "Filtreyi genişlet veya aramayı temizle.",
+  "expenseListDeleteTitle": "Harcama silinsin mi?",
+  "expenseListDeleteBody": "Bu işlem geri alınamaz.",
+  "expenseListDeleteConfirm": "Sil",
+  "expenseListPendingSync": "Eşitleme bekliyor",
+  "expenseListRecurring": "Tekrarlayan",
+
+  "expenseListFilterTitle": "Harcamaları Filtrele",
+  "expenseListFilterDateRange": "Tarih aralığı",
+  "expenseListFilterDateFrom": "Başlangıç",
+  "expenseListFilterDateTo": "Bitiş",
+  "expenseListFilterCategories": "Kategoriler",
+  "expenseListFilterAmount": "Tutar aralığı",
+  "expenseListFilterMin": "En az",
+  "expenseListFilterMax": "En çok",
+  "expenseListFilterApply": "Uygula",
+  "expenseListFilterClear": "Temizle",
+  "expenseListSortTitle": "Sırala",
+  "expenseListSortDateDesc": "En yeni",
+  "expenseListSortDateAsc": "En eski",
+  "expenseListSortAmountDesc": "En yüksek",
+  "expenseListSortAmountAsc": "En düşük",
+  "expenseListErrorCache": "Harcamalar yüklenemedi.",
+  "expenseListErrorNetwork": "Çevrimdışısın. Yerel veri gösteriliyor.",
+  "expenseListErrorGeneric": "Bir şeyler ters gitti.",
+
+  "expenseDetailTitle": "Harcama",
+  "expenseDetailNoteLabel": "Not",
+  "expenseDetailOriginLabel": "Kaynak",
+  "expenseDetailOriginManual": "Manuel giriş",
+  "expenseDetailOriginScan": "Taranan fiş",
+  "expenseDetailRecurringLabel": "Tekrarlayan",
+  "expenseDetailRecurringWeekly": "Haftalık",
+  "expenseDetailRecurringMonthly": "Aylık",
+  "expenseDetailRecurringYearly": "Yıllık",
+  "expenseDetailReceiptLabel": "Orijinal fiş",
+  "expenseDetailReceiptImageSoon": "Fiş görseli Sprint 8'de gelecek.",
+  "expenseDetailSyncLabel": "Eşitleme",
+  "expenseDetailSyncPending": "Bir sonraki eşitleme bekleniyor.",
+  "expenseDetailDelete": "Sil",
+  "expenseDetailDeleteTitle": "Bu harcama silinsin mi?",
+  "expenseDetailDeleteBody": "Listeden kaldırılır. Geri alınamaz.",
+  "expenseDetailDeletedSnack": "Harcama silindi.",
+  "expenseDetailNotFound": "Harcama bulunamadı.",
+  "expenseDetailEdit": "Düzenle",
+  "expenseDetailTagsLabel": "Etiketler",
+
+  "addExpenseTitleNew": "Yeni Harcama",
+  "addExpenseTitleEdit": "Harcamayı Düzenle",
+  "addExpenseCategoryLabel": "Kategori",
+  "addExpenseCategoryHint": "Kategori seç",
+  "addExpenseDateLabel": "Tarih",
+  "addExpenseNoteLabel": "Not",
+  "addExpenseNoteHint": "İsteğe bağlı — harcamanın açıklaması",
+  "addExpenseTagsLabel": "Etiketler",
+  "addExpenseTagsHint": "Yaz ve enter veya virgül ile ekle",
+  "addExpenseTagsSuggestions": "Önceden kullanılanlar",
+  "addExpenseRecurringLabel": "Tekrarlayan harcama",
+  "addExpenseRecurringHint": "Otomatik planlama Sprint 6'da gelecek.",
+  "addExpenseSave": "Kaydet",
+  "addExpenseSaveChanges": "Değişiklikleri Kaydet",
+  "addExpenseSavedSnack": "Kaydedildi.",
+  "addExpenseSaveFailed": "Kaydedilemedi. Tekrar dene.",
+  "addExpenseErrorAmount": "Tutar sıfırdan büyük olmalı.",
+  "addExpenseErrorCategory": "Kategori seçilmelidir.",
+  "addExpenseErrorFutureDate": "Tarih gelecekte olamaz.",
+  "addExpenseErrorRecurringPeriod": "Tekrar dönemi seç.",
+
+  "dashboardGreetingMorning": "Günaydın",
+  "dashboardGreetingAfternoon": "İyi günler",
+  "dashboardGreetingEvening": "İyi akşamlar",
+  "dashboardGreetingNight": "İyi geceler",
+  "dashboardSummaryThisWeekLabel": "Bu Hafta",
+  "dashboardSummaryThisMonthLabel": "Bu Ay",
+  "dashboardSummaryLast3MonthsLabel": "Son 3 Ay",
+  "dashboardSummaryCustomLabel": "Özel Dönem",
+  "dashboardSummaryDeltaUp": "Geçen döneme göre ↑ %{percent}",
+  "@dashboardSummaryDeltaUp": {
+    "placeholders": { "percent": { "type": "String" } }
+  },
+  "dashboardSummaryDeltaDown": "Geçen döneme göre ↓ %{percent}",
+  "@dashboardSummaryDeltaDown": {
+    "placeholders": { "percent": { "type": "String" } }
+  },
+  "dashboardSummaryDeltaNone": "Karşılaştıracak geçen dönem verisi yok.",
+  "dashboardPeriodWeek": "Bu Hafta",
+  "dashboardPeriodMonth": "Bu Ay",
+  "dashboardPeriod3Months": "3 Ay",
+  "dashboardPeriodCustom": "Özel",
+  "dashboardPickRangeTitle": "Tarih aralığı seç",
+  "dashboardQuickActionScan": "Tara",
+  "dashboardQuickActionAdd": "Ekle",
+  "dashboardQuickActionBudget": "Bütçe",
+  "dashboardQuickActionReport": "Rapor",
+  "dashboardReportComingSoon": "Rapor ekranı Sprint 10'da gelecek.",
+  "dashboardSectionWeekly": "Günlük Harcama",
+  "dashboardSectionCategories": "Kategoriler",
+  "dashboardSectionRecent": "Son Harcamalar",
+  "dashboardRecentSeeAll": "Tümünü Gör",
+  "dashboardEmptyTitle": "Henüz harcama yok",
+  "dashboardEmptyBody": "Fiş tarayarak veya manuel ekleyerek başla.",
+  "dashboardInsightSpike": "{category} kategorisinde geçen döneme göre %{percent} fazla harcadın.",
+  "@dashboardInsightSpike": {
+    "placeholders": {
+      "category": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "dashboardErrorTitle": "Dashboard yüklenemedi.",
+  "dashboardErrorRetry": "Tekrar Dene",
+
+  "budgetTitle": "Bütçe",
+  "budgetGeneralLabel": "Genel Bütçe",
+  "budgetCategoriesSection": "Kategori Bütçeleri",
+  "budgetEmptyTitle": "Henüz bütçe yok",
+  "budgetEmptyBody": "Aylık veya haftalık bir bütçe oluştur ve harcamalarını kontrol altına al.",
+  "budgetEmptyCta": "İlk bütçeni oluştur",
+  "budgetCreateFab": "Bütçe Ekle",
+  "budgetSheetTitleCreate": "Yeni Bütçe",
+  "budgetSheetTitleEdit": "Bütçeyi Düzenle",
+  "budgetSheetAmountLabel": "Tutar",
+  "budgetSheetAmountHint": "Örn. 5000,00",
+  "budgetSheetPeriodLabel": "Dönem",
+  "budgetSheetCategoryLabel": "Kategori",
+  "budgetSheetCategoryGeneral": "Genel (tüm harcamalar)",
+  "budgetSheetCategoryPick": "Kategori seç",
+  "budgetSheetSubmit": "Kaydet",
+  "budgetSheetDelete": "Bütçeyi Sil",
+  "budgetPeriodWeekly": "Haftalık",
+  "budgetPeriodMonthly": "Aylık",
+  "budgetPeriodYearly": "Yıllık",
+  "budgetSpentOfTotal": "{spent} / {total}",
+  "@budgetSpentOfTotal": {
+    "placeholders": {
+      "spent": { "type": "String" },
+      "total": { "type": "String" }
+    }
+  },
+  "budgetRemaining": "Kalan: {remaining}",
+  "@budgetRemaining": {
+    "placeholders": { "remaining": { "type": "String" } }
+  },
+  "budgetOverspent": "Aşım: {amount}",
+  "@budgetOverspent": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
+  "budgetPercentSpent": "%{percent} kullanıldı",
+  "@budgetPercentSpent": {
+    "placeholders": { "percent": { "type": "String" } }
+  },
+  "budgetPermissionBannerTitle": "Bildirimler kapalı",
+  "budgetPermissionBannerBody": "Bütçe aşımlarını ve haftalık özetleri kaçırmamak için bildirim izni ver.",
+  "budgetPermissionBannerAction": "İzin ver",
+  "budgetWriteFailed": "İşlem tamamlanamadı: {message}",
+  "@budgetWriteFailed": {
+    "placeholders": { "message": { "type": "String" } }
+  },
+  "budgetAmountInvalid": "Tutar sıfırdan büyük olmalı.",
+  "budgetErrorTitle": "Bütçeler yüklenemedi.",
+  "budgetErrorRetry": "Tekrar Dene",
+  "budgetDeleteConfirmTitle": "Bütçeyi sil?",
+  "budgetDeleteConfirmBody": "Bu bütçe silinecek; harcama geçmişi etkilenmez.",
+  "budgetDeleteConfirm": "Sil",
+  "budgetDeleteCancel": "Vazgeç",
+
+  "dashboardInsightBudgetWarning": "{category} bütçende %{percent} kullanıldı — limite yaklaşıyorsun.",
+  "@dashboardInsightBudgetWarning": {
+    "placeholders": {
+      "category": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "dashboardInsightBudgetExceeded": "{category} bütçesini aştın (%{percent}).",
+  "@dashboardInsightBudgetExceeded": {
+    "placeholders": {
+      "category": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "dashboardInsightBudgetAchievement": "Tebrikler! {category} bütçenin altında kaldın.",
+  "@dashboardInsightBudgetAchievement": {
+    "placeholders": { "category": { "type": "String" } }
+  },
+  "dashboardInsightFrequency": "Bu dönem {count} kez {tag} aldın, toplam {total}.",
+  "@dashboardInsightFrequency": {
+    "placeholders": {
+      "tag": { "type": "String" },
+      "count": { "type": "String" },
+      "total": { "type": "String" }
+    }
+  },
+  "dashboardInsightDayOfWeek": "{weekday} günleri ortalamadan %{percent} daha fazla harcıyorsun.",
+  "@dashboardInsightDayOfWeek": {
+    "placeholders": {
+      "weekday": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "weekdayMonday": "Pazartesi",
+  "weekdayTuesday": "Salı",
+  "weekdayWednesday": "Çarşamba",
+  "weekdayThursday": "Perşembe",
+  "weekdayFriday": "Cuma",
+  "weekdaySaturday": "Cumartesi",
+  "weekdaySunday": "Pazar",
+
+  "splitTitle": "Hesap Bölüşme",
+  "splitParticipantsLabel": "Katılımcılar",
+  "splitParticipantHint": "İsim ekle",
+  "splitParticipantAdd": "Ekle",
+  "splitParticipantsEmpty": "Henüz katılımcı yok. Bölüşmek için en az bir kişi ekle.",
+  "splitTypeEqual": "Eşit Böl",
+  "splitTypeCustom": "Özel",
+  "splitItemsLabel": "Ürünler",
+  "splitAssignSheetHint": "Bu ürünü kimler paylaştı?",
+  "splitAssignSave": "Kaydet",
+  "splitAssignClear": "Temizle",
+  "splitSummaryTitle": "Özet",
+  "splitSummaryEmpty": "Önce katılımcı ekle.",
+  "splitSummaryTotal": "Toplam",
+  "splitShareButton": "Özeti Paylaş",
+  "splitShareHeading": "SmartSpend Hesap Özeti",
+  "splitShareHeader": "{store} — {date}",
+  "@splitShareHeader": {
+    "placeholders": {
+      "store": { "type": "String" },
+      "date": { "type": "String" }
+    }
+  },
+  "splitSharePerPerson": "{name}: {amount}",
+  "@splitSharePerPerson": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "amount": { "type": "String" }
+    }
+  },
+  "splitShareTotal": "Toplam: {amount}",
+  "@splitShareTotal": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    }
+  },
+  "splitLoadFailed": "Fiş yüklenemedi. Lütfen tekrar deneyin.",
+  "splitShareFailed": "Paylaşım başarısız oldu.",
+
+  "archiveTitle": "Fiş Arşivi",
+  "archiveSearchHint": "Mağaza ara",
+  "archiveViewGrid": "Izgara görünümü",
+  "archiveViewList": "Liste görünümü",
+  "archiveEmpty": "Henüz arşivlenmiş fiş yok. Önce bir fiş tara.",
+  "archiveEmptyFiltered": "Bu filtreyle eşleşen fiş yok.",
+  "archiveLoadFailed": "Arşiv yüklenemedi.",
+  "archiveUnknownStore": "Bilinmeyen mağaza",
+
+  "receiptDetailTitle": "Fiş Detayı",
+  "receiptDetailMissing": "Fiş bulunamadı.",
+  "receiptDetailItemsLabel": "Ürünler",
+  "receiptDetailItemsEmpty": "Bu fişte ürün bulunmuyor.",
+  "warrantySectionTitle": "Garanti Takibi",
+  "warrantyReminderHint": "Bitimine 30 gün kala hatırlatma alırsın.",
+  "warrantyAbsent": "Garanti tanımlı değil.",
+  "warrantyAdd": "Garanti Ekle",
+  "warrantyChange": "Değiştir",
+  "warrantyClear": "Kaldır",
+  "warrantyWriteFailed": "Garanti kaydedilemedi.",
+
+  "syncIndicatorSynced": "Eşitlendi {lastSyncAt}",
+  "@syncIndicatorSynced": {
+    "placeholders": {
+      "lastSyncAt": { "type": "String" }
+    }
+  },
+  "syncIndicatorSyncing": "Eşitleniyor…",
+  "syncIndicatorPending": "{count} bekliyor",
+  "@syncIndicatorPending": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "syncIndicatorOffline": "Çevrimdışı",
+  "syncOfflineBanner": "Çevrimdışısın. Değişiklikler bağlanınca eşitlenecek.",
+  "syncConflictBanner": "Bazı değişiklikler başka cihazda güncellenip birleştirildi.",
+  "storageUploadFailed": "Fiş görseli yüklenemedi. Daha sonra tekrar denenecek.",
+  "storageImageMissing": "Fiş görseli kullanılamıyor.",
+  "syncIndicatorFailed": "Eşitleme başarısız",
+
+  "settingsAccountSection": "Hesap",
+  "settingsPreferencesSection": "Tercihler",
+  "settingsDataSection": "Veri ve gizlilik",
+  "settingsPrivacyPolicy": "Gizlilik Politikası",
+  "settingsTermsOfUse": "Kullanım Şartları",
+  "settingsLastSync": "Son eşitleme: {time}",
+  "@settingsLastSync": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
+  "settingsLastSyncNever": "Henüz eşitlenmedi",
+  "settingsSyncNow": "Şimdi eşitle",
+  "settingsCurrency": "Varsayılan para birimi",
+  "settingsLanguage": "Dil",
+  "settingsLanguageSystem": "Sistem varsayılanı",
+  "settingsDarkMode": "Koyu tema",
+  "settingsNotifications": "Bildirimler",
+  "settingsNotificationsSubtitle": "Bütçe uyarıları ve hatırlatmalar",
+  "settingsDownloadData": "Verilerimi indir",
+  "settingsDownloadDataSubtitle": "Her şeyi CSV dosyası olarak dışa aktar",
+  "settingsDownloadPdf": "PDF raporu indir",
+  "settingsDownloadPdfSubtitle": "Aylık harcama raporunu PDF olarak dışa aktar",
+  "languageTurkish": "Türkçe",
+  "languageEnglish": "English",
+  "languageGerman": "Deutsch",
+  "exportPreparing": "Dışa aktarma hazırlanıyor…",
+  "exportFailed": "Verileriniz dışa aktarılamadı. Lütfen tekrar deneyin.",
+  "exportReady": "Dışa aktarma hazır ({count} satır). İndirme açılıyor…",
+  "@exportReady": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "a11yShowPassword": "Şifreyi göster",
+  "a11yHidePassword": "Şifreyi gizle",
+  "a11ySearchExpenses": "Harcamalarda ara",
+  "a11yFilterExpenses": "Harcamaları filtrele",
+  "a11yBack": "Geri",
+  "a11ySaveExpense": "Harcamayı kaydet",
+  "a11yAddTag": "Etiket ekle",
+
+  "expenseListPeriodAll": "Tümü",
+  "expenseListPeriodWeek": "Bu Hafta",
+  "expenseListPeriodMonth": "Bu Ay",
+  "expenseListPeriod3Months": "Son 3 Ay",
+
+  "budgetSummaryBudgetLabel": "Bütçe",
+  "budgetSummarySpentLabel": "Harcanan",
+  "budgetSummaryDaysLeftLabel": "Kalan Gün",
+  "budgetSummaryDaysValue": "{count} gün",
+  "@budgetSummaryDaysValue": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "addExpenseCategoryMore": "Tümü",
+
+  "scanCameraAiBadge": "AI Otomatik Algılama",
+  "scanCameraFrameHint": "Fişi çerçeveye yerleştir",
+  "scanCameraTip": "İpucu: Fişi düz bir zemine koy, iyi ışıkta ve tamamı kadrajda olacak şekilde çek.",
+  "a11yShutter": "Fotoğraf çek",
+  "a11yToggleFlash": "Flaşı değiştir",
+  "a11yOpenGallery": "Galeriden seç",
+  "a11yCloseCamera": "Kamerayı kapat"
+}

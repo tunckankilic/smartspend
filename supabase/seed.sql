@@ -1,0 +1,14 @@
+-- =============================================================================
+-- supabase/seed.sql
+-- =============================================================================
+-- Runs after every `supabase db reset` for local development.
+--
+-- Default categories are seeded by the regular migration
+-- (20260527120005_seed_default_categories.sql) — that runs on prod too, so
+-- this file is reserved for purely-local fixtures.
+--
+-- Sprint 9 will populate test users + sample receipts/expenses for the
+-- pgTAP RLS test suite. For Sprint 1 the schema is enough.
+-- =============================================================================
+
+-- Intentionally empty. Add local-only fixtures here.

@@ -1,0 +1,3 @@
+"NSCameraUsageDescription" = "SmartSpend nutzt die Kamera, um Belege zu scannen und Ausgaben automatisch zu erfassen.";
+"NSPhotoLibraryUsageDescription" = "SmartSpend benötigt Zugriff auf deine Fotos, um bereits gespeicherte Belege importieren zu können.";
+"NSPhotoLibraryAddUsageDescription" = "Beim Exportieren speichert SmartSpend verarbeitete Belegbilder in deiner Fotomediathek.";

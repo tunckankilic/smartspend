@@ -1,28 +1,52 @@
-# This file configures the analyzer, which statically analyzes Dart code to
-# check for errors, warnings, and lints.
-#
-# The issues identified by the analyzer are surfaced in the UI of Dart-enabled
-# IDEs (https://dart.dev/tools#ides-and-editors). The analyzer can also be
-# invoked from the command line by running `flutter analyze`.
+include: package:very_good_analysis/analysis_options.yaml
 
-# The following line activates a set of recommended lints for Flutter apps,
-# packages, and plugins designed to encourage good coding practices.
-include: package:flutter_lints/flutter.yaml
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "**/*.config.dart"
+    - "**/*.mocks.dart"
+    - "lib/l10n/generated/**"
+    - "lib/core/supabase/database_types.dart"
+    - "build/**"
+  errors:
+    invalid_annotation_target: ignore
+    todo: ignore
 
 linter:
-  # The lint rules applied to this project can be customized in the
-  # section below to disable rules from the `package:flutter_lints/flutter.yaml`
-  # included above or to enable additional rules. A list of all available lints
-  # and their documentation is published at https://dart.dev/lints.
-  #
-  # Instead of disabling a lint rule for the entire project in the
-  # section below, it can also be suppressed for a single line of code
-  # or a specific dart file by using the `// ignore: name_of_lint` and
-  # `// ignore_for_file: name_of_lint` syntax on the line or in the file
-  # producing the lint.
   rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
-
-# Additional information about this file can be found at
-# https://dart.dev/guides/language/analysis-options
+    # --- CLAUDE.md conventions override very_good_analysis -------------
+    # CLAUDE.md mandates explicit types over inference.
+    omit_local_variable_types: false
+    always_specify_types: false
+    # CLAUDE.md requires dart → package → project import groups with blank
+    # lines between them; very_good_analysis wants strict alpha order.
+    directives_ordering: false
+    # We pin packages by logical group in pubspec.yaml, not alphabetically.
+    sort_pub_dependencies: false
+    # Public dartdoc isn't required everywhere; we doc the meaningful APIs.
+    public_member_api_docs: false
+    # We use TODO freely while sprints are in flight.
+    flutter_style_todos: false
+    # Redundant arg values often improve readability of options-heavy APIs.
+    avoid_redundant_argument_values: false
+    # Cross-file dartdoc references aren't reliably resolvable by the linter.
+    comment_references: false
+    # AppException.toString uses runtimeType intentionally for debugging.
+    no_runtimetype_tostring: false
+    # Some single-method abstracts are intentional (DataSource interfaces).
+    one_member_abstracts: false
+    # Color/etc utility classes have only static members on purpose.
+    avoid_classes_with_only_static_members: false
+    # `hide` combinator ordering with Drift's isNull/isNotNull is fine either
+    # way — alpha-sort doesn't change semantics.
+    combinators_ordering: false
+    # CLAUDE.md prefers explicit types everywhere, including closure params.
+    # very_good_analysis 10 made this stricter; we override.
+    avoid_types_on_closure_parameters: false
+    # Drift's `DatabaseAccessor` super ctor uses `attachedDatabase`; we accept
+    # the more idiomatic `super.db` shorthand in our DAOs.
+    matching_super_parameters: false
+    # Test files routinely fire-and-forget futures (bloc.close()) by design.
+    # Production code paths still get caught via avoid_returning_null_for_void.
+    discarded_futures: false

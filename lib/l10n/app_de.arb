@@ -1,0 +1,487 @@
+{
+  "@@locale": "de",
+  "appTitle": "SmartSpend",
+
+  "navDashboard": "Übersicht",
+  "navScan": "Scannen",
+  "navExpenses": "Ausgaben",
+  "navBudget": "Budget",
+  "navSettings": "Einstellungen",
+
+  "placeholderScan": "Bon-Scan kommt in Sprint 2.",
+  "placeholderExpenses": "Ausgabenliste kommt in Sprint 3.",
+  "placeholderBudget": "Budget-Bildschirm kommt in Sprint 6.",
+  "placeholderSettings": "Kontoeinstellungen kommen in Sprint 8.",
+
+  "authSignInTitle": "Anmelden",
+  "authSignUpTitle": "Konto erstellen",
+  "authForgotPasswordTitle": "Passwort vergessen",
+  "authSignOut": "Abmelden",
+  "authSignOutCta": "Abmelden",
+  "authDeleteAccount": "Konto löschen",
+  "authDeleteAccountCta": "Mein Konto löschen",
+  "authDeleteAccountDialogTitle": "Konto löschen?",
+  "authDeleteAccountDialogBody": "Dadurch werden dein Konto und alle Daten — Belege, Ausgaben und Budgets — dauerhaft gelöscht. Dies kann nicht rückgängig gemacht werden.",
+  "authDeleteAccountConfirm": "Löschen",
+  "authDeleteAccountCancel": "Abbrechen",
+  "authEmailLabel": "E-Mail",
+  "authEmailInvalid": "Gib eine gültige E-Mail ein.",
+  "authPasswordLabel": "Passwort",
+  "authPasswordConfirmLabel": "Passwort bestätigen",
+  "authPasswordTooShort": "Das Passwort muss mindestens 8 Zeichen haben.",
+  "authPasswordWeak": "Das Passwort muss einen Großbuchstaben und eine Ziffer enthalten.",
+  "authPasswordMismatch": "Die Passwörter stimmen nicht überein.",
+  "authSignInCta": "Anmelden",
+  "authSignUpCta": "Konto erstellen",
+  "authForgotPasswordCta": "Zurücksetzungslink senden",
+  "authForgotPasswordLink": "Passwort vergessen",
+  "authGoogleSignInCta": "Mit Google fortfahren",
+  "authAppleSignInCta": "Mit Apple fortfahren",
+  "authNoAccount": "Kein Konto? Jetzt erstellen",
+  "authHaveAccount": "Schon ein Konto? Anmelden",
+  "authPasswordResetSent": "Zurücksetzungslink gesendet",
+  "authPasswordResetHint": "Tippe auf den Link in deiner E-Mail, um dein Passwort zurückzusetzen.",
+  "authTermsLabel": "Ich akzeptiere die Nutzungsbedingungen und die Datenschutzrichtlinie.",
+  "authTermsRequired": "Du musst die Bedingungen akzeptieren, um fortzufahren.",
+  "authSignUpCheckEmailTitle": "Bestätige deine E-Mail",
+  "authSignUpCheckEmailBody": "Wir haben einen Bestätigungslink an {email} gesendet. Tippe darauf, um dein Konto zu aktivieren.",
+  "@authSignUpCheckEmailBody": {
+    "placeholders": { "email": { "type": "String" } }
+  },
+  "authBackToSignIn": "Zurück zur Anmeldung",
+  "authCallbackLoading": "Anmeldung läuft…",
+  "authInvalidCredentials": "E-Mail oder Passwort ist falsch.",
+  "authEmailNotConfirmed": "Bitte bestätige zuerst deine E-Mail.",
+  "authNetworkError": "Verbindungsfehler. Prüfe deine Internetverbindung.",
+  "authGenericError": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+
+  "onboardingTitle": "Willkommen bei SmartSpend",
+  "onboardingContinue": "Loslegen",
+
+  "scanTitle": "Beleg scannen",
+  "scanIntroHeadline": "Beleg fotografieren, den Rest übernimmt SmartSpend.",
+  "scanIntroBody": "Mach mit der Kamera ein Foto vom Beleg oder wähle eins aus der Galerie. SmartSpend liest den Text, trennt die Posten und speichert die Ausgabe.",
+  "scanActionCapture": "Kamera öffnen",
+  "scanActionGallery": "Aus Galerie wählen",
+  "scanActionScan": "Scan starten",
+  "scanActionRetake": "Neu aufnehmen",
+  "scanActionCancel": "Abbrechen",
+  "scanActionDone": "Fertig",
+  "scanProcessing": "Wird verarbeitet…",
+  "scanProcessingHint": "Einen Moment, das Bild wird vorbereitet.",
+  "scanPreviewTitle": "Bild bereit",
+  "scanPreviewBody": "Wenn der Beleg scharf ist, kannst du den Scan starten.",
+  "scanSuccessTitle": "Scan abgeschlossen",
+  "scanSuccessBody": "Der Bearbeitungs-Screen kommt in Sprint 2.3. Vorerst kannst du speichern oder einen neuen Beleg aufnehmen.",
+  "scanSavedTitle": "Beleg gespeichert",
+  "scanSavedBody": "Deine Ausgabe wurde zu SmartSpend hinzugefügt.",
+  "scanErrorTitle": "Etwas ist schiefgelaufen",
+  "scanErrorRetry": "Erneut versuchen",
+  "scanPermissionDenied": "Zugriff auf Kamera oder Fotos wurde verweigert. Erlaube den Zugriff in den Einstellungen.",
+  "scanGenericError": "Bild konnte nicht geladen werden. Bitte versuche es erneut.",
+
+  "editTitle": "Beleg bearbeiten",
+  "editStoreLabel": "Geschäft",
+  "editStoreHint": "z. B. Aldi, Lidl, REWE",
+  "editDateLabel": "Datum",
+  "editCurrencyLabel": "Währung",
+  "editDefaultCategoryLabel": "Standardkategorie",
+  "editDefaultCategoryHint": "Wird auf Positionen ohne eigene Kategorie angewendet",
+  "editItemsHeader": "Positionen",
+  "editItemNameLabel": "Bezeichnung",
+  "editItemQuantityLabel": "Menge",
+  "editItemPriceLabel": "Preis",
+  "editItemCategoryLabel": "Kategorie",
+  "editAddItem": "Position hinzufügen",
+  "editRemoveItem": "Entfernen",
+  "editComputedTotal": "Berechnete Summe",
+  "editTotalMismatch": "OCR-Summe ({ocr}) weicht von der berechneten Summe ({computed}) ab.",
+  "editSave": "Speichern",
+  "editRetake": "Neu aufnehmen",
+  "editCancel": "Abbrechen",
+  "editSaving": "Wird gespeichert…",
+  "editSavedSnack": "Beleg gespeichert.",
+  "editErrorEmptyItems": "Mindestens eine gültige Position ist erforderlich.",
+  "editErrorNonPositiveTotal": "Die Summe muss größer als null sein.",
+  "editErrorFutureDate": "Das Datum darf nicht in der Zukunft liegen.",
+  "editErrorMissingDefaultCategory": "Bitte wähle zuerst eine Standardkategorie.",
+  "editErrorSaveFailed": "Beleg konnte nicht gespeichert werden.",
+  "editPickCategoryTitle": "Kategorie wählen",
+  "editPickCategorySearch": "Kategorien suchen",
+  "editPickCategoryAdd": "Neue Kategorie",
+  "editNewCategoryTitle": "Neue Kategorie",
+  "editNewCategoryNameLabel": "Name der Kategorie",
+  "editNewCategoryCreate": "Erstellen",
+
+  "expenseListSearchHint": "Geschäft oder Notiz suchen",
+  "expenseListAdd": "Ausgabe hinzufügen",
+  "expenseListManualSoon": "Manuelle Eingabe kommt in Sprint 3.2.",
+  "expenseListSummaryTitle": "Summe in der Ansicht",
+  "expenseListSummaryCount": "{count, plural, =0{Keine Ausgaben} =1{1 Ausgabe} other{{count} Ausgaben}}",
+  "@expenseListSummaryCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "expenseListGroupToday": "Heute",
+  "expenseListGroupYesterday": "Gestern",
+  "expenseListGroupThisWeek": "Diese Woche",
+  "expenseListGroupThisMonth": "Dieser Monat",
+  "expenseListGroupEarlier": "Früher",
+  "expenseListEmptyTitle": "Noch keine Ausgaben",
+  "expenseListEmptyBody": "Scanne einen Beleg oder füge eine Ausgabe manuell hinzu.",
+  "expenseListEmptyFilteredTitle": "Keine Treffer",
+  "expenseListEmptyFilteredBody": "Erweitere die Filter oder lösche die Suche.",
+  "expenseListDeleteTitle": "Ausgabe löschen?",
+  "expenseListDeleteBody": "Das kann nicht rückgängig gemacht werden.",
+  "expenseListDeleteConfirm": "Löschen",
+  "expenseListPendingSync": "Synchronisierung ausstehend",
+  "expenseListRecurring": "Wiederkehrend",
+
+  "expenseListFilterTitle": "Ausgaben filtern",
+  "expenseListFilterDateRange": "Zeitraum",
+  "expenseListFilterDateFrom": "Von",
+  "expenseListFilterDateTo": "Bis",
+  "expenseListFilterCategories": "Kategorien",
+  "expenseListFilterAmount": "Betragsbereich",
+  "expenseListFilterMin": "Min.",
+  "expenseListFilterMax": "Max.",
+  "expenseListFilterApply": "Anwenden",
+  "expenseListFilterClear": "Zurücksetzen",
+  "expenseListSortTitle": "Sortieren nach",
+  "expenseListSortDateDesc": "Neueste zuerst",
+  "expenseListSortDateAsc": "Älteste zuerst",
+  "expenseListSortAmountDesc": "Höchste zuerst",
+  "expenseListSortAmountAsc": "Niedrigste zuerst",
+  "expenseListErrorCache": "Ausgaben konnten nicht geladen werden.",
+  "expenseListErrorNetwork": "Du bist offline. Lokale Daten werden angezeigt.",
+  "expenseListErrorGeneric": "Etwas ist schiefgelaufen.",
+
+  "expenseDetailTitle": "Ausgabe",
+  "expenseDetailNoteLabel": "Notiz",
+  "expenseDetailOriginLabel": "Quelle",
+  "expenseDetailOriginManual": "Manuelle Eingabe",
+  "expenseDetailOriginScan": "Gescannter Beleg",
+  "expenseDetailRecurringLabel": "Wiederkehrend",
+  "expenseDetailRecurringWeekly": "Wöchentlich",
+  "expenseDetailRecurringMonthly": "Monatlich",
+  "expenseDetailRecurringYearly": "Jährlich",
+  "expenseDetailReceiptLabel": "Originalbeleg",
+  "expenseDetailReceiptImageSoon": "Belegbild kommt in Sprint 8.",
+  "expenseDetailSyncLabel": "Sync",
+  "expenseDetailSyncPending": "Wartet auf die nächste Synchronisierung.",
+  "expenseDetailDelete": "Löschen",
+  "expenseDetailDeleteTitle": "Diese Ausgabe löschen?",
+  "expenseDetailDeleteBody": "Wird aus der Liste entfernt. Kann nicht rückgängig gemacht werden.",
+  "expenseDetailDeletedSnack": "Ausgabe gelöscht.",
+  "expenseDetailNotFound": "Ausgabe nicht gefunden.",
+  "expenseDetailEdit": "Bearbeiten",
+  "expenseDetailTagsLabel": "Tags",
+
+  "addExpenseTitleNew": "Neue Ausgabe",
+  "addExpenseTitleEdit": "Ausgabe bearbeiten",
+  "addExpenseCategoryLabel": "Kategorie",
+  "addExpenseCategoryHint": "Kategorie auswählen",
+  "addExpenseDateLabel": "Datum",
+  "addExpenseNoteLabel": "Notiz",
+  "addExpenseNoteHint": "Optional — beschreibe diese Ausgabe",
+  "addExpenseTagsLabel": "Tags",
+  "addExpenseTagsHint": "Tippen und mit Enter oder Komma hinzufügen",
+  "addExpenseTagsSuggestions": "Kürzlich verwendet",
+  "addExpenseRecurringLabel": "Wiederkehrende Ausgabe",
+  "addExpenseRecurringHint": "Automatische Planung kommt in Sprint 6.",
+  "addExpenseSave": "Ausgabe speichern",
+  "addExpenseSaveChanges": "Änderungen speichern",
+  "addExpenseSavedSnack": "Gespeichert.",
+  "addExpenseSaveFailed": "Konnte nicht speichern. Bitte erneut versuchen.",
+  "addExpenseErrorAmount": "Der Betrag muss größer als null sein.",
+  "addExpenseErrorCategory": "Bitte wähle eine Kategorie.",
+  "addExpenseErrorFutureDate": "Das Datum darf nicht in der Zukunft liegen.",
+  "addExpenseErrorRecurringPeriod": "Bitte wähle einen Wiederholungszeitraum.",
+
+  "dashboardGreetingMorning": "Guten Morgen",
+  "dashboardGreetingAfternoon": "Guten Tag",
+  "dashboardGreetingEvening": "Guten Abend",
+  "dashboardGreetingNight": "Gute Nacht",
+  "dashboardSummaryThisWeekLabel": "Diese Woche",
+  "dashboardSummaryThisMonthLabel": "Dieser Monat",
+  "dashboardSummaryLast3MonthsLabel": "Letzte 3 Monate",
+  "dashboardSummaryCustomLabel": "Eigener Zeitraum",
+  "dashboardSummaryDeltaUp": "↑ {percent}% ggü. Vorperiode",
+  "@dashboardSummaryDeltaUp": {
+    "placeholders": { "percent": { "type": "String" } }
+  },
+  "dashboardSummaryDeltaDown": "↓ {percent}% ggü. Vorperiode",
+  "@dashboardSummaryDeltaDown": {
+    "placeholders": { "percent": { "type": "String" } }
+  },
+  "dashboardSummaryDeltaNone": "Keine Daten für die Vorperiode.",
+  "dashboardPeriodWeek": "Woche",
+  "dashboardPeriodMonth": "Monat",
+  "dashboardPeriod3Months": "3 Monate",
+  "dashboardPeriodCustom": "Eigen",
+  "dashboardPickRangeTitle": "Zeitraum wählen",
+  "dashboardQuickActionScan": "Scannen",
+  "dashboardQuickActionAdd": "Hinzufügen",
+  "dashboardQuickActionBudget": "Budget",
+  "dashboardQuickActionReport": "Bericht",
+  "dashboardReportComingSoon": "Berichte kommen in Sprint 10.",
+  "dashboardSectionWeekly": "Tägliche Ausgaben",
+  "dashboardSectionCategories": "Kategorien",
+  "dashboardSectionRecent": "Letzte Ausgaben",
+  "dashboardRecentSeeAll": "Alle anzeigen",
+  "dashboardEmptyTitle": "Noch keine Ausgaben",
+  "dashboardEmptyBody": "Scanne einen Beleg oder füge manuell etwas hinzu.",
+  "dashboardInsightSpike": "Du hast {percent}% mehr für {category} ausgegeben als in der Vorperiode.",
+  "@dashboardInsightSpike": {
+    "placeholders": {
+      "category": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "dashboardErrorTitle": "Dashboard konnte nicht geladen werden.",
+  "dashboardErrorRetry": "Erneut versuchen",
+
+  "budgetTitle": "Budget",
+  "budgetGeneralLabel": "Gesamtbudget",
+  "budgetCategoriesSection": "Kategoriebudgets",
+  "budgetEmptyTitle": "Noch kein Budget",
+  "budgetEmptyBody": "Lege ein monatliches oder wöchentliches Budget fest, um den Überblick zu behalten.",
+  "budgetEmptyCta": "Erstes Budget anlegen",
+  "budgetCreateFab": "Budget hinzufügen",
+  "budgetSheetTitleCreate": "Neues Budget",
+  "budgetSheetTitleEdit": "Budget bearbeiten",
+  "budgetSheetAmountLabel": "Betrag",
+  "budgetSheetAmountHint": "z. B. 5000,00",
+  "budgetSheetPeriodLabel": "Zeitraum",
+  "budgetSheetCategoryLabel": "Kategorie",
+  "budgetSheetCategoryGeneral": "Allgemein (alle Ausgaben)",
+  "budgetSheetCategoryPick": "Kategorie wählen",
+  "budgetSheetSubmit": "Speichern",
+  "budgetSheetDelete": "Budget löschen",
+  "budgetPeriodWeekly": "Wöchentlich",
+  "budgetPeriodMonthly": "Monatlich",
+  "budgetPeriodYearly": "Jährlich",
+  "budgetSpentOfTotal": "{spent} / {total}",
+  "@budgetSpentOfTotal": {
+    "placeholders": {
+      "spent": { "type": "String" },
+      "total": { "type": "String" }
+    }
+  },
+  "budgetRemaining": "Verbleibend: {remaining}",
+  "@budgetRemaining": {
+    "placeholders": { "remaining": { "type": "String" } }
+  },
+  "budgetOverspent": "Überzogen um {amount}",
+  "@budgetOverspent": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
+  "budgetPercentSpent": "{percent} % verbraucht",
+  "@budgetPercentSpent": {
+    "placeholders": { "percent": { "type": "String" } }
+  },
+  "budgetPermissionBannerTitle": "Benachrichtigungen aus",
+  "budgetPermissionBannerBody": "Aktiviere Benachrichtigungen, um Budgetwarnungen und Wochenberichte zu erhalten.",
+  "budgetPermissionBannerAction": "Aktivieren",
+  "budgetWriteFailed": "Konnte nicht gespeichert werden: {message}",
+  "@budgetWriteFailed": {
+    "placeholders": { "message": { "type": "String" } }
+  },
+  "budgetAmountInvalid": "Der Betrag muss größer als Null sein.",
+  "budgetErrorTitle": "Budgets konnten nicht geladen werden.",
+  "budgetErrorRetry": "Erneut versuchen",
+  "budgetDeleteConfirmTitle": "Budget löschen?",
+  "budgetDeleteConfirmBody": "Das Budget wird entfernt. Dein Ausgabenverlauf bleibt unverändert.",
+  "budgetDeleteConfirm": "Löschen",
+  "budgetDeleteCancel": "Abbrechen",
+
+  "dashboardInsightBudgetWarning": "Dein {category}-Budget liegt bei {percent} % — kurz vor der Grenze.",
+  "@dashboardInsightBudgetWarning": {
+    "placeholders": {
+      "category": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "dashboardInsightBudgetExceeded": "Du hast dein {category}-Budget überzogen ({percent} %).",
+  "@dashboardInsightBudgetExceeded": {
+    "placeholders": {
+      "category": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "dashboardInsightBudgetAchievement": "Gut gemacht — du bleibst unter deinem {category}-Budget.",
+  "@dashboardInsightBudgetAchievement": {
+    "placeholders": { "category": { "type": "String" } }
+  },
+  "dashboardInsightFrequency": "Diesen Zeitraum hast du {count} Mal {tag} gekauft, insgesamt {total}.",
+  "@dashboardInsightFrequency": {
+    "placeholders": {
+      "tag": { "type": "String" },
+      "count": { "type": "String" },
+      "total": { "type": "String" }
+    }
+  },
+  "dashboardInsightDayOfWeek": "Am {weekday} gibst du {percent} % mehr aus als im Tagesschnitt.",
+  "@dashboardInsightDayOfWeek": {
+    "placeholders": {
+      "weekday": { "type": "String" },
+      "percent": { "type": "String" }
+    }
+  },
+  "weekdayMonday": "Montag",
+  "weekdayTuesday": "Dienstag",
+  "weekdayWednesday": "Mittwoch",
+  "weekdayThursday": "Donnerstag",
+  "weekdayFriday": "Freitag",
+  "weekdaySaturday": "Samstag",
+  "weekdaySunday": "Sonntag",
+
+  "splitTitle": "Rechnung teilen",
+  "splitParticipantsLabel": "Teilnehmer",
+  "splitParticipantHint": "Name hinzufügen",
+  "splitParticipantAdd": "Hinzufügen",
+  "splitParticipantsEmpty": "Noch keine Teilnehmer. Füge mindestens eine Person hinzu.",
+  "splitTypeEqual": "Gleich",
+  "splitTypeCustom": "Individuell",
+  "splitItemsLabel": "Artikel",
+  "splitAssignSheetHint": "Wer hat sich diesen Artikel geteilt?",
+  "splitAssignSave": "Speichern",
+  "splitAssignClear": "Leeren",
+  "splitSummaryTitle": "Zusammenfassung",
+  "splitSummaryEmpty": "Füge zuerst einen Teilnehmer hinzu.",
+  "splitSummaryTotal": "Gesamt",
+  "splitShareButton": "Zusammenfassung teilen",
+  "splitShareHeading": "SmartSpend Rechnungsaufteilung",
+  "splitShareHeader": "{store} — {date}",
+  "@splitShareHeader": {
+    "placeholders": {
+      "store": { "type": "String" },
+      "date": { "type": "String" }
+    }
+  },
+  "splitSharePerPerson": "{name}: {amount}",
+  "@splitSharePerPerson": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "amount": { "type": "String" }
+    }
+  },
+  "splitShareTotal": "Gesamt: {amount}",
+  "@splitShareTotal": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    }
+  },
+  "splitLoadFailed": "Beleg konnte nicht geladen werden. Bitte erneut versuchen.",
+  "splitShareFailed": "Teilen fehlgeschlagen.",
+
+  "archiveTitle": "Beleg-Archiv",
+  "archiveSearchHint": "Geschäft suchen",
+  "archiveViewGrid": "Rasteransicht",
+  "archiveViewList": "Listenansicht",
+  "archiveEmpty": "Noch keine archivierten Belege. Scanne zuerst einen.",
+  "archiveEmptyFiltered": "Keine Belege passen zu diesem Filter.",
+  "archiveLoadFailed": "Archiv konnte nicht geladen werden.",
+  "archiveUnknownStore": "Unbekanntes Geschäft",
+
+  "receiptDetailTitle": "Beleg-Details",
+  "receiptDetailMissing": "Beleg nicht gefunden.",
+  "receiptDetailItemsLabel": "Artikel",
+  "receiptDetailItemsEmpty": "Dieser Beleg enthält keine Artikel.",
+  "warrantySectionTitle": "Garantie",
+  "warrantyReminderHint": "Wir erinnern dich 30 Tage vor Ablauf.",
+  "warrantyAbsent": "Keine Garantie hinterlegt.",
+  "warrantyAdd": "Garantie hinzufügen",
+  "warrantyChange": "Ändern",
+  "warrantyClear": "Entfernen",
+  "warrantyWriteFailed": "Garantie konnte nicht gespeichert werden.",
+
+  "syncIndicatorSynced": "Synchronisiert {lastSyncAt}",
+  "@syncIndicatorSynced": {
+    "placeholders": {
+      "lastSyncAt": { "type": "String" }
+    }
+  },
+  "syncIndicatorSyncing": "Synchronisiert…",
+  "syncIndicatorPending": "{count} ausstehend",
+  "@syncIndicatorPending": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "syncIndicatorOffline": "Offline",
+  "syncOfflineBanner": "Du bist offline. Änderungen werden bei Verbindung synchronisiert.",
+  "syncConflictBanner": "Einige Änderungen wurden anderswo aktualisiert und zusammengeführt.",
+  "storageUploadFailed": "Beleg-Upload fehlgeschlagen. Wird später erneut versucht.",
+  "storageImageMissing": "Beleg-Bild nicht verfügbar.",
+  "syncIndicatorFailed": "Synchronisierung fehlgeschlagen",
+
+  "settingsAccountSection": "Konto",
+  "settingsPreferencesSection": "Einstellungen",
+  "settingsDataSection": "Daten & Datenschutz",
+  "settingsPrivacyPolicy": "Datenschutzrichtlinie",
+  "settingsTermsOfUse": "Nutzungsbedingungen",
+  "settingsLastSync": "Letzte Synchronisierung: {time}",
+  "@settingsLastSync": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
+  "settingsLastSyncNever": "Noch nicht synchronisiert",
+  "settingsSyncNow": "Jetzt synchronisieren",
+  "settingsCurrency": "Standardwährung",
+  "settingsLanguage": "Sprache",
+  "settingsLanguageSystem": "Systemstandard",
+  "settingsDarkMode": "Dunkles Design",
+  "settingsNotifications": "Benachrichtigungen",
+  "settingsNotificationsSubtitle": "Budgetwarnungen und Erinnerungen",
+  "settingsDownloadData": "Meine Daten herunterladen",
+  "settingsDownloadDataSubtitle": "Alles als CSV-Datei exportieren",
+  "settingsDownloadPdf": "PDF-Bericht herunterladen",
+  "settingsDownloadPdfSubtitle": "Monatlichen Ausgabenbericht als PDF exportieren",
+  "languageTurkish": "Türkçe",
+  "languageEnglish": "English",
+  "languageGerman": "Deutsch",
+  "exportPreparing": "Export wird vorbereitet…",
+  "exportFailed": "Daten konnten nicht exportiert werden. Bitte erneut versuchen.",
+  "exportReady": "Export bereit ({count} Zeilen). Download wird geöffnet…",
+  "@exportReady": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "a11yShowPassword": "Passwort anzeigen",
+  "a11yHidePassword": "Passwort verbergen",
+  "a11ySearchExpenses": "Ausgaben suchen",
+  "a11yFilterExpenses": "Ausgaben filtern",
+  "a11yBack": "Zurück",
+  "a11ySaveExpense": "Ausgabe speichern",
+  "a11yAddTag": "Tag hinzufügen",
+
+  "expenseListPeriodAll": "Alle",
+  "expenseListPeriodWeek": "Diese Woche",
+  "expenseListPeriodMonth": "Dieser Monat",
+  "expenseListPeriod3Months": "Letzte 3 Monate",
+
+  "budgetSummaryBudgetLabel": "Budget",
+  "budgetSummarySpentLabel": "Ausgegeben",
+  "budgetSummaryDaysLeftLabel": "Verbleibende Tage",
+  "budgetSummaryDaysValue": "{count, plural, =1{1 Tag} other{{count} Tage}}",
+  "@budgetSummaryDaysValue": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+
+  "addExpenseCategoryMore": "Alle",
+
+  "scanCameraAiBadge": "KI-Erkennung",
+  "scanCameraFrameHint": "Beleg im Rahmen ausrichten",
+  "scanCameraTip": "Tipp: Lege den Beleg auf eine ebene Fläche, sorge für gutes Licht und halte ihn vollständig im Bild.",
+  "a11yShutter": "Foto aufnehmen",
+  "a11yToggleFlash": "Blitz umschalten",
+  "a11yOpenGallery": "Aus Galerie wählen",
+  "a11yCloseCamera": "Kamera schließen"
+}

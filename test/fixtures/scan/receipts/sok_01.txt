@@ -1,0 +1,15 @@
+ŞOK MARKETLER TİCARET A.Ş.
+Şube: 1234 / Üsküdar
+22-05-2026 09:14
+
+ZEYTİNYAĞI 1L                89,90
+PİRİNÇ 1KG                   34,50
+BULGUR 1KG                   22,40
+NOHUT 500G                   18,25
+MERCİMEK 500G                17,90
+
+ARA TOPLAM                  182,95
+KDV                          11,15
+TOPLAM                      182,95
+NAKİT                       200,00
+PARA ÜSTÜ                    17,05

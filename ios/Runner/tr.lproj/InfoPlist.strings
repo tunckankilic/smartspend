@@ -1,0 +1,3 @@
+"NSCameraUsageDescription" = "SmartSpend, fişlerini tarayıp harcama bilgilerini otomatik çıkartmak için kamerayı kullanır.";
+"NSPhotoLibraryUsageDescription" = "Daha önce çektiğin fiş fotoğraflarını içe aktarabilmek için fotoğraflara erişim gerekiyor.";
+"NSPhotoLibraryAddUsageDescription" = "İşlenmiş fiş görsellerini dışa aktardığında SmartSpend bunları fotoğraflarına kaydeder.";

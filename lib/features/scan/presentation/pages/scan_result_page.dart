@@ -225,7 +225,10 @@ class _EditForm extends StatelessWidget {
             children: <Widget>[
               Expanded(child: _DateField(receipt: state.receipt)),
               const SizedBox(width: 12),
-              _CurrencyField(currency: state.receipt.currency),
+              SizedBox(
+                width: 110,
+                child: _CurrencyField(currency: state.receipt.currency),
+              ),
             ],
           ),
           const SizedBox(height: 12),

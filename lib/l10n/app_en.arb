@@ -35,7 +35,6 @@
   "authSignUpCta": "Create account",
   "authForgotPasswordCta": "Send reset link",
   "authForgotPasswordLink": "Forgot password",
-  "authGoogleSignInCta": "Continue with Google",
   "authAppleSignInCta": "Continue with Apple",
   "authNoAccount": "No account? Create one",
   "authHaveAccount": "Already have an account? Sign in",

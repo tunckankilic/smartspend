@@ -44,10 +44,6 @@ class SupabaseAuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Either<AuthFailure, AppUser>> signInWithGoogle() =>
-      _guard(_dataSource.signInWithGoogle);
-
-  @override
   Future<Either<AuthFailure, AppUser>> signInWithApple() =>
       _guard(_dataSource.signInWithApple);
 

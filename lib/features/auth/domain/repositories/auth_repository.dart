@@ -26,8 +26,6 @@ abstract class AuthRepository {
     required String password,
   });
 
-  Future<Either<AuthFailure, AppUser>> signInWithGoogle();
-
   Future<Either<AuthFailure, AppUser>> signInWithApple();
 
   Future<Either<AuthFailure, Unit>> signOut();

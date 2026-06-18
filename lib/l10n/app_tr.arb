@@ -38,7 +38,6 @@
   "authSignUpCta": "Hesap Oluştur",
   "authForgotPasswordCta": "Sıfırlama bağlantısı gönder",
   "authForgotPasswordLink": "Şifremi unuttum",
-  "authGoogleSignInCta": "Google ile devam et",
   "authAppleSignInCta": "Apple ile devam et",
   "authNoAccount": "Hesabın yok mu? Hesap oluştur",
   "authHaveAccount": "Zaten hesabın var mı? Giriş yap",

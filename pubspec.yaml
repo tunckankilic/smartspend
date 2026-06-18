@@ -43,7 +43,6 @@ dependencies:
   supabase_flutter: ^2.8.0
 
   # Auth helpers
-  google_sign_in: ^7.2.0
   sign_in_with_apple: ^8.0.0
 
   # Observability — pinned to 9.x because 8.14.x ships a Swift plugin

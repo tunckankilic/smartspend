@@ -2,7 +2,6 @@
 // coverage:ignore-file
 // Thin wrapper over Supabase GoTrue client; mocked at the repository layer.
 
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -11,7 +10,7 @@ import 'package:smartspend/features/auth/data/models/app_user_mapper.dart';
 import 'package:smartspend/features/auth/domain/entities/app_user.dart';
 
 /// Thin wrapper over `supabase_flutter`'s [GoTrueClient] plus the native
-/// Google / Apple SDKs. Throws [AuthException] (and provider exceptions) on
+/// Sign in with Apple SDK. Throws [AuthException] (and provider exceptions) on
 /// failure — the repository is responsible for mapping those onto
 /// `AuthFailure`. Nothing above the data layer ever sees an SDK type.
 abstract class SupabaseAuthDataSource {
@@ -29,8 +28,6 @@ abstract class SupabaseAuthDataSource {
     required String password,
   });
 
-  Future<AppUser> signInWithGoogle();
-
   Future<AppUser> signInWithApple();
 
   Future<void> signOut();
@@ -44,15 +41,11 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
   SupabaseAuthDataSourceImpl({
     required GoTrueClient auth,
     required FunctionsClient functions,
-    GoogleSignIn? googleSignIn,
   })  : _auth = auth,
-        _functions = functions,
-        _google = googleSignIn ?? GoogleSignIn.instance;
+        _functions = functions;
 
   final GoTrueClient _auth;
   final FunctionsClient _functions;
-  final GoogleSignIn _google;
-  bool _googleInitialized = false;
 
   @override
   Stream<AppUser?> authStateChanges() {
@@ -94,40 +87,6 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
       throw const AuthException('Kayıt tamamlanamadı.');
     }
     return user.toAppUser();
-  }
-
-  @override
-  Future<AppUser> signInWithGoogle() async {
-    if (!_googleInitialized) {
-      const String webClientId = String.fromEnvironment(
-        SupabaseConstants.envGoogleWebClientId,
-      );
-      const String iosClientId = String.fromEnvironment(
-        SupabaseConstants.envGoogleIosClientId,
-      );
-      await _google.initialize(
-        clientId: iosClientId.isEmpty ? null : iosClientId,
-        serverClientId: webClientId.isEmpty ? null : webClientId,
-      );
-      _googleInitialized = true;
-    }
-
-    final GoogleSignInAccount account = await _google.authenticate();
-    final String? idToken = account.authentication.idToken;
-    if (idToken == null) {
-      throw const AuthException('Google kimlik jetonu alınamadı.');
-    }
-    final GoogleSignInClientAuthorization? authorization =
-        await account.authorizationClient.authorizationForScopes(
-      <String>['email', 'profile'],
-    );
-
-    final AuthResponse response = await _auth.signInWithIdToken(
-      provider: OAuthProvider.google,
-      idToken: idToken,
-      accessToken: authorization?.accessToken,
-    );
-    return _requireUser(response);
   }
 
   @override

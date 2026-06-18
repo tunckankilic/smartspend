@@ -8,7 +8,7 @@ import 'package:smartspend/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:smartspend/features/auth/presentation/widgets/auth_failure_message.dart';
 import 'package:smartspend/l10n/generated/app_localizations.dart';
 
-/// Email + password sign-in, plus Google and (on iOS) Apple providers.
+/// Email + password sign-in, plus Sign in with Apple on iOS.
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
 
@@ -127,18 +127,8 @@ class _SignInPageState extends State<SignInPage> {
                             )
                           : Text(l.authSignInCta),
                     ),
-                    const SizedBox(height: 24),
-                    OutlinedButton.icon(
-                      onPressed: busy
-                          ? null
-                          : () => context
-                              .read<AuthBloc>()
-                              .add(const AuthGoogleRequested()),
-                      icon: const Icon(Icons.g_mobiledata),
-                      label: Text(l.authGoogleSignInCta),
-                    ),
                     if (Platform.isIOS) ...<Widget>[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 24),
                       OutlinedButton.icon(
                         onPressed: busy
                             ? null

@@ -35,7 +35,6 @@
   "authSignUpCta": "Konto erstellen",
   "authForgotPasswordCta": "Zurücksetzungslink senden",
   "authForgotPasswordLink": "Passwort vergessen",
-  "authGoogleSignInCta": "Mit Google fortfahren",
   "authAppleSignInCta": "Mit Apple fortfahren",
   "authNoAccount": "Kein Konto? Jetzt erstellen",
   "authHaveAccount": "Schon ein Konto? Anmelden",

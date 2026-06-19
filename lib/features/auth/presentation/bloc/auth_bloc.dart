@@ -13,7 +13,6 @@ import 'package:smartspend/features/auth/domain/entities/app_user.dart';
 import 'package:smartspend/features/auth/domain/repositories/auth_repository.dart';
 import 'package:smartspend/features/auth/domain/usecases/apple_sign_in_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/delete_account_usecase.dart';
-import 'package:smartspend/features/auth/domain/usecases/google_sign_in_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/reset_password_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/sign_in_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/sign_out_usecase.dart';
@@ -36,7 +35,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required SignUpUseCase signUp,
     required SignOutUseCase signOut,
     required DeleteAccountUseCase deleteAccount,
-    required GoogleSignInUseCase googleSignIn,
     required AppleSignInUseCase appleSignIn,
     required ResetPasswordUseCase resetPassword,
     required AppDatabase database,
@@ -45,7 +43,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         _signUp = signUp,
         _signOut = signOut,
         _deleteAccount = deleteAccount,
-        _googleSignIn = googleSignIn,
         _appleSignIn = appleSignIn,
         _resetPassword = resetPassword,
         _database = database,
@@ -59,7 +56,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       _onDeleteAccount,
       transformer: sequential(),
     );
-    on<AuthGoogleRequested>(_onGoogle, transformer: sequential());
     on<AuthAppleRequested>(_onApple, transformer: sequential());
     on<AuthPasswordResetRequested>(_onReset, transformer: sequential());
     on<AuthStateChanged>(_onStateChanged, transformer: restartable());
@@ -74,7 +70,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final SignUpUseCase _signUp;
   final SignOutUseCase _signOut;
   final DeleteAccountUseCase _deleteAccount;
-  final GoogleSignInUseCase _googleSignIn;
   final AppleSignInUseCase _appleSignIn;
   final ResetPasswordUseCase _resetPassword;
   final AppDatabase _database;
@@ -149,20 +144,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         await _database.clearUserData();
         emit(const Unauthenticated());
       },
-    );
-  }
-
-  Future<void> _onGoogle(
-    AuthGoogleRequested event,
-    Emitter<AuthState> emit,
-  ) async {
-    emit(const AuthLoading());
-    final Either<Failure, AppUser> result = await _googleSignIn();
-    emit(
-      result.fold(
-        AuthFailure.new,
-        (AppUser user) => Authenticated(user: user),
-      ),
     );
   }
 

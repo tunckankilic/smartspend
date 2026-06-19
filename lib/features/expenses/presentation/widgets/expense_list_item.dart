@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'package:smartspend/core/utils/category_display_name.dart';
 import 'package:smartspend/core/utils/currency_formatter.dart';
 import 'package:smartspend/core/widgets/category_icon.dart';
 import 'package:smartspend/features/expenses/domain/entities/expense.dart';
@@ -79,14 +80,14 @@ class ExpenseListItem extends StatelessWidget {
         title: Text(
           expense.note?.isNotEmpty == true
               ? expense.note!
-              : expense.category.name,
+              : localizedCategoryName(l, expense.category),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Row(
           children: <Widget>[
             Text(
-              expense.category.name,
+              localizedCategoryName(l, expense.category),
               style: theme.textTheme.bodySmall,
             ),
             Text(' · ', style: theme.textTheme.bodySmall),

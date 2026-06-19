@@ -7,7 +7,6 @@ import 'package:smartspend/features/auth/domain/entities/app_user.dart';
 import 'package:smartspend/features/auth/domain/repositories/auth_repository.dart';
 import 'package:smartspend/features/auth/domain/usecases/apple_sign_in_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/delete_account_usecase.dart';
-import 'package:smartspend/features/auth/domain/usecases/google_sign_in_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/reset_password_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/sign_in_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/sign_out_usecase.dart';
@@ -80,19 +79,6 @@ void main() {
         const SignUpParams(email: 'a@b.com', password: 'pw'),
         const SignUpParams(email: 'a@b.com', password: 'pw'),
       );
-    });
-  });
-
-  group('GoogleSignInUseCase', () {
-    test('should delegate to signInWithGoogle', () async {
-      when(repo.signInWithGoogle)
-          .thenAnswer((_) async => const Right<AuthFailure, AppUser>(user));
-
-      final Either<AuthFailure, AppUser> result =
-          await GoogleSignInUseCase(repo)();
-
-      expect(result, const Right<AuthFailure, AppUser>(user));
-      verify(repo.signInWithGoogle).called(1);
     });
   });
 

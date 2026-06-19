@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import 'package:smartspend/app/injection_container.dart';
 import 'package:smartspend/core/error/failures.dart';
+import 'package:smartspend/core/utils/category_display_name.dart';
 import 'package:smartspend/core/utils/currency_formatter.dart';
 import 'package:smartspend/core/widgets/category_icon.dart';
 import 'package:smartspend/features/expenses/domain/entities/expense.dart';
@@ -135,7 +136,7 @@ class _Loaded extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                expense.category.name,
+                localizedCategoryName(l, expense.category),
                 style: theme.textTheme.titleMedium,
               ),
               const SizedBox(height: 4),

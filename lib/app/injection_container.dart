@@ -31,7 +31,6 @@ import 'package:smartspend/features/auth/data/repositories/supabase_auth_reposit
 import 'package:smartspend/features/auth/domain/repositories/auth_repository.dart';
 import 'package:smartspend/features/auth/domain/usecases/apple_sign_in_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/delete_account_usecase.dart';
-import 'package:smartspend/features/auth/domain/usecases/google_sign_in_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/reset_password_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/sign_in_usecase.dart';
 import 'package:smartspend/features/auth/domain/usecases/sign_out_usecase.dart';
@@ -207,9 +206,6 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton<DeleteAccountUseCase>(
       () => DeleteAccountUseCase(sl<AuthRepository>()),
     )
-    ..registerLazySingleton<GoogleSignInUseCase>(
-      () => GoogleSignInUseCase(sl<AuthRepository>()),
-    )
     ..registerLazySingleton<AppleSignInUseCase>(
       () => AppleSignInUseCase(sl<AuthRepository>()),
     )
@@ -223,7 +219,6 @@ Future<void> configureDependencies() async {
         signUp: sl<SignUpUseCase>(),
         signOut: sl<SignOutUseCase>(),
         deleteAccount: sl<DeleteAccountUseCase>(),
-        googleSignIn: sl<GoogleSignInUseCase>(),
         appleSignIn: sl<AppleSignInUseCase>(),
         resetPassword: sl<ResetPasswordUseCase>(),
         database: sl<AppDatabase>(),

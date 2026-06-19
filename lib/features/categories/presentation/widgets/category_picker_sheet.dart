@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:smartspend/core/utils/category_display_name.dart';
 import 'package:smartspend/core/widgets/category_icon.dart';
 import 'package:smartspend/features/categories/domain/entities/category.dart';
 import 'package:smartspend/l10n/generated/app_localizations.dart';
@@ -192,6 +193,7 @@ class _CategoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppLocalizations l = AppLocalizations.of(context);
     final Color tint = Color(category.color);
     return InkWell(
       onTap: onTap,
@@ -209,7 +211,7 @@ class _CategoryTile extends StatelessWidget {
             Icon(iconForCategory(category.icon), color: tint, size: 28),
             const SizedBox(height: 6),
             Text(
-              category.name,
+              localizedCategoryName(l, category),
               maxLines: 2,
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,

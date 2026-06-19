@@ -52,11 +52,6 @@ final class AuthAccountDeletionRequested extends AuthEvent {
   const AuthAccountDeletionRequested();
 }
 
-/// Native Google Sign-In.
-final class AuthGoogleRequested extends AuthEvent {
-  const AuthGoogleRequested();
-}
-
 /// Native Sign in with Apple.
 final class AuthAppleRequested extends AuthEvent {
   const AuthAppleRequested();

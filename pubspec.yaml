@@ -110,7 +110,7 @@ sentry:
   upload_sources: false
   upload_source_maps: false
   project: smartspend
-  org: REPLACE_WITH_SENTRY_ORG
+  org: smartspend
 
 flutter:
   uses-material-design: true

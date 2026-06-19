@@ -47,29 +47,12 @@ GoRouter buildRouter({
     refreshListenable: _BlocListenable(authBloc.stream),
     redirect: (BuildContext context, GoRouterState state) {
       final AuthState authState = authBloc.state;
-      final String location = state.matchedLocation;
-
-      final bool onboardingDone = onboardingFlagStore.isComplete;
-      final bool atOnboarding = location.startsWith('/onboarding');
-      final bool atAuth = location.startsWith('/auth');
-
-      // 1. Force first-launch users to onboarding.
-      if (!onboardingDone && !atOnboarding) {
-        return '/onboarding';
-      }
-      // 2. Once onboarding is done, keep them out of it.
-      if (onboardingDone && atOnboarding) {
-        return '/';
-      }
-      // 3. Unauthenticated users only see the auth tree.
-      if (authState is Unauthenticated && !atAuth) {
-        return '/auth/sign-in';
-      }
-      // 4. Authenticated users skip the auth tree.
-      if (authState is Authenticated && atAuth) {
-        return '/';
-      }
-      return null;
+      return resolveRedirect(
+        onboardingDone: onboardingFlagStore.isComplete,
+        isAuthenticated: authState is Authenticated,
+        isUnauthenticated: authState is Unauthenticated,
+        location: state.matchedLocation,
+      );
     },
     routes: <RouteBase>[
       GoRoute(
@@ -230,6 +213,47 @@ GoRouter buildRouter({
     errorBuilder: (BuildContext c, GoRouterState s) =>
         Scaffold(body: Center(child: Text(s.error?.toString() ?? '404'))),
   );
+}
+
+/// Pure redirect decision for [buildRouter].
+///
+/// Extracted from the [GoRouter.redirect] closure so the branching is
+/// unit-testable without pumping the full widget tree. Returns the path to
+/// redirect to, or `null` to stay at [location].
+///
+/// Onboarding takes priority over auth: while onboarding is incomplete the
+/// user is pinned to `/onboarding` instead of being bounced to
+/// `/auth/sign-in`. Without this guard the two rules ping-pong
+/// (`/onboarding -> /auth/sign-in -> /onboarding`) and GoRouter aborts with
+/// a redirect-loop error. Pending auth states (initial/loading/failure) leave
+/// both flags false, so navigation stays put until the session resolves.
+@visibleForTesting
+String? resolveRedirect({
+  required bool onboardingDone,
+  required bool isAuthenticated,
+  required bool isUnauthenticated,
+  required String location,
+}) {
+  final bool atOnboarding = location.startsWith('/onboarding');
+  final bool atAuth = location.startsWith('/auth');
+
+  // 1. First-launch users must finish onboarding before anything else.
+  if (!onboardingDone) {
+    return atOnboarding ? null : '/onboarding';
+  }
+  // 2. Once onboarding is done, keep them out of it.
+  if (atOnboarding) {
+    return '/';
+  }
+  // 3. Unauthenticated users only see the auth tree.
+  if (isUnauthenticated && !atAuth) {
+    return '/auth/sign-in';
+  }
+  // 4. Authenticated users skip the auth tree.
+  if (isAuthenticated && atAuth) {
+    return '/';
+  }
+  return null;
 }
 
 /// Adapter that turns a Bloc's state [Stream] into a [Listenable] so

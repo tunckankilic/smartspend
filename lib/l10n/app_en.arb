@@ -488,5 +488,20 @@
   "a11yShutter": "Take photo",
   "a11yToggleFlash": "Toggle flash",
   "a11yOpenGallery": "Pick from gallery",
-  "a11yCloseCamera": "Close camera"
+  "a11yCloseCamera": "Close camera",
+  "categoryMarket": "Groceries",
+  "categoryRestaurant": "Restaurant",
+  "categoryCoffee": "Coffee",
+  "categoryTransport": "Transport",
+  "categoryFuel": "Fuel",
+  "categoryBills": "Bills",
+  "categoryRent": "Rent",
+  "categoryHealth": "Health",
+  "categoryClothing": "Clothing",
+  "categoryEntertainment": "Entertainment",
+  "categoryElectronics": "Electronics",
+  "categorySports": "Sports",
+  "categoryPets": "Pets",
+  "categoryGifts": "Gifts",
+  "categoryOther": "Other"
 }

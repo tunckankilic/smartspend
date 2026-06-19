@@ -66,6 +66,21 @@ class _SmartSpendAppState extends State<SmartSpendApp> {
             themeMode: state.themeMode,
             locale: state.locale,
             supportedLocales: AppLocalizations.supportedLocales,
+            // Follow the device language when it is one we ship (tr/de/en);
+            // otherwise fall back to English. The template ARB is Turkish, so
+            // without this an unsupported device locale would resolve to
+            // Turkish — English is the better neutral default.
+            localeResolutionCallback:
+                (Locale? deviceLocale, Iterable<Locale> supported) {
+              if (deviceLocale != null) {
+                for (final Locale candidate in supported) {
+                  if (candidate.languageCode == deviceLocale.languageCode) {
+                    return candidate;
+                  }
+                }
+              }
+              return const Locale('en');
+            },
             localizationsDelegates: const <LocalizationsDelegate<Object>>[
               AppLocalizations.delegate,
               GlobalMaterialLocalizations.delegate,

@@ -2,9 +2,11 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:smartspend/core/utils/category_display_name.dart';
 import 'package:smartspend/core/utils/currency_formatter.dart';
 import 'package:smartspend/core/widgets/category_icon.dart';
 import 'package:smartspend/features/categories/domain/entities/category.dart';
+import 'package:smartspend/l10n/generated/app_localizations.dart';
 
 /// Pie chart of `byCategory` totals — animated, with a center total and
 /// a wrap-flow legend that doubles as drill-down buttons.
@@ -27,13 +29,13 @@ class DashboardPieChart extends StatelessWidget {
     if (byCategory.isEmpty) {
       return const SizedBox.shrink();
     }
-    final int total =
-        byCategory.values.fold<int>(0, (int a, int b) => a + b);
+    final int total = byCategory.values.fold<int>(0, (int a, int b) => a + b);
 
-    final List<MapEntry<int, int>> sorted =
-        byCategory.entries.toList()
-          ..sort((MapEntry<int, int> a, MapEntry<int, int> b) =>
-              b.value.compareTo(a.value));
+    final List<MapEntry<int, int>> sorted = byCategory.entries.toList()
+      ..sort(
+        (MapEntry<int, int> a, MapEntry<int, int> b) =>
+            b.value.compareTo(a.value),
+      );
 
     return Column(
       children: <Widget>[
@@ -53,10 +55,8 @@ class DashboardPieChart extends StatelessWidget {
                   ],
                   pieTouchData: PieTouchData(
                     touchCallback: (FlTouchEvent ev, PieTouchResponse? r) {
-                      if (ev is FlTapUpEvent &&
-                          r?.touchedSection != null) {
-                        final int idx =
-                            r!.touchedSection!.touchedSectionIndex;
+                      if (ev is FlTapUpEvent && r?.touchedSection != null) {
+                        final int idx = r!.touchedSection!.touchedSectionIndex;
                         if (idx >= 0 && idx < sorted.length) {
                           context.go(
                             '/expenses?categoryId=${sorted[idx].key}',
@@ -73,8 +73,8 @@ class DashboardPieChart extends StatelessWidget {
                   Text(
                     formatMinor(total, currency, locale: locale),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
               ),
@@ -185,9 +185,13 @@ class _LegendChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppLocalizations l = AppLocalizations.of(context);
     final Color color = category != null
         ? Color(category!.color)
         : Theme.of(context).colorScheme.primary;
+    final String name = category == null
+        ? '#$categoryId'
+        : localizedCategoryName(l, category!);
     return ActionChip(
       avatar: CircleAvatar(
         backgroundColor: color,
@@ -199,7 +203,7 @@ class _LegendChip extends StatelessWidget {
         ),
       ),
       label: Text(
-        '${category?.name ?? '#$categoryId'} · '
+        '$name · '
         '${formatMinor(amountMinor, currency, locale: locale)} · '
         '${percent.toStringAsFixed(0)}%',
         style: Theme.of(context).textTheme.labelSmall,

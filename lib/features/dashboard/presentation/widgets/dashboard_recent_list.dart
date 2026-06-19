@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import 'package:smartspend/core/utils/category_display_name.dart';
 import 'package:smartspend/core/utils/currency_formatter.dart';
 import 'package:smartspend/core/widgets/category_icon.dart';
 import 'package:smartspend/features/expenses/domain/entities/expense.dart';
@@ -53,6 +54,7 @@ class _RecentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppLocalizations l = AppLocalizations.of(context);
     final Color catColor = Color(expense.category.color);
     return ListTile(
       onTap: () => context.go('/expenses/${expense.id}'),
@@ -64,7 +66,7 @@ class _RecentTile extends StatelessWidget {
       title: Text(
         expense.note?.isNotEmpty == true
             ? expense.note!
-            : expense.category.name,
+            : localizedCategoryName(l, expense.category),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),

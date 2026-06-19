@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:smartspend/core/utils/category_display_name.dart';
 import 'package:smartspend/core/utils/currency_formatter.dart';
 import 'package:smartspend/core/widgets/category_icon.dart';
 import 'package:smartspend/features/budget/domain/entities/budget_snapshot.dart';
@@ -97,7 +98,9 @@ class BudgetCategoryTile extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        snapshot.category?.name ?? l.budgetGeneralLabel,
+                        snapshot.category == null
+                            ? l.budgetGeneralLabel
+                            : localizedCategoryName(l, snapshot.category!),
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
                     ),

@@ -482,5 +482,20 @@
   "a11yShutter": "Foto aufnehmen",
   "a11yToggleFlash": "Blitz umschalten",
   "a11yOpenGallery": "Aus Galerie wählen",
-  "a11yCloseCamera": "Kamera schließen"
+  "a11yCloseCamera": "Kamera schließen",
+  "categoryMarket": "Lebensmittel",
+  "categoryRestaurant": "Restaurant",
+  "categoryCoffee": "Kaffee",
+  "categoryTransport": "Transport",
+  "categoryFuel": "Kraftstoff",
+  "categoryBills": "Rechnungen",
+  "categoryRent": "Miete",
+  "categoryHealth": "Gesundheit",
+  "categoryClothing": "Kleidung",
+  "categoryEntertainment": "Unterhaltung",
+  "categoryElectronics": "Elektronik",
+  "categorySports": "Sport",
+  "categoryPets": "Haustiere",
+  "categoryGifts": "Geschenke",
+  "categoryOther": "Sonstiges"
 }

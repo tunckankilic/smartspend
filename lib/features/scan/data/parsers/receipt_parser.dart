@@ -41,6 +41,12 @@ class ReceiptParser {
     );
   }
 
+  /// Extracts just the purchase date from raw OCR text. The structured
+  /// (Gemini) path provides items/total/store but no date, so the repository
+  /// reuses this to recover the date from the receipt's raw text.
+  DateTime? parseDateFromText(String rawText) =>
+      parseDate(_normalizeLines(rawText));
+
   List<String> _normalizeLines(String raw) {
     return raw
         .split(RegExp(r'\r?\n'))
@@ -175,7 +181,12 @@ class ReceiptParser {
     }
     if (joined.contains('€') || joined.contains('EUR')) return 'EUR';
     if (joined.contains('£') || joined.contains('GBP')) return 'GBP';
-    if (joined.contains(r'$') || joined.contains('USD')) return 'USD';
+    // Only the ISO code maps to USD — not a bare '$'. ML Kit routinely
+    // misreads the TR receipt marker '*' (KDV rate flag, cash tender) as
+    // '$', and this is a TR/DE/UK app with no USD market, so a lone '$' is
+    // far more likely a misread than a real dollar amount. Currency stays
+    // user-editable in the review screen.
+    if (joined.contains('USD')) return 'USD';
     return 'TRY';
   }
 

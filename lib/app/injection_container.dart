@@ -56,7 +56,6 @@ import 'package:flutter/services.dart' show rootBundle;
 
 import 'package:smartspend/features/scan/data/datasources/camera_data_source.dart';
 import 'package:smartspend/features/scan/data/datasources/gemini_ocr_data_source.dart';
-import 'package:smartspend/features/scan/data/datasources/hybrid_ocr_data_source.dart';
 import 'package:smartspend/features/scan/data/datasources/mlkit_ocr_data_source.dart';
 import 'package:smartspend/features/scan/data/datasources/ocr_data_source.dart';
 import 'package:smartspend/features/scan/data/parsers/receipt_parser.dart';
@@ -327,9 +326,10 @@ Future<void> configureDependencies() async {
     ..registerFactory<ExportCubit>(
       () => ExportCubit(exportData: sl<ExportDataUseCase>()),
     )
-    // ML Kit + Gemini share the OCRDataSource contract. The hybrid one is
-    // what the repository asks for; the others are tagged via instanceName
-    // so the hybrid can resolve them.
+    // ML Kit (on-device) and Gemini (cloud) both implement OCRDataSource.
+    // The repository orchestrates between them with a parse-aware escalation
+    // policy, so they're tagged via instanceName and injected directly
+    // rather than hidden behind a confidence-only wrapper.
     ..registerLazySingleton<OCRDataSource>(
       MLKitOCRDataSource.new,
       instanceName: 'mlkit',
@@ -340,24 +340,19 @@ Future<void> configureDependencies() async {
       ),
       instanceName: 'gemini',
     )
-    ..registerLazySingleton<OCRDataSource>(
-      () => HybridOCRDataSource(
-        mlKit: sl<OCRDataSource>(instanceName: 'mlkit'),
-        gemini: sl<OCRDataSource>(instanceName: 'gemini'),
-        connectivity: sl<Connectivity>(),
-        logger: sl<Logger>(),
-      ),
-    )
     ..registerLazySingleton<ReceiptParser>(ReceiptParser.new)
     ..registerLazySingleton<ScanRepository>(
       () => ScanRepositoryImpl(
         cameraDataSource: sl<CameraDataSource>(),
-        ocrDataSource: sl<OCRDataSource>(),
+        mlKitDataSource: sl<OCRDataSource>(instanceName: 'mlkit'),
+        geminiDataSource: sl<OCRDataSource>(instanceName: 'gemini'),
+        connectivity: sl<Connectivity>(),
         parser: sl<ReceiptParser>(),
         receiptDao: sl<ReceiptDao>(),
         expenseDao: sl<ExpenseDao>(),
         categoryDao: sl<CategoryDao>(),
         storage: sl<SupabaseStorageDataSource>(),
+        logger: sl<Logger>(),
       ),
     )
     ..registerLazySingleton<CaptureImageUseCase>(

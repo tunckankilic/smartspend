@@ -4,6 +4,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show compute;
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
@@ -92,22 +93,14 @@ class CameraDataSourceImpl implements CameraDataSource {
   Future<File> preprocessImage(File raw) async {
     try {
       final Uint8List bytes = await raw.readAsBytes();
-      final img.Image? decoded = img.decodeImage(bytes);
-      if (decoded == null) {
+
+      // decode → bake-orientation → contrast lift → re-encode is CPU-bound
+      // and was stalling the UI isolate for seconds on large captures
+      // (Sentry: main-thread blocks ≥2s). Run it off the main isolate.
+      final Uint8List jpeg = await compute(_preprocessForOcr, bytes);
+      if (jpeg.isEmpty) {
         throw const CacheException(message: 'Could not decode captured image.');
       }
-
-      // EXIF rotation → upright bytes; mild contrast lift for receipts.
-      final img.Image oriented = img.bakeOrientation(decoded);
-      final img.Image boosted = img.adjustColor(
-        oriented,
-        contrast: 1.08,
-        saturation: 0.92,
-      );
-
-      final Uint8List jpeg = Uint8List.fromList(
-        img.encodeJpg(boosted, quality: _jpegQuality),
-      );
 
       final Directory dir = await getTemporaryDirectory();
       final String filename =
@@ -121,4 +114,26 @@ class CameraDataSourceImpl implements CameraDataSource {
       throw CacheException(message: 'Preprocess failed: $e');
     }
   }
+}
+
+/// CPU-bound OCR pre-processing, run in a background isolate via `compute`
+/// (see [CameraDataSourceImpl.preprocessImage]): EXIF auto-orient plus a
+/// mild contrast lift, re-encoded as JPEG.
+///
+/// Returns an empty list when [bytes] can't be decoded — the caller turns
+/// that into a [CacheException] on the main isolate, since custom exception
+/// types don't reliably cross isolate boundaries.
+Uint8List _preprocessForOcr(Uint8List bytes) {
+  final img.Image? decoded = img.decodeImage(bytes);
+  if (decoded == null) return Uint8List(0);
+
+  final img.Image oriented = img.bakeOrientation(decoded);
+  final img.Image boosted = img.adjustColor(
+    oriented,
+    contrast: 1.08,
+    saturation: 0.92,
+  );
+  return Uint8List.fromList(
+    img.encodeJpg(boosted, quality: CameraDataSourceImpl._jpegQuality),
+  );
 }

@@ -306,10 +306,16 @@ class ReceiptEditBloc extends Bloc<ReceiptEditEvent, ReceiptEditState> {
     final List<ScannedItem> valid = s.receipt.items
         .where((ScannedItem i) => i.name.trim().isNotEmpty && i.totalPrice > 0)
         .toList(growable: false);
-    if (valid.isEmpty) errors.add(ReceiptEditValidationError.emptyItems);
 
-    final int computed = computeTotal(s.receipt.items);
-    if (computed <= 0) errors.add(ReceiptEditValidationError.nonPositiveTotal);
+    // OCR can detect a receipt total without itemizing it (ML Kit block
+    // layout, low-confidence scans). Such a receipt is still saveable — the
+    // repository creates one expense from the OCR total — so Save is gated
+    // on the *effective* total, not on the presence of line items.
+    final int effectiveTotal =
+        valid.isEmpty ? s.receipt.total : computeTotal(valid);
+    if (effectiveTotal <= 0) {
+      errors.add(ReceiptEditValidationError.nonPositiveTotal);
+    }
 
     final DateTime? date = s.receipt.date;
     if (date != null && date.isAfter(DateTime.now().toUtc())) {
@@ -322,9 +328,11 @@ class ReceiptEditBloc extends Bloc<ReceiptEditEvent, ReceiptEditState> {
     final List<ScannedItem> valid = r.items
         .where((ScannedItem i) => i.name.trim().isNotEmpty && i.totalPrice > 0)
         .toList(growable: false);
+    // With no usable line items, keep the OCR-detected receipt total so the
+    // save path can still record a single expense from it.
     return r.copyWith(
       items: valid,
-      total: computeTotal(valid),
+      total: valid.isEmpty ? r.total : computeTotal(valid),
     );
   }
 

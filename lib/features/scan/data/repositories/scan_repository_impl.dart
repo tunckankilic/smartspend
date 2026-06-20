@@ -3,8 +3,10 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dartz/dartz.dart';
 import 'package:drift/drift.dart' show Value;
+import 'package:logger/logger.dart';
 
 import 'package:smartspend/core/database/app_database.dart' as drift_db;
 import 'package:smartspend/core/database/app_database.dart'
@@ -27,30 +29,44 @@ import 'package:smartspend/features/scan/domain/entities/scanned_item.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
 import 'package:smartspend/features/scan/domain/repositories/scan_repository.dart';
 
+/// ML Kit confidence below this escalates to the Gemini Edge Function when
+/// online. Receipt OCR is bursty and a single bad block can wreck total
+/// parsing, so the bar is deliberately conservative.
+const double kOcrConfidenceThreshold = 0.70;
+
 class ScanRepositoryImpl implements ScanRepository {
   const ScanRepositoryImpl({
     required CameraDataSource cameraDataSource,
-    required OCRDataSource ocrDataSource,
+    required OCRDataSource mlKitDataSource,
+    required OCRDataSource geminiDataSource,
+    required Connectivity connectivity,
     required ReceiptParser parser,
     required ReceiptDao receiptDao,
     required ExpenseDao expenseDao,
     required CategoryDao categoryDao,
     required SupabaseStorageDataSource storage,
+    Logger? logger,
   }) : _camera = cameraDataSource,
-       _ocr = ocrDataSource,
+       _mlKit = mlKitDataSource,
+       _gemini = geminiDataSource,
+       _connectivity = connectivity,
        _parser = parser,
        _receipts = receiptDao,
        _expenses = expenseDao,
        _categories = categoryDao,
-       _storage = storage;
+       _storage = storage,
+       _logger = logger;
 
   final CameraDataSource _camera;
-  final OCRDataSource _ocr;
+  final OCRDataSource _mlKit;
+  final OCRDataSource _gemini;
+  final Connectivity _connectivity;
   final ReceiptParser _parser;
   final ReceiptDao _receipts;
   final ExpenseDao _expenses;
   final CategoryDao _categories;
   final SupabaseStorageDataSource _storage;
+  final Logger? _logger;
 
   // ---------------------------------------------------------------------
   // Image acquisition
@@ -91,9 +107,7 @@ class ScanRepositoryImpl implements ScanRepository {
   @override
   Future<Either<Failure, ScannedReceipt>> scanReceipt(File image) async {
     try {
-      final OCRResult ocr = await _ocr.recognizeText(image);
-      final ScannedReceipt receipt = _parser.parse(ocr, imagePath: image.path);
-      return Right<Failure, ScannedReceipt>(receipt);
+      return Right<Failure, ScannedReceipt>(await _runOcrPipeline(image));
     } on RateLimitException catch (e) {
       return Left<Failure, ScannedReceipt>(
         RateLimitFailure(
@@ -111,6 +125,131 @@ class ScanRepositoryImpl implements ScanRepository {
         OCRFailure(message: 'Scan failed: $e'),
       );
     }
+  }
+
+  /// Picks the cheapest OCR engine that yields a usable receipt — the same
+  /// source-selection discipline the rest of the app applies to cache vs
+  /// remote, here applied to on-device vs cloud OCR:
+  ///
+  /// 1. ML Kit first (on-device, free, sub-second), then parse it.
+  /// 2. If ML Kit was confident *and* the parse is usable → done.
+  /// 3. Otherwise, when online, escalate to the Gemini Edge Function, which
+  ///    returns pre-itemized structured output mapped straight to a receipt.
+  ///    Prefer Gemini's result when it's usable; keep ML Kit's otherwise.
+  /// 4. Offline, or Gemini rate-limited/failed → degrade to the ML Kit
+  ///    result so the user always gets something to edit.
+  ///
+  /// The escalation decision lives here (not in a datasource) because only
+  /// this layer can see the *parsed* result: ML Kit can report high
+  /// confidence yet parse to zero items, which is exactly when the cloud
+  /// engine earns its cost.
+  Future<ScannedReceipt> _runOcrPipeline(File image) async {
+    OCRResult? mlKitResult;
+    ScannedReceipt? fromMlKit;
+    Object? mlKitError;
+
+    try {
+      mlKitResult = await _mlKit.recognizeText(image);
+      fromMlKit = _toReceipt(mlKitResult, image.path);
+    } on Exception catch (e) {
+      // ML Kit is on-device; any failure just means "try the cloud engine".
+      mlKitError = e;
+      _logger?.w('ML Kit OCR failed: $e — considering Gemini fallback.');
+    }
+
+    if (!_shouldEscalate(mlKitResult, fromMlKit)) return fromMlKit!;
+
+    if (!await _isOnline()) {
+      _logger?.i('Offline — keeping on-device OCR result.');
+      if (fromMlKit != null) return fromMlKit;
+      throw OCRException(
+        message: 'OCR failed offline: $mlKitError',
+        code: 'mlkit_offline_failure',
+      );
+    }
+
+    try {
+      final OCRResult gemini = await _gemini.recognizeText(image);
+      final ScannedReceipt fromGemini = _toReceipt(gemini, image.path);
+      if (_isUsable(fromGemini) || fromMlKit == null) return fromGemini;
+      _logger?.i('Gemini result not usable — keeping ML Kit result.');
+      return fromMlKit;
+    } on RateLimitException {
+      if (fromMlKit != null) {
+        _logger?.w('Gemini rate-limited — keeping ML Kit result.');
+        return fromMlKit;
+      }
+      rethrow;
+    } on Exception catch (e) {
+      if (fromMlKit != null) {
+        _logger?.w('Gemini failed ($e) — keeping ML Kit result.');
+        return fromMlKit;
+      }
+      throw OCRException(
+        message: 'Both OCR engines failed. ML Kit: $mlKitError; Gemini: $e',
+      );
+    }
+  }
+
+  /// Escalate when ML Kit threw, reported low confidence, or its parse left
+  /// out what the cloud engine is good at: line items or a positive total.
+  /// Escalating on *empty items even when a total was found* is deliberate —
+  /// block-layout ML Kit routinely reads the total but no items, and Gemini's
+  /// itemization is the whole point of the fallback. The escalation degrades
+  /// gracefully (offline / rate-limited / failed → keep the ML Kit result),
+  /// so it never costs the user a usable scan.
+  bool _shouldEscalate(OCRResult? mlKit, ScannedReceipt? parsed) {
+    if (mlKit == null || parsed == null) return true;
+    return mlKit.confidence < kOcrConfidenceThreshold ||
+        parsed.items.isEmpty ||
+        parsed.total <= 0;
+  }
+
+  /// Whether a result is worth preferring over the ML Kit fallback — i.e. the
+  /// engine produced *something* (items or a positive total).
+  bool _isUsable(ScannedReceipt r) => r.items.isNotEmpty || r.total > 0;
+
+  /// Maps an [OCRResult] to a [ScannedReceipt]. Prefers the engine's
+  /// pre-itemized [OCRStructured] (Gemini) and falls back to the regex
+  /// parser over raw text (ML Kit).
+  ScannedReceipt _toReceipt(OCRResult ocr, String imagePath) {
+    final OCRStructured? s = ocr.structured;
+    if (s == null) return _parser.parse(ocr, imagePath: imagePath);
+
+    final List<ScannedItem> items = s.items
+        .map(
+          (OCRStructuredItem i) => ScannedItem(
+            name: i.name,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            totalPrice: i.totalPrice,
+          ),
+        )
+        .toList(growable: false);
+    return ScannedReceipt(
+      imagePath: imagePath,
+      storeName: s.storeName,
+      date: _parser.parseDateFromText(ocr.rawText),
+      items: items,
+      total: s.total ?? _sumItems(items),
+      currency: s.currency ?? 'TRY',
+      rawText: ocr.rawText,
+      confidenceScore: ocr.confidence,
+    );
+  }
+
+  int _sumItems(List<ScannedItem> items) {
+    int sum = 0;
+    for (final ScannedItem i in items) {
+      if (i.totalPrice > 0) sum += i.totalPrice;
+    }
+    return sum;
+  }
+
+  Future<bool> _isOnline() async {
+    final List<ConnectivityResult> result =
+        await _connectivity.checkConnectivity();
+    return result.any((ConnectivityResult r) => r != ConnectivityResult.none);
   }
 
   // ---------------------------------------------------------------------
@@ -221,6 +360,25 @@ class ScanRepositoryImpl implements ScanRepository {
             updatedAt: DateTime.now().toUtc(),
             receiptId: Value<int?>(receiptId),
             note: Value<String?>(item.name),
+            isManual: const Value<bool>(false),
+          ),
+        );
+      }
+
+      // OCR detected a total but couldn't itemize it (block-layout ML Kit,
+      // low-confidence scans). Record a single expense from the receipt
+      // total so the scan still produces a tracked expense instead of an
+      // orphan receipt that never reaches the dashboard or budgets.
+      if (receipt.items.isEmpty && receipt.total > 0) {
+        await _expenses.insertExpense(
+          ExpensesCompanion.insert(
+            amount: receipt.total,
+            categoryId: defaultCategoryId,
+            date: date,
+            createdAt: DateTime.now().toUtc(),
+            updatedAt: DateTime.now().toUtc(),
+            receiptId: Value<int?>(receiptId),
+            note: Value<String?>(receipt.storeName),
             isManual: const Value<bool>(false),
           ),
         );

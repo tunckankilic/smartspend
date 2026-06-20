@@ -26,6 +26,15 @@ void main() {
     test('should fall back to TRY when ambiguous', () {
       expect(parser.parseCurrency(<String>['TOPLAM 25,40']), 'TRY');
     });
+
+    test(r'should not read a bare $ as USD (ML Kit misreads TR * marker)', () {
+      // ML Kit routinely transcribes the TR receipt marker '*' as '$'.
+      expect(parser.parseCurrency(<String>[r'K.KARTI: $670,41']), 'TRY');
+    });
+
+    test('should detect USD only from the ISO code', () {
+      expect(parser.parseCurrency(<String>['TOTAL 5.00 USD']), 'USD');
+    });
   });
 
   group('parseDate', () {

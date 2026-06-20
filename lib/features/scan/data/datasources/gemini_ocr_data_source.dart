@@ -13,11 +13,15 @@ import 'package:smartspend/features/scan/data/datasources/ocr_data_source.dart';
 
 /// Calls the `gemini-ocr-fallback` Supabase Edge Function.
 ///
-/// **What ships here vs Sprint 8:**
-/// - Sprint 2.2 (this file): client wiring + response parsing. Tests run
-///   against an injected mock [FunctionsClient].
-/// - Sprint 8: deploy the Edge Function itself (it lives as a placeholder
-///   at `supabase/functions/gemini-ocr-fallback/index.ts` for now).
+/// The Edge Function (`supabase/functions/gemini-ocr-fallback/index.ts`) is
+/// fully implemented — it runs Gemini Vision and returns pre-itemized
+/// `items`/`total`/`store_name`/`currency`. This client maps that payload
+/// into [OCRResult.structured] so the repository can skip the regex parser.
+///
+/// **Operational precondition:** the function must be deployed
+/// (`supabase functions deploy gemini-ocr-fallback`) and `GEMINI_API_KEY`
+/// set as a secret. Absent the key the function returns `CONFIG_MISSING`
+/// and the caller silently degrades to the on-device ML Kit result.
 ///
 /// **Security invariants — do NOT break:**
 /// - The Gemini API key is never sent from the device. It lives only as a
@@ -72,14 +76,13 @@ class GeminiOCRDataSource implements OCRDataSource {
   }
 
   OCRResult _parseResponse(Map<String, Object?> data) {
-    // Contract shared with the Edge Function (Sprint 8):
+    // Contract shared with the Edge Function:
     //   {
     //     "data": {
-    //       "raw_text": "...",
-    //       "confidence": 0.93,
-    //       "store_name": "...",  ← used by parser layer, not OCRResult
-    //       "items": [...],
-    //       "total": 12345
+    //       "raw_text": "...", "confidence": 0.93, "store_name": "...",
+    //       "currency": "TRY", "total": 12345, "tax": 700,
+    //       "items": [{ "name": "...", "qty": 1, "unit_price": 1250,
+    //                   "total_price": 1250 }]
     //     },
     //     "error": null
     //   }
@@ -100,12 +103,60 @@ class GeminiOCRDataSource implements OCRDataSource {
       ],
       confidence: confidence,
       engine: OCREngine.gemini,
+      structured: _parseStructured(payload),
+    );
+  }
+
+  /// Maps the Edge Function's itemized fields into [OCRStructured]. Returns
+  /// `null` when nothing structured is worth keeping (no items, no total, no
+  /// store) so the caller falls back to parsing [OCRResult.rawText].
+  OCRStructured? _parseStructured(Map<String, Object?> payload) {
+    final List<OCRStructuredItem> items = <OCRStructuredItem>[];
+    final Object? rawItems = payload['items'];
+    if (rawItems is List) {
+      for (final Object? entry in rawItems) {
+        if (entry is! Map) continue;
+        final String name = (entry['name'] as String?)?.trim() ?? '';
+        if (name.isEmpty) continue;
+        items.add(
+          OCRStructuredItem(
+            name: name,
+            quantity: _readNum(entry['qty']) ?? 1,
+            unitPrice: _readInt(entry['unit_price']) ?? 0,
+            totalPrice: _readInt(entry['total_price']) ?? 0,
+          ),
+        );
+      }
+    }
+
+    final int? total = _readInt(payload['total']);
+    final String? storeName = _readString(payload['store_name']);
+    final String? currency = _readString(payload['currency']);
+    final int? tax = _readInt(payload['tax']);
+
+    if (items.isEmpty && total == null && storeName == null) return null;
+    return OCRStructured(
+      items: items,
+      storeName: storeName,
+      total: total,
+      tax: tax,
+      currency: currency,
     );
   }
 
   double _readConfidence(Object? raw) {
     if (raw is num) return raw.toDouble().clamp(0.0, 1.0);
     return 0.9; // Gemini is high-quality by default; trust it absent a score.
+  }
+
+  num? _readNum(Object? raw) => raw is num ? raw : null;
+
+  int? _readInt(Object? raw) => raw is num ? raw.round() : null;
+
+  String? _readString(Object? raw) {
+    if (raw is! String) return null;
+    final String trimmed = raw.trim();
+    return trimmed.isEmpty ? null : trimmed;
   }
 
   Exception _mapHttpStatus(int status, Object? body) {

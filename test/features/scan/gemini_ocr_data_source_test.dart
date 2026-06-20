@@ -66,6 +66,88 @@ void main() {
     expect(got.confidence, 0.9);
   });
 
+  test('should map items/total/store/currency into OCRStructured', () async {
+    when(() => functions.invoke(any(), body: any(named: 'body'))).thenAnswer(
+      (_) async => okResponse(<String, Object?>{
+        'data': <String, Object?>{
+          'raw_text': 'ŞOK UHT SÜT',
+          'confidence': 0.91,
+          'store_name': 'ŞOK',
+          'currency': 'TRY',
+          'total': 14500,
+          'tax': 1200,
+          'items': <Map<String, Object?>>[
+            <String, Object?>{
+              'name': 'UHT SÜT',
+              'qty': 2,
+              'unit_price': 7250,
+              'total_price': 14500,
+            },
+          ],
+        },
+        'error': null,
+      }),
+    );
+
+    final OCRResult got = await datasource.recognizeText(image);
+
+    final OCRStructured? s = got.structured;
+    expect(s, isNotNull);
+    expect(s!.storeName, 'ŞOK');
+    expect(s.currency, 'TRY');
+    expect(s.total, 14500);
+    expect(s.tax, 1200);
+    expect(s.items.single.name, 'UHT SÜT');
+    expect(s.items.single.quantity, 2);
+    expect(s.items.single.totalPrice, 14500);
+  });
+
+  test('should leave structured null when only raw_text is present', () async {
+    when(() => functions.invoke(any(), body: any(named: 'body'))).thenAnswer(
+      (_) async => okResponse(<String, Object?>{
+        'data': <String, Object?>{
+          'raw_text': 'TOPLAM 25,40',
+          'confidence': 0.9,
+        },
+        'error': null,
+      }),
+    );
+
+    final OCRResult got = await datasource.recognizeText(image);
+
+    expect(got.structured, isNull);
+  });
+
+  test('should skip nameless structured items', () async {
+    when(() => functions.invoke(any(), body: any(named: 'body'))).thenAnswer(
+      (_) async => okResponse(<String, Object?>{
+        'data': <String, Object?>{
+          'raw_text': 'x',
+          'total': 5000,
+          'items': <Map<String, Object?>>[
+            <String, Object?>{
+              'name': '',
+              'qty': 1,
+              'unit_price': 0,
+              'total_price': 0,
+            },
+            <String, Object?>{
+              'name': 'GERÇEK',
+              'qty': 1,
+              'unit_price': 5000,
+              'total_price': 5000,
+            },
+          ],
+        },
+        'error': null,
+      }),
+    );
+
+    final OCRResult got = await datasource.recognizeText(image);
+
+    expect(got.structured!.items.single.name, 'GERÇEK');
+  });
+
   test('should throw RateLimitException on HTTP 429', () async {
     when(() => functions.invoke(any(), body: any(named: 'body'))).thenAnswer(
       (_) async => FunctionResponse(

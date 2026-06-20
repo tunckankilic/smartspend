@@ -369,9 +369,23 @@ void main() {
       );
     });
 
-    test('save without items should surface emptyItems error', () async {
+    test('save with no items but a positive OCR total should still save',
+        () async {
       mockCategoriesOK();
+      when(
+        () => repo.saveReceipt(
+          receipt: any(named: 'receipt'),
+          defaultCategoryId: any(named: 'defaultCategoryId'),
+        ),
+      ).thenAnswer((_) async => const Right<Failure, int>(7));
+
       final ReceiptEditBloc b = build();
+      final List<ReceiptEditState> states = <ReceiptEditState>[];
+      final StreamSubscription<ReceiptEditState> sub =
+          b.stream.listen(states.add);
+
+      // baseReceipt total is 1150; dropping both items leaves the OCR total
+      // intact, so the receipt is still saveable as a single expense.
       b.add(ReceiptEditStarted(receipt: baseReceipt()));
       await Future<void>.delayed(Duration.zero);
       b
@@ -382,10 +396,35 @@ void main() {
       b.add(const ReceiptEditSubmitted());
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
+      expect(states.last, isA<ReceiptEditSaved>());
+
+      await sub.cancel();
+    });
+
+    test('save with no items and a zero total surfaces nonPositiveTotal',
+        () async {
+      mockCategoriesOK();
+      final ReceiptEditBloc b = build();
+      b.add(
+        ReceiptEditStarted(
+          receipt: baseReceipt(items: const <ScannedItem>[], total: 0),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      b.add(const ReceiptEditSubmitted());
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
       final ReceiptEditReady ready = b.state as ReceiptEditReady;
       expect(
         ready.validationErrors,
-        contains(ReceiptEditValidationError.emptyItems),
+        contains(ReceiptEditValidationError.nonPositiveTotal),
+      );
+      verifyNever(
+        () => repo.saveReceipt(
+          receipt: any(named: 'receipt'),
+          defaultCategoryId: any(named: 'defaultCategoryId'),
+        ),
       );
     });
 

@@ -144,6 +144,15 @@ class SupabaseSyncServiceImpl implements SyncService {
   @override
   Future<Either<Failure, SyncReport>> push() async {
     try {
+      // Locally created rows are born without an owner; stamp the active
+      // session's uid so Postgres RLS (`auth.uid() = user_id`) accepts the
+      // insert. Without a session (e.g. the startup sync before sign-in) no
+      // write can satisfy RLS, so skip rather than logging a failure per row.
+      final String? userId = remote.currentUserId;
+      if (userId == null) {
+        return const Right<Failure, SyncReport>(SyncReport());
+      }
+
       int pushed = 0;
       int failed = 0;
 
@@ -152,7 +161,7 @@ class SupabaseSyncServiceImpl implements SyncService {
         try {
           final String id = await remote.upsert('categories', <String, dynamic>{
             if (c.remoteId != null) 'id': c.remoteId,
-            'user_id': c.userId,
+            'user_id': userId,
             'name': c.name,
             'icon': c.icon,
             'color': c.color,
@@ -182,7 +191,7 @@ class SupabaseSyncServiceImpl implements SyncService {
         try {
           final String id = await remote.upsert('receipts', <String, dynamic>{
             if (r.remoteId != null) 'id': r.remoteId,
-            'user_id': r.userId,
+            'user_id': userId,
             'store_name': r.storeName,
             'date': _dateOnly(r.date),
             'total': r.total,
@@ -218,7 +227,7 @@ class SupabaseSyncServiceImpl implements SyncService {
             'receipt_items',
             <String, dynamic>{
               if (item.remoteId != null) 'id': item.remoteId,
-              'user_id': item.userId,
+              'user_id': userId,
               'receipt_id': receiptRemote,
               'name': item.name,
               'quantity': item.quantity,
@@ -242,7 +251,7 @@ class SupabaseSyncServiceImpl implements SyncService {
         try {
           final String id = await remote.upsert('tags', <String, dynamic>{
             if (t.remoteId != null) 'id': t.remoteId,
-            'user_id': t.userId,
+            'user_id': userId,
             'name': t.name,
           });
           await database.syncDao.markTagSynced(t.id, remoteId: id);
@@ -275,7 +284,7 @@ class SupabaseSyncServiceImpl implements SyncService {
         try {
           final String id = await remote.upsert('expenses', <String, dynamic>{
             if (e.remoteId != null) 'id': e.remoteId,
-            'user_id': e.userId,
+            'user_id': userId,
             'amount': e.amount,
             'category_id': catRemote,
             'receipt_id': localReceipt == null
@@ -310,7 +319,7 @@ class SupabaseSyncServiceImpl implements SyncService {
         try {
           final String id = await remote.upsert('budgets', <String, dynamic>{
             if (b.remoteId != null) 'id': b.remoteId,
-            'user_id': b.userId,
+            'user_id': userId,
             'category_id': localCat == null
                 ? null
                 : await database.syncDao.categoryRemoteId(localCat),
@@ -343,7 +352,7 @@ class SupabaseSyncServiceImpl implements SyncService {
             'user_corrections',
             <String, dynamic>{
               if (uc.remoteId != null) 'id': uc.remoteId,
-              'user_id': uc.userId,
+              'user_id': userId,
               'store_name': uc.storeName,
               'old_category_id': oldCat == null
                   ? null

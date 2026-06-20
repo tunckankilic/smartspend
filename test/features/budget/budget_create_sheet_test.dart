@@ -86,6 +86,19 @@ void main() {
     );
 
     testWidgets(
+      'should prefix the amount field with the default currency symbol, '
+      'not a dollar icon',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(_wrap());
+        await tester.pumpAndSettle();
+
+        // Default currency is TRY → ₺; the old hardcoded "$" icon is gone.
+        expect(find.textContaining('₺'), findsOneWidget);
+        expect(find.byIcon(Icons.attach_money_rounded), findsNothing);
+      },
+    );
+
+    testWidgets(
       'should pop a BudgetSheetResult with the entered amount',
       (WidgetTester tester) async {
         BudgetSheetResult? result;

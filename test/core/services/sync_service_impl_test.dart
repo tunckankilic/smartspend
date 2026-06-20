@@ -35,7 +35,8 @@ void main() {
       remote: remote,
       connectivity: connectivity,
     );
-    // Default: nothing to pull.
+    // Default: an authenticated session, nothing to pull.
+    when(() => remote.currentUserId).thenReturn('user-test-1');
     when(() => remote.fetchSince(any(), any()))
         .thenAnswer((_) async => <Map<String, dynamic>>[]);
   });
@@ -71,6 +72,38 @@ void main() {
       expect(report.failed, 0);
       verify(() => remote.upsert('categories', any())).called(1);
       expect(await db.categoryDao.getPendingSync(), isEmpty);
+    });
+
+    test('should stamp the session user id onto pushed rows', () async {
+      // Locally created rows carry a null user_id; push must fill it from the
+      // session so Postgres RLS (auth.uid() = user_id) accepts the insert.
+      await insertPendingCategory();
+      when(() => remote.upsert('categories', any()))
+          .thenAnswer((_) async => 'cat-remote-1');
+
+      await service.push();
+
+      final List<dynamic> captured =
+          verify(() => remote.upsert('categories', captureAny())).captured;
+      final Map<String, dynamic> payload =
+          captured.single as Map<String, dynamic>;
+      expect(payload['user_id'], 'user-test-1');
+    });
+
+    test('should skip push entirely when no session is active', () async {
+      // The startup sync can fire before sign-in; with no uid nothing can
+      // satisfy RLS, so push must no-op instead of failing every row.
+      when(() => remote.currentUserId).thenReturn(null);
+      await insertPendingCategory();
+
+      final Either<Failure, SyncReport> result = await service.push();
+
+      final SyncReport report =
+          result.getOrElse(() => throw StateError('expected Right'));
+      expect(report.pushed, 0);
+      expect(report.failed, 0);
+      verifyNever(() => remote.upsert(any(), any()));
+      expect(await db.categoryDao.getPendingSync(), hasLength(1));
     });
 
     test('should isolate a row failure and leave the row pending', () async {

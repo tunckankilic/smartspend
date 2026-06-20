@@ -46,9 +46,9 @@ class DashboardQuickActions extends StatelessWidget {
             key: const ValueKey<String>('quickAction.report'),
             icon: Icons.insights_rounded,
             label: l.dashboardQuickActionReport,
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(l.dashboardReportComingSoon)),
-            ),
+            // Report = a CSV/PDF export of the user's expenses. The export
+            // actions live on the Settings tab; jump there.
+            onTap: () => context.go('/settings'),
           ),
         ),
       ],

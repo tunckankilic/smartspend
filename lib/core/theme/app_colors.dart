@@ -11,6 +11,11 @@ abstract class AppColors {
   static const Color primary = Color(0xFF1B5E20); // Deep green
   static const Color primaryLight = Color(0xFF43A047);
   static const Color primaryDark = Color(0xFF003D00);
+  // Text/icons on the deep-green [primary] surface. Fixed white in both
+  // light and dark, because [primary] is forced deep green in both
+  // brightnesses — letting fromSeed derive onPrimary yields a dark tone in
+  // dark mode (M3 expects a light primary), which is unreadable on green.
+  static const Color onPrimary = Color(0xFFFFFFFF);
   static const Color accent = Color(0xFFFFB300); // Amber — important numbers
 
   // Semantic

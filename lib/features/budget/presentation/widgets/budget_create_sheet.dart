@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:smartspend/app/injection_container.dart';
+import 'package:smartspend/core/constants/app_constants.dart';
 import 'package:smartspend/core/utils/currency_formatter.dart';
 import 'package:smartspend/core/widgets/category_icon.dart';
 import 'package:smartspend/features/budget/domain/entities/budget_period.dart';
@@ -90,6 +91,11 @@ class _BudgetCreateSheetState extends State<BudgetCreateSheet> {
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l = AppLocalizations.of(context);
+    // Show the symbol for the budget's currency (its own when editing, the
+    // app default otherwise) — never a hardcoded "$"; SmartSpend targets
+    // TR/DE/UK (₺/€/£), not USD.
+    final String currencyCode =
+        widget.editing?.budget.currency ?? AppConstants.defaultCurrency;
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -113,7 +119,7 @@ class _BudgetCreateSheetState extends State<BudgetCreateSheet> {
               decoration: InputDecoration(
                 labelText: l.budgetSheetAmountLabel,
                 hintText: l.budgetSheetAmountHint,
-                prefixIcon: const Icon(Icons.attach_money_rounded),
+                prefixText: '${currencySymbol(currencyCode)} ',
                 errorText: _validationKey == 'amount'
                     ? l.budgetAmountInvalid
                     : null,

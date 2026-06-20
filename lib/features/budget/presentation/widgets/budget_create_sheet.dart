@@ -11,6 +11,17 @@ import 'package:smartspend/features/categories/domain/usecases/list_categories.d
 import 'package:smartspend/features/categories/presentation/widgets/category_picker_sheet.dart';
 import 'package:smartspend/l10n/generated/app_localizations.dart';
 
+/// Budget periods offered in the v1 create/edit UI. [BudgetPeriod] also
+/// defines `yearly` (and `BudgetWindow` computes it), but the remote
+/// `budgets_period_check` constraint only allows `weekly` + `monthly`, so a
+/// yearly budget can never sync — it is rejected server-side and silently
+/// stays `pending`. Re-add `BudgetPeriod.yearly` here once the constraint
+/// migration ships.
+const List<BudgetPeriod> _selectablePeriods = <BudgetPeriod>[
+  BudgetPeriod.weekly,
+  BudgetPeriod.monthly,
+];
+
 /// Outbound payload for [BudgetCreateSheet]. The page maps this into
 /// `BudgetCreated` / `BudgetUpdated` events on the bloc.
 class BudgetSheetResult {
@@ -134,7 +145,7 @@ class _BudgetCreateSheetState extends State<BudgetCreateSheet> {
             Wrap(
               spacing: 8,
               children: <Widget>[
-                for (final BudgetPeriod p in BudgetPeriod.values)
+                for (final BudgetPeriod p in _selectablePeriods)
                   ChoiceChip(
                     label: Text(_periodLabel(l, p)),
                     selected: _period == p,

@@ -97,6 +97,9 @@ class SupabaseSyncServiceImpl implements SyncService {
     }
   }
 
+  @override
+  Future<int> pendingCount() => _pendingCount();
+
   Future<int> _pendingCount() async {
     int n = 0;
     n += (await database.categoryDao.getPendingSync()).length;
@@ -219,6 +222,11 @@ class SupabaseSyncServiceImpl implements SyncService {
         );
         if (receiptRemote == null) {
           failed++; // Parent not yet synced; retry next run.
+          await _logFailure(
+            'receipt_items',
+            item.remoteId ?? '${item.id}',
+            'receipt ${item.receiptId} has no remote id yet (parent unsynced)',
+          );
           continue;
         }
         final int? localCat = item.categoryId;
@@ -278,6 +286,11 @@ class SupabaseSyncServiceImpl implements SyncService {
         );
         if (catRemote == null) {
           failed++;
+          await _logFailure(
+            'expenses',
+            e.remoteId ?? '${e.id}',
+            'category ${e.categoryId} has no remote id yet (parent unsynced)',
+          );
           continue;
         }
         final int? localReceipt = e.receiptId;
@@ -344,6 +357,11 @@ class SupabaseSyncServiceImpl implements SyncService {
         );
         if (newCatRemote == null) {
           failed++;
+          await _logFailure(
+            'user_corrections',
+            uc.remoteId ?? '${uc.id}',
+            'category ${uc.newCategoryId} has no remote id (parent unsynced)',
+          );
           continue;
         }
         final int? oldCat = uc.oldCategoryId;

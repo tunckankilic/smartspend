@@ -222,6 +222,7 @@ Future<void> configureDependencies() async {
         appleSignIn: sl<AppleSignInUseCase>(),
         resetPassword: sl<ResetPasswordUseCase>(),
         database: sl<AppDatabase>(),
+        syncService: sl<SyncService>(),
       ),
     )
     // Categories feature (Sprint 4 hoist) ---------------------------------

@@ -7,6 +7,7 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:smartspend/core/database/app_database.dart';
 import 'package:smartspend/core/error/failures.dart' as failures;
+import 'package:smartspend/core/services/sync_service.dart';
 import 'package:smartspend/features/auth/domain/entities/app_user.dart';
 import 'package:smartspend/features/auth/domain/repositories/auth_repository.dart';
 import 'package:smartspend/features/auth/domain/usecases/apple_sign_in_usecase.dart';
@@ -34,6 +35,8 @@ class _MockAppleSignInUseCase extends Mock implements AppleSignInUseCase {}
 
 class _MockResetPasswordUseCase extends Mock implements ResetPasswordUseCase {}
 
+class _MockSyncService extends Mock implements SyncService {}
+
 void main() {
   const AppUser tUser = AppUser(id: 'u1', email: 'me@real.com');
   const failures.AuthFailure tFailure = failures.AuthFailure(
@@ -48,6 +51,7 @@ void main() {
   late _MockDeleteAccountUseCase deleteAccount;
   late _MockAppleSignInUseCase appleSignIn;
   late _MockResetPasswordUseCase resetPassword;
+  late _MockSyncService syncService;
   late AppDatabase database;
   late StreamController<AppUser?> authStream;
 
@@ -68,6 +72,7 @@ void main() {
     deleteAccount = _MockDeleteAccountUseCase();
     appleSignIn = _MockAppleSignInUseCase();
     resetPassword = _MockResetPasswordUseCase();
+    syncService = _MockSyncService();
     database = createTestDatabase();
     authStream = StreamController<AppUser?>.broadcast();
 
@@ -75,6 +80,13 @@ void main() {
       () => repository.authStateChanges(),
     ).thenAnswer((_) => authStream.stream);
     when(() => repository.currentUser()).thenReturn(null);
+    when(() => syncService.push()).thenAnswer(
+      (_) async => const Right<failures.Failure, SyncReport>(SyncReport()),
+    );
+    when(() => syncService.sync()).thenAnswer(
+      (_) async => const Right<failures.Failure, SyncReport>(SyncReport()),
+    );
+    when(() => syncService.pendingCount()).thenAnswer((_) async => 0);
   });
 
   tearDown(() async {
@@ -91,6 +103,7 @@ void main() {
     appleSignIn: appleSignIn,
     resetPassword: resetPassword,
     database: database,
+    syncService: syncService,
   );
 
   group('AuthBloc', () {
@@ -163,6 +176,38 @@ void main() {
         () => signOut(),
       ).thenAnswer((_) async => const Right<failures.AuthFailure, Unit>(unit)),
       act: (AuthBloc bloc) => bloc.add(const AuthSignOutRequested()),
+      expect: () => <Matcher>[isA<AuthLoading>(), isA<Unauthenticated>()],
+      verify: (_) => verify(() => signOut()).called(1),
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'AuthSignOutRequested with unsynced rows pauses on '
+      'AuthSignOutPendingConfirmation and does not wipe',
+      build: build,
+      setUp: () =>
+          when(() => syncService.pendingCount()).thenAnswer((_) async => 3),
+      act: (AuthBloc bloc) => bloc.add(const AuthSignOutRequested()),
+      expect: () => <Matcher>[
+        isA<AuthLoading>(),
+        isA<AuthSignOutPendingConfirmation>().having(
+          (AuthSignOutPendingConfirmation s) => s.pendingCount,
+          'pendingCount',
+          3,
+        ),
+      ],
+      verify: (_) {
+        verify(() => syncService.push()).called(1);
+        verifyNever(() => signOut());
+      },
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'AuthSignOutConfirmed discards the pending queue and signs out',
+      build: build,
+      setUp: () => when(
+        () => signOut(),
+      ).thenAnswer((_) async => const Right<failures.AuthFailure, Unit>(unit)),
+      act: (AuthBloc bloc) => bloc.add(const AuthSignOutConfirmed()),
       expect: () => <Matcher>[isA<AuthLoading>(), isA<Unauthenticated>()],
       verify: (_) => verify(() => signOut()).called(1),
     );

@@ -17,6 +17,13 @@
   "authSignUpTitle": "Create account",
   "authForgotPasswordTitle": "Forgot password",
   "authSignOut": "Sign out",
+  "signOutUnsyncedTitle": "Unsynced data",
+  "signOutUnsyncedBody": "{count} item(s) haven't synced to the cloud yet. Signing out deletes them from this device for good. Sign out anyway?",
+  "@signOutUnsyncedBody": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "signOutUnsyncedConfirm": "Sign out anyway",
+  "signOutUnsyncedCancel": "Cancel",
   "authSignOutCta": "Sign out",
   "authDeleteAccount": "Delete account",
   "authDeleteAccountCta": "Delete my account",

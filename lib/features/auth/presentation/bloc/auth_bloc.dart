@@ -9,6 +9,7 @@ import 'package:equatable/equatable.dart';
 
 import 'package:smartspend/core/database/app_database.dart';
 import 'package:smartspend/core/error/failures.dart' show Failure;
+import 'package:smartspend/core/services/sync_service.dart';
 import 'package:smartspend/features/auth/domain/entities/app_user.dart';
 import 'package:smartspend/features/auth/domain/repositories/auth_repository.dart';
 import 'package:smartspend/features/auth/domain/usecases/apple_sign_in_usecase.dart';
@@ -38,6 +39,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required AppleSignInUseCase appleSignIn,
     required ResetPasswordUseCase resetPassword,
     required AppDatabase database,
+    required SyncService syncService,
   })  : _authRepository = authRepository,
         _signIn = signIn,
         _signUp = signUp,
@@ -46,12 +48,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         _appleSignIn = appleSignIn,
         _resetPassword = resetPassword,
         _database = database,
+        _syncService = syncService,
         super(const AuthInitial()) {
     on<AuthCheckRequested>(_onResolve);
     on<AuthSessionRestored>(_onResolve);
     on<AuthSignInRequested>(_onSignIn, transformer: sequential());
     on<AuthSignUpRequested>(_onSignUp, transformer: sequential());
     on<AuthSignOutRequested>(_onSignOut, transformer: sequential());
+    on<AuthSignOutConfirmed>(_onSignOutConfirmed, transformer: sequential());
     on<AuthAccountDeletionRequested>(
       _onDeleteAccount,
       transformer: sequential(),
@@ -73,8 +77,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AppleSignInUseCase _appleSignIn;
   final ResetPasswordUseCase _resetPassword;
   final AppDatabase _database;
+  final SyncService _syncService;
 
   late final StreamSubscription<AppUser?> _subscription;
+
+  @override
+  void onChange(Change<AuthState> change) {
+    super.onChange(change);
+    // A session just became active (sign-in, Apple, or a cold-start restore).
+    // Kick a full sync so locally-created rows reach the server promptly and
+    // remote rows are pulled back, instead of waiting for the periodic timer.
+    // The gap between "add data" and the first push is exactly how a fast
+    // sign-out used to wipe never-pushed rows.
+    if (change.nextState is Authenticated &&
+        change.currentState is! Authenticated) {
+      unawaited(_syncService.sync());
+    }
+  }
 
   void _onResolve(AuthEvent event, Emitter<AuthState> emit) {
     final AppUser? user = _authRepository.currentUser();
@@ -122,6 +141,35 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     emit(const AuthLoading());
+    // Flush pending writes BEFORE signing out: the session is still alive
+    // here, so push can satisfy RLS. Once `_signOut` runs the uid is gone and
+    // `clearUserData` wipes the cache, so anything unsynced would be lost. A
+    // timeout stops a hung/slow server from freezing sign-out — the queue
+    // just stays pending and the user is warned below.
+    await _syncService.push().timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => const Right<Failure, SyncReport>(SyncReport()),
+    );
+    final int pending = await _syncService.pendingCount();
+    if (pending > 0) {
+      // Could not drain the queue (offline, or a row the server rejects).
+      // Hand off to the UI to confirm discarding before the wipe.
+      emit(AuthSignOutPendingConfirmation(pendingCount: pending));
+      return;
+    }
+    await _finishSignOut(emit);
+  }
+
+  Future<void> _onSignOutConfirmed(
+    AuthSignOutConfirmed event,
+    Emitter<AuthState> emit,
+  ) async {
+    // User accepted losing the still-pending rows; complete the wipe.
+    emit(const AuthLoading());
+    await _finishSignOut(emit);
+  }
+
+  Future<void> _finishSignOut(Emitter<AuthState> emit) async {
     final Either<Failure, Unit> result = await _signOut();
     await result.fold(
       (Failure failure) async => emit(AuthFailure(failure)),

@@ -1,7 +1,7 @@
 name: smartspend
 description: "SmartSpend — AI-powered expense tracker with OCR receipt scanning."
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ^3.12.0
@@ -110,7 +110,7 @@ sentry:
   upload_sources: false
   upload_source_maps: false
   project: smartspend
-  org: smartspend
+  org: tuncsoftwareagency
 
 flutter:
   uses-material-design: true

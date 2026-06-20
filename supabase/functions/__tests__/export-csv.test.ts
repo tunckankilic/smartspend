@@ -28,10 +28,9 @@ Deno.test("buildCsv writes a header and one row per expense", () => {
     {
       date: "2026-05-01",
       amount: 1250,
-      currency: "TRY",
       note: "lunch",
       category: { name: "Restoran" },
-      receipt: { store_name: "Kebapçı" },
+      receipt: { store_name: "Kebapçı", currency: "TRY" },
     },
   ]);
   const lines = csv.split("\n");
@@ -44,7 +43,6 @@ Deno.test("buildCsv quotes cells containing commas or quotes", () => {
     {
       date: "2026-05-01",
       amount: 100,
-      currency: "TRY",
       note: 'has, comma and "quote"',
       category: null,
       receipt: null,

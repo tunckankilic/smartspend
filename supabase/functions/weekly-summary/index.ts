@@ -139,7 +139,8 @@ export async function handle(req: Request): Promise<Response> {
   // RLS on `expenses` restricts the query to the caller's rows.
   const { data: rows, error: queryError } = await supabase
     .from("expenses")
-    .select("amount, category_id, currency")
+    // `currency` lives on `receipts`, not `expenses`; read it from the embed.
+    .select("amount, category_id, receipt:receipts(currency)")
     .gte("date", windowStart.toISOString())
     .lt("date", windowEnd.toISOString());
   if (queryError) {
@@ -156,7 +157,8 @@ export async function handle(req: Request): Promise<Response> {
   for (const row of rows ?? []) {
     const amount = (row as { amount: number }).amount ?? 0;
     const categoryId = (row as { category_id: string | number }).category_id;
-    const currency = (row as { currency?: string }).currency ?? "TRY";
+    const currency =
+      (row as { receipt?: { currency?: string } }).receipt?.currency ?? "TRY";
     total += amount;
     count += 1;
     const key = String(categoryId);

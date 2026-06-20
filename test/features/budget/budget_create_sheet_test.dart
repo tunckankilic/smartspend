@@ -77,8 +77,9 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(TextField), findsOneWidget);
-        // 3 period chips (weekly/monthly/yearly) + 1 "General" category chip.
-        expect(find.byType(ChoiceChip), findsNWidgets(4));
+        // 2 period chips (weekly/monthly) + 1 "General" category chip.
+        // `yearly` is held out of v1 (remote budgets_period_check rejects it).
+        expect(find.byType(ChoiceChip), findsNWidgets(3));
         expect(find.byType(FilledButton), findsOneWidget);
         // Create mode: no delete button.
         expect(find.byIcon(Icons.delete_outline_rounded), findsNothing);

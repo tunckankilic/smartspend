@@ -106,6 +106,23 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
       provider: OAuthProvider.apple,
       idToken: idToken,
     );
+    // Apple only returns the user's name on the FIRST authorization, and only
+    // via the native credential — never in the id_token. Capture it here and
+    // persist to user_metadata so the mapper can read `full_name` on every
+    // later sign-in. Skipped (and never clobbered) when Apple omits the name.
+    final String fullName = <String?>[
+      credential.givenName,
+      credential.familyName,
+    ].whereType<String>().where((String s) => s.isNotEmpty).join(' ');
+    if (fullName.isNotEmpty) {
+      final UserResponse updated = await _auth.updateUser(
+        UserAttributes(data: <String, dynamic>{'full_name': fullName}),
+      );
+      final User? user = updated.user;
+      if (user != null) {
+        return user.toAppUser();
+      }
+    }
     return _requireUser(response);
   }
 

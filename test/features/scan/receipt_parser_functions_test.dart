@@ -290,6 +290,29 @@ void main() {
       expect(items[0].totalPrice, 700);
     });
 
+    test('should drop a standalone "N AD X price" qty sub-line with no '
+        'preceding item', () {
+      // TR e-Arşiv receipts print a unit-count line ("2 AD X 37,50") under a
+      // product. When column split strips the product, the bare qty line must
+      // never become an item named "2 ad X" (the real-device BİM regression).
+      final List<ScannedItem> items = parser.parseItems(<String>[
+        '2 ad X 37,50',
+        '2 ad X 49,50',
+      ]);
+      expect(items, isEmpty);
+    });
+
+    test('should apply a "N AD X price" sub-line to the previous item', () {
+      final List<ScannedItem> items = parser.parseItems(<String>[
+        'KAYA TUZU 1.5 KG 19,50',
+        '2 ad X 37,50',
+      ]);
+      expect(items.length, 1);
+      expect(items.single.name, 'KAYA TUZU 1.5 KG');
+      expect(items.single.quantity, 2);
+      expect(items.single.unitPrice, 3750);
+    });
+
     test('should skip the "Ödenecek Tutar" payable line as an item', () {
       // A101 e-Arşiv leaked "ÖDENECEK TUTAR" in as a product before this.
       final List<ScannedItem> items = parser.parseItems(<String>[

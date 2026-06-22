@@ -272,9 +272,12 @@ class ReceiptParser {
     return line.replaceAll(RegExp(r'[€£$₺]'), '').trimRight();
   }
 
-  // Quantity prefix: "2 x 3,50" / "2× 3.50" / "0,345 KG x 24,90"
+  // Quantity prefix: "2 x 3,50" / "2× 3.50" / "0,345 KG x 24,90" /
+  // "2 AD X 37,50" (TR e-Arşiv unit-count sub-line). `*` is deliberately NOT
+  // a multiply marker here: TR receipts print it as the amount/KDV flag
+  // ("*19,50"), so matching it would misread prices as multiplications.
   static final RegExp _qtyTimesPrice = RegExp(
-    r'(\d+(?:[.,]\d+)?)\s*(?:KG|G|L|ML|ADET)?\s*[x×*]\s*([\d.,]+)',
+    r'(\d+(?:[.,]\d+)?)\s*(?:KG|GR|G|L|ML|ADET|AD)?\s*[x×]\s*([\d.,]+)',
     caseSensitive: false,
   );
 
@@ -313,25 +316,35 @@ class ReceiptParser {
       final String line = _stripCurrencyTail(lines[i]);
       if (_isStructuralLine(line)) continue;
 
-      // Pattern A: a *standalone* "qty × price" line modifies the previous
-      // item. A self-contained line like "SÜT 2 X 3,50 7,00" carries its
-      // own line total after the qty expression — those fall through to
-      // Pattern B so the trailing total is used, not the unit price.
+      // Pattern A: a *standalone* "qty × price" line with no product name of
+      // its own ("2 AD X 37,50") is a quantity sub-line, not a product. Apply
+      // it to the previous item when there is one; otherwise it is column-split
+      // noise and must be dropped — never turned into an item named "2 ad X".
+      // A self-contained line like "SÜT 2 X 3,50 7,00" carries its own line
+      // total after the qty expression and keeps its name, so it falls through
+      // to Pattern B (trailing total wins over the unit price).
       final RegExpMatch? qtyMatch = _qtyTimesPrice.firstMatch(line);
-      if (qtyMatch != null && items.isNotEmpty) {
+      if (qtyMatch != null) {
         final bool qtyIsTail =
             !RegExp(r'\d').hasMatch(line.substring(qtyMatch.end));
-        if (qtyIsTail) {
-          final num qty = _parseNumeric(qtyMatch.group(1)!);
-          final int unitPrice = _parseAmount(qtyMatch.group(2)!) ?? 0;
-          final ScannedItem prev = items.removeLast();
-          items.add(
-            prev.copyWith(
-              quantity: qty,
-              unitPrice: unitPrice,
-              totalPrice: (qty * unitPrice).round(),
-            ),
-          );
+        final String beforeQty = line
+            .substring(0, qtyMatch.start)
+            .replaceAll(RegExp(r'[*x×•·]+$'), '')
+            .trim();
+        final bool hasOwnName = _letter.allMatches(beforeQty).length >= 2;
+        if (qtyIsTail && !hasOwnName) {
+          if (items.isNotEmpty) {
+            final num qty = _parseNumeric(qtyMatch.group(1)!);
+            final int unitPrice = _parseAmount(qtyMatch.group(2)!) ?? 0;
+            final ScannedItem prev = items.removeLast();
+            items.add(
+              prev.copyWith(
+                quantity: qty,
+                unitPrice: unitPrice,
+                totalPrice: (qty * unitPrice).round(),
+              ),
+            );
+          }
           continue;
         }
       }

@@ -273,6 +273,64 @@ void main() {
       expect(receipt.items.single.name, 'HİBİSKUS ÇAYI');
     });
 
+    test('escalates when ML Kit items do not reconcile with the total',
+        () async {
+      // Column-split BİM receipt: the parser captures a couple of lines but
+      // their sum (87,00) is far below the printed total (374,00) → the parse
+      // is incomplete, so the cloud engine should itemize it rather than the
+      // app trusting a plausible-but-wrong 87,00 total.
+      when(() => mlKit.recognizeText(any())).thenAnswer(
+        (_) async => mlKitResult(
+          'BİM BİRLEŞİK MAĞAZALAR\n'
+          'KAYA TUZU 37,50\n'
+          'MAKARNA 49,50\n'
+          'Ödenecek KDV Dahil Tutar 374,00',
+        ),
+      );
+      mockOnline();
+      when(() => gemini.recognizeText(any())).thenAnswer(
+        (_) async => geminiResult(
+          store: 'BİM BİRLEŞİK MAĞAZALAR',
+          total: 37400,
+          items: const <OCRStructuredItem>[
+            OCRStructuredItem(
+              name: 'KAYA TUZU 1.5 KG',
+              quantity: 1,
+              unitPrice: 1950,
+              totalPrice: 1950,
+            ),
+          ],
+        ),
+      );
+
+      final ScannedReceipt receipt = (await repo.scanReceipt(raw)).getOrElse(
+        () => throw StateError('expected Right'),
+      );
+      verify(() => gemini.recognizeText(any())).called(1);
+      expect(receipt.total, 37400);
+      expect(receipt.storeName, 'BİM BİRLEŞİK MAĞAZALAR');
+    });
+
+    test('keeps a reconciled ML Kit itemization without escalating', () async {
+      // Items sum to the printed total within tolerance → the on-device parse
+      // is trustworthy, so no cloud call (and no rate-limit spend).
+      when(() => mlKit.recognizeText(any())).thenAnswer(
+        (_) async => mlKitResult(
+          'BİM\n'
+          'EKMEK 4,50\n'
+          'SÜT 6,50\n'
+          'TOPLAM 11,00',
+        ),
+      );
+
+      final ScannedReceipt receipt = (await repo.scanReceipt(raw)).getOrElse(
+        () => throw StateError('expected Right'),
+      );
+      expect(receipt.total, 1100);
+      expect(receipt.items.length, 2);
+      verifyNever(() => gemini.recognizeText(any()));
+    });
+
     test('maps Gemini structured output directly, skipping the regex parser',
         () async {
       // raw_text is deliberate noise: a parser run would yield nothing, so a

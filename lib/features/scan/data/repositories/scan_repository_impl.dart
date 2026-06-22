@@ -34,6 +34,12 @@ import 'package:smartspend/features/scan/domain/repositories/scan_repository.dar
 /// parsing, so the bar is deliberately conservative.
 const double kOcrConfidenceThreshold = 0.70;
 
+/// When the on-device parse finds items AND a printed total but they disagree
+/// by more than this fraction of the total, the parse is incomplete (a
+/// column-split receipt dropped line items, or a discount the regex missed) —
+/// escalate so the cloud engine can itemize from the image directly.
+const double kOcrItemsTotalTolerance = 0.10;
+
 class ScanRepositoryImpl implements ScanRepository {
   const ScanRepositoryImpl({
     required CameraDataSource cameraDataSource,
@@ -200,9 +206,18 @@ class ScanRepositoryImpl implements ScanRepository {
   /// so it never costs the user a usable scan.
   bool _shouldEscalate(OCRResult? mlKit, ScannedReceipt? parsed) {
     if (mlKit == null || parsed == null) return true;
-    return mlKit.confidence < kOcrConfidenceThreshold ||
-        parsed.items.isEmpty ||
-        parsed.total <= 0;
+    if (mlKit.confidence < kOcrConfidenceThreshold) return true;
+    if (parsed.items.isEmpty || parsed.total <= 0) return true;
+    // Items found, but they don't reconcile with the printed total → the
+    // on-device parse missed lines (column split) or a discount. The cloud
+    // engine reads the layout directly, so escalate rather than trust a
+    // plausible-but-wrong itemization.
+    final int itemsSum = parsed.items.fold<int>(
+      0,
+      (int sum, ScannedItem item) => sum + item.totalPrice,
+    );
+    final int tolerance = (parsed.total * kOcrItemsTotalTolerance).round();
+    return (itemsSum - parsed.total).abs() > tolerance;
   }
 
   /// Whether a result is worth preferring over the ML Kit fallback — i.e. the

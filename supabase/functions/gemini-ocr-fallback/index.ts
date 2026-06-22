@@ -57,7 +57,11 @@ const RATE_BUCKET = "gemini-ocr";
 const RATE_MAX_TOKENS = 20;
 const RATE_REFILL_PER_HOUR = 1;
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4 MiB decoded.
-const GEMINI_MODEL = "gemini-1.5-flash";
+// Model is env-overridable so a future Google model retirement is a
+// `supabase secrets set GEMINI_MODEL=…` away — no redeploy. Gemini 1.5 was
+// shut down in 2026 (every request 404s); 2.5-flash is the current vision
+// model with JSON response support.
+const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash";
 
 interface OcrRequest {
   image_base64?: string;

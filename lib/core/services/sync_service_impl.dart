@@ -419,6 +419,15 @@ class SupabaseSyncServiceImpl implements SyncService {
   @override
   Future<Either<Failure, SyncReport>> pull() async {
     try {
+      // No session → RLS scopes every query to nobody, so there is nothing to
+      // pull. Crucially, do NOT advance the watermark below: a pre-sign-in run
+      // (startup timer / connectivity) would otherwise stamp lastSyncAt=now,
+      // turning the real pull right after sign-in into an incremental
+      // `updated_at > now` fetch that returns zero rows — an empty dashboard on
+      // fresh install / re-login. Mirrors the guard in push().
+      if (remote.currentUserId == null) {
+        return const Right<Failure, SyncReport>(SyncReport());
+      }
       final DateTime? since = await database.syncDao.getLastSyncAt();
       int pulled = 0;
       int conflicts = 0;

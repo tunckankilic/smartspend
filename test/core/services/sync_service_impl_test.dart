@@ -155,6 +155,23 @@ void main() {
 
       expect(await db.syncDao.getLastSyncAt(), isNotNull);
     });
+
+    test('should not run or advance the watermark with no session', () async {
+      // A pre-sign-in pull (startup timer / connectivity) must not touch the
+      // watermark. If it stamped lastSyncAt=now, the real pull right after
+      // sign-in would fetch `updated_at > now` and rehydrate nothing on a
+      // fresh install / re-login — the empty-dashboard bug.
+      when(() => remote.currentUserId).thenReturn(null);
+      expect(await db.syncDao.getLastSyncAt(), isNull);
+
+      final Either<Failure, SyncReport> result = await service.pull();
+
+      final SyncReport report =
+          result.getOrElse(() => throw StateError('expected Right'));
+      expect(report.pulled, 0);
+      expect(await db.syncDao.getLastSyncAt(), isNull);
+      verifyNever(() => remote.fetchSince(any(), any()));
+    });
   });
 
   group('pull missing tables', () {

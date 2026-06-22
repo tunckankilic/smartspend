@@ -42,6 +42,37 @@ void main() {
       expect(await categoryCount(), seededCategories);
     });
 
+    test('resets the lastSyncAt watermark so the next sign-in pulls all',
+        () async {
+      final DateTime now = DateTime.now().toUtc();
+      await db.syncDao.setLastSyncAt(now);
+      expect((await db.syncDao.getLastSyncAt()) != null, isTrue);
+
+      await db.clearUserData();
+
+      // Without the reset the next session's incremental pull would skip
+      // every remote row and leave the dashboard empty.
+      expect(await db.syncDao.getLastSyncAt(), null);
+    });
+
+    test('preserves non-sync userSettings (theme / locale) on wipe',
+        () async {
+      await db.into(db.userSettings).insert(
+            UserSettingsCompanion.insert(
+              key: 'theme_mode',
+              value: 'dark',
+              updatedAt: DateTime.now().toUtc(),
+            ),
+          );
+
+      await db.clearUserData();
+
+      final UserSetting? theme = await (db.select(db.userSettings)
+            ..where(($UserSettingsTable t) => t.key.equals('theme_mode')))
+          .getSingleOrNull();
+      expect(theme?.value, 'dark');
+    });
+
     test('removes custom categories while preserving the defaults',
         () async {
       final int seededCategories = await categoryCount();

@@ -134,23 +134,21 @@ workflows:
         - appstore_connect  # APP_STORE_CONNECT_* (managed by integration)
       vars:
         BUNDLE_ID: "site.tunckankilic.smartspend"
-        APP_STORE_APPLE_ID: "REPLACE_WITH_NUMERIC_APP_ID"
+        APP_STORE_APPLE_ID: "6768886898"
       ios_signing:
         distribution_type: app_store
         bundle_identifier: site.tunckankilic.smartspend
     integrations:
       app_store_connect: SmartSpend App Store Connect Key  # p8 API key
-    # ⚠️ TEMPORARILY DISABLED — v1.0.0 ships MANUALLY via Transporter.
-    # The auto-trigger on `v*` tags is commented out so tagging the release
-    # does NOT kick off a Codemagic build/TestFlight upload that would race
-    # the manual Transporter flow. Re-enable (uncomment) once CI shipping is
-    # adopted in a later update.
-    # triggering:
-    #   events:
-    #     - tag
-    #   tag_patterns:
-    #     - pattern: "v*"
-    #       include: true
+    # CI shipping is now ADOPTED: pushing a `v*` tag builds a signed IPA and
+    # uploads it to TestFlight. App Store *release* submission stays manual
+    # (see publishing.submit_to_app_store: false below).
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: "v*"
+          include: true
     scripts:
       - *write_env
       - *flutter_packages
@@ -243,6 +241,7 @@ workflows:
         script: |
           supabase functions deploy gemini-ocr-fallback
           supabase functions deploy delete-account
+          supabase functions deploy apple-register
           supabase functions deploy export-csv
           supabase functions deploy export-pdf
           # weekly-summary is DEFERRED from v1 — its Deno.serve entry-point is
@@ -250,9 +249,12 @@ workflows:
           # function is finished and supabase/cron/weekly_summary_cron.sql is
           # applied. Deploying it now would ship a function with no handler.
           # supabase functions deploy weekly-summary
-        # NOTE: Edge Function SECRETS (GEMINI_API_KEY, SUPABASE_SERVICE_ROLE_KEY)
-        # are set once via `supabase secrets set …` — that is a MANUAL step, not
-        # automated here, so secrets never pass through CI logs.
+        # NOTE: Edge Function SECRETS are set once via `supabase secrets set …`
+        # — a MANUAL step, never automated here, so secrets never touch CI logs:
+        #   GEMINI_API_KEY, SUPABASE_SERVICE_ROLE_KEY
+        #   APPLE_PRIVATE_KEY_B64, APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_CLIENT_ID
+        #     (Sign in with Apple token revocation —
+        #      see docs/internal/APPLE_DELETE_SETUP.md)
 
 # ─────────────────────────────────────────────────────────────────────────
 # Codemagic UI checklist — environment-group variables to enter by hand
@@ -270,8 +272,8 @@ workflows:
 #   group "sentry"
 #     SENTRY_DSN              client DSN
 #     SENTRY_AUTH_TOKEN       upload token                          [secure]
-#     (org/project live in pubspec.yaml's `sentry:` block — replace
-#      REPLACE_WITH_SENTRY_ORG there; not secrets, so no env var needed)
+#     (org/project live in pubspec.yaml's `sentry:` block — already set to
+#      org: tuncsoftwareagency / project: smartspend; not secrets, no env var)
 #
 #   group "appstore_connect"
 #     Created automatically by the App Store Connect API key integration

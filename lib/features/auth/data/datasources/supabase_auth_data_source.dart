@@ -91,11 +91,14 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
 
   @override
   Future<AppUser> signInWithApple() async {
+    // Email-only by design: the app does not display a name anywhere (email/
+    // password signup has no name field either), so we don't request the
+    // fullName scope. This keeps Apple sign-in consistent with the rest of
+    // auth and avoids collecting data we never use.
     final AuthorizationCredentialAppleID credential =
         await SignInWithApple.getAppleIDCredential(
       scopes: <AppleIDAuthorizationScopes>[
         AppleIDAuthorizationScopes.email,
-        AppleIDAuthorizationScopes.fullName,
       ],
     );
     final String? idToken = credential.identityToken;
@@ -106,24 +109,24 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
       provider: OAuthProvider.apple,
       idToken: idToken,
     );
-    // Apple only returns the user's name on the FIRST authorization, and only
-    // via the native credential — never in the id_token. Capture it here and
-    // persist to user_metadata so the mapper can read `full_name` on every
-    // later sign-in. Skipped (and never clobbered) when Apple omits the name.
-    final String fullName = <String?>[
-      credential.givenName,
-      credential.familyName,
-    ].whereType<String>().where((String s) => s.isNotEmpty).join(' ');
-    if (fullName.isNotEmpty) {
-      final UserResponse updated = await _auth.updateUser(
-        UserAttributes(data: <String, dynamic>{'full_name': fullName}),
-      );
-      final User? user = updated.user;
-      if (user != null) {
-        return user.toAppUser();
+    final AppUser user = _requireUser(response);
+    // Register the Apple authorizationCode server-side so account deletion can
+    // revoke the Apple grant later (Guideline 5.1.1(v)). Apple returns a fresh,
+    // single-use code on every sign-in, so this refreshes the stored token each
+    // time. Best-effort: never block sign-in if it fails — the next sign-in
+    // retries. The code is always present per the Apple credential contract.
+    final String authorizationCode = credential.authorizationCode;
+    if (authorizationCode.isNotEmpty) {
+      try {
+        await _functions.invoke(
+          SupabaseConstants.fnAppleRegister,
+          body: <String, String>{'code': authorizationCode},
+        );
+      } on Exception {
+        // Swallowed intentionally; sign-in already succeeded.
       }
     }
-    return _requireUser(response);
+    return user;
   }
 
   @override

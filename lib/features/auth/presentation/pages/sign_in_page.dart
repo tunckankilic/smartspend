@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import 'package:smartspend/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:smartspend/features/auth/presentation/widgets/auth_failure_message.dart';
@@ -129,14 +130,19 @@ class _SignInPageState extends State<SignInPage> {
                     ),
                     if (Platform.isIOS) ...<Widget>[
                       const SizedBox(height: 24),
-                      OutlinedButton.icon(
+                      // Official HIG-compliant button from sign_in_with_apple
+                      // (Apple prefers its own mark/typography over a custom
+                      // OutlinedButton — review-safe styling).
+                      SignInWithAppleButton(
                         onPressed: busy
                             ? null
                             : () => context
                                 .read<AuthBloc>()
                                 .add(const AuthAppleRequested()),
-                        icon: const Icon(Icons.apple),
-                        label: Text(l.authAppleSignInCta),
+                        text: l.authAppleSignInCta,
+                        style: Theme.of(context).brightness == Brightness.dark
+                            ? SignInWithAppleButtonStyle.white
+                            : SignInWithAppleButtonStyle.black,
                       ),
                     ],
                     const SizedBox(height: 24),

@@ -33,9 +33,6 @@ definitions:
         SENTRY_DSN=$SENTRY_DSN
         SENTRY_RELEASE=${SENTRY_RELEASE:-ci}
         SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-production}
-        GOOGLE_IOS_CLIENT_ID=$GOOGLE_IOS_CLIENT_ID
-        GOOGLE_WEB_CLIENT_ID=$GOOGLE_WEB_CLIENT_ID
-        GOOGLE_ANDROID_CLIENT_ID=$GOOGLE_ANDROID_CLIENT_ID
         APP_FLAVOR=production
         EOF
     - &flutter_packages
@@ -61,7 +58,7 @@ workflows:
       xcode: latest
       groups:
         - supabase   # SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_ACCESS_TOKEN,
-                     # SUPABASE_PROJECT_REF, GOOGLE_* client IDs, SENTRY_DSN
+                     # SUPABASE_PROJECT_REF
         - sentry     # SENTRY_DSN (shared) — only DSN needed here
       vars:
         # Coverage gate. Current honest baseline is 79.3% (generated sources
@@ -265,9 +262,8 @@ workflows:
 #     SUPABASE_ANON_KEY       prod anon/publishable key (safe to ship)
 #     SUPABASE_ACCESS_TOKEN   personal access token (deploy auth)  [secure]
 #     SUPABASE_PROJECT_REF    prod project ref
-#     GOOGLE_IOS_CLIENT_ID    OAuth iOS client id
-#     GOOGLE_WEB_CLIENT_ID    OAuth web client id (Supabase audience)
-#     GOOGLE_ANDROID_CLIENT_ID OAuth android client id
+#     (no GOOGLE_* vars — the app has no Google sign-in; auth is
+#      email/password + Sign in with Apple only)
 #
 #   group "sentry"
 #     SENTRY_DSN              client DSN

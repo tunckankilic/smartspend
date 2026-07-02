@@ -13,6 +13,7 @@ class OCRResult extends Equatable {
     required this.blocks,
     required this.confidence,
     required this.engine,
+    this.structured,
   });
 
   /// The full recognized text, newline-joined in reading order.
@@ -26,12 +27,66 @@ class OCRResult extends Equatable {
   /// self-reported score (capped at `1.0`).
   final double confidence;
 
-  /// Which engine produced this result. Drives the hybrid datasource's
-  /// fallback decision and shows up in Sentry breadcrumbs.
+  /// Which engine produced this result. Drives the escalation decision and
+  /// shows up in Sentry breadcrumbs.
   final OCREngine engine;
 
+  /// Pre-itemized output, when the engine produces one. ML Kit returns only
+  /// raw text (`null` here) and relies on the regex parser; the Gemini Edge
+  /// Function returns items/total/store directly, so the repository can map
+  /// it straight to a receipt and skip the parser entirely.
+  final OCRStructured? structured;
+
   @override
-  List<Object?> get props => <Object?>[rawText, blocks, confidence, engine];
+  List<Object?> get props => <Object?>[
+    rawText,
+    blocks,
+    confidence,
+    engine,
+    structured,
+  ];
+}
+
+/// Engine-provided structured receipt fields. Monetary values are in the
+/// smallest currency unit (kuruş / cent), matching the parser and the
+/// project money rule. Any field may be `null`/empty when the engine is
+/// unsure — the repository fills the gaps (e.g. summing items for a missing
+/// total, defaulting the currency).
+class OCRStructured extends Equatable {
+  const OCRStructured({
+    required this.items,
+    this.storeName,
+    this.total,
+    this.tax,
+    this.currency,
+  });
+
+  final List<OCRStructuredItem> items;
+  final String? storeName;
+  final int? total;
+  final int? tax;
+  final String? currency;
+
+  @override
+  List<Object?> get props => <Object?>[items, storeName, total, tax, currency];
+}
+
+class OCRStructuredItem extends Equatable {
+  const OCRStructuredItem({
+    required this.name,
+    required this.quantity,
+    required this.unitPrice,
+    required this.totalPrice,
+  });
+
+  final String name;
+  final num quantity;
+  final int unitPrice;
+  final int totalPrice;
+
+  @override
+  List<Object?> get props =>
+      <Object?>[name, quantity, unitPrice, totalPrice];
 }
 
 class OCRTextBlock extends Equatable {

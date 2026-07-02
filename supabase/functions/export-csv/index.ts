@@ -67,7 +67,9 @@ export async function handle(req: Request): Promise<Response> {
   let query = supabase
     .from("expenses")
     .select(
-      "date, amount, currency, note, category:categories(name), receipt:receipts(store_name)",
+      // `currency` lives on `receipts`, not `expenses`; pull it from the
+      // embed and default to TRY for manual (receipt-less) expenses.
+      "date, amount, note, category:categories(name), receipt:receipts(store_name, currency)",
     )
     .order("date", { ascending: true });
   if (fromDate) query = query.gte("date", fromDate);
@@ -129,7 +131,7 @@ export function buildCsv(rows: any[]): string {
         csvCell(store),
         csvCell(category),
         csvCell(row.amount),
-        csvCell(row.currency),
+        csvCell(row.receipt?.currency ?? "TRY"),
         csvCell(row.note ?? ""),
       ].join(","),
     );

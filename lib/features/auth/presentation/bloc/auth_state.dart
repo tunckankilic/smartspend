@@ -34,6 +34,21 @@ final class Unauthenticated extends AuthState {
   const Unauthenticated();
 }
 
+/// Sign-out is paused: [pendingCount] local rows could not be pushed
+/// (offline, or the server rejected them) and the cache wipe would lose
+/// them. The session is still active, so this is neither [Authenticated] nor
+/// [Unauthenticated] — routing stays put while the UI prompts the user to
+/// confirm discarding (→ `AuthSignOutConfirmed`) or cancel (re-resolve back
+/// to [Authenticated]).
+final class AuthSignOutPendingConfirmation extends AuthState {
+  const AuthSignOutPendingConfirmation({required this.pendingCount});
+
+  final int pendingCount;
+
+  @override
+  List<Object?> get props => <Object?>[pendingCount];
+}
+
 /// The last auth action failed. Holds the base [Failure]; presentation maps
 /// the [Failure.code] onto a localized message.
 final class AuthFailure extends AuthState {

@@ -24,6 +24,11 @@ abstract class SyncService {
   /// error.
   Future<Either<Failure, SyncReport>> sync();
 
+  /// Number of local rows still waiting to be pushed to Supabase. Read at
+  /// sign-out to warn before the local cache is wiped — anything still
+  /// pending would otherwise be lost permanently by the wipe.
+  Future<int> pendingCount();
+
   /// Broadcast stream of the current [SyncPhase] for the status indicator.
   Stream<SyncPhase> watchStatus();
 

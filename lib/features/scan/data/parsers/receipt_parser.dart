@@ -41,6 +41,12 @@ class ReceiptParser {
     );
   }
 
+  /// Extracts just the purchase date from raw OCR text. The structured
+  /// (Gemini) path provides items/total/store but no date, so the repository
+  /// reuses this to recover the date from the receipt's raw text.
+  DateTime? parseDateFromText(String rawText) =>
+      parseDate(_normalizeLines(rawText));
+
   List<String> _normalizeLines(String raw) {
     return raw
         .split(RegExp(r'\r?\n'))
@@ -175,7 +181,12 @@ class ReceiptParser {
     }
     if (joined.contains('€') || joined.contains('EUR')) return 'EUR';
     if (joined.contains('£') || joined.contains('GBP')) return 'GBP';
-    if (joined.contains(r'$') || joined.contains('USD')) return 'USD';
+    // Only the ISO code maps to USD — not a bare '$'. ML Kit routinely
+    // misreads the TR receipt marker '*' (KDV rate flag, cash tender) as
+    // '$', and this is a TR/DE/UK app with no USD market, so a lone '$' is
+    // far more likely a misread than a real dollar amount. Currency stays
+    // user-editable in the review screen.
+    if (joined.contains('USD')) return 'USD';
     return 'TRY';
   }
 
@@ -186,6 +197,15 @@ class ReceiptParser {
   static final RegExp _totalKeyword = RegExp(
     r'(GENEL\s*TOPLAM|TOPLAM|TOTAL|GESAMTBETRAG|GESAMT|SUMME|'
     r'ZU\s*ZAHLEN|ZAHLBETRAG|BETRAG|SUM)',
+    caseSensitive: false,
+  );
+
+  /// "Payable amount" lines name the grand total explicitly. TR e-Arşiv
+  /// receipts print it as "Ödenecek Tutar" / "Ödenecek KDV Dahil Tutar" — the
+  /// latter mentions KDV but IS the total, so these override the negative
+  /// filter below (otherwise the KDV keyword would wrongly discard them).
+  static final RegExp _payableKeyword = RegExp(
+    r'(ÖDENECEK|ODENECEK)\s*(KDV\s*DAH[İI]L\s*)?(TUTAR)',
     caseSensitive: false,
   );
 
@@ -200,8 +220,12 @@ class ReceiptParser {
     int? best;
     for (int i = 0; i < lines.length; i++) {
       final String line = lines[i];
-      if (!_totalKeyword.hasMatch(line)) continue;
-      if (_totalNegativeKeyword.hasMatch(line)) continue;
+      // Payable lines win even when they also mention KDV; other total lines
+      // still go through the negative-keyword filter.
+      if (!_payableKeyword.hasMatch(line)) {
+        if (!_totalKeyword.hasMatch(line)) continue;
+        if (_totalNegativeKeyword.hasMatch(line)) continue;
+      }
 
       // Amount on the same line, or the next non-empty line.
       int? amount = _extractLastAmount(line);
@@ -248,9 +272,41 @@ class ReceiptParser {
     return line.replaceAll(RegExp(r'[€£$₺]'), '').trimRight();
   }
 
-  // Quantity prefix: "2 x 3,50" / "2× 3.50" / "0,345 KG x 24,90"
+  // Quantity prefix: "2 x 3,50" / "2× 3.50" / "0,345 KG x 24,90" /
+  // "2 AD X 37,50" (TR e-Arşiv unit-count sub-line). `*` is deliberately NOT
+  // a multiply marker here: TR receipts print it as the amount/KDV flag
+  // ("*19,50"), so matching it would misread prices as multiplications.
   static final RegExp _qtyTimesPrice = RegExp(
-    r'(\d+(?:[.,]\d+)?)\s*(?:KG|G|L|ML|ADET)?\s*[x×*]\s*([\d.,]+)',
+    r'(\d+(?:[.,]\d+)?)\s*(?:KG|GR|G|L|ML|ADET|AD)?\s*[x×]\s*([\d.,]+)',
+    caseSensitive: false,
+  );
+
+  // A real line-item price always prints two decimals: 2,50 / 2.50 /
+  // 1.234,56. Integers like phone numbers, tax IDs, receipt numbers,
+  // quantities and dates lack the cents tail — requiring it keeps the
+  // bulk of non-item lines out of the item list.
+  static final RegExp _priceShape = RegExp(r'[.,]\d{2}$');
+
+  // A single letter, used to validate item names. Item names need only two
+  // letters in total (not three consecutive like a store name): short TR
+  // products such as "SU" (water) or "UN" (flour) are legitimate.
+  static final RegExp _letter = RegExp(
+    r'[A-Za-zÇĞİÖŞÜçğıöşüÄÖÜäöüß]',
+  );
+
+  // Payment-method and footer lines that carry an amount but are not
+  // items: cash/card tenders, change-due, balance. Word-boundaried so
+  // product names that merely contain these letters (BARDAK, BARILLA…)
+  // are not falsely excluded.
+  // Turkish is agglutinative, so card/cash tenders print with suffixes
+  // ("KARTI", "KARTLA", "NAKİTLE") and abbreviations ("K.KARTI"). The bare
+  // \bKART\b missed these, so payment lines like "K.KARTI: *670,41" leaked in
+  // as items. List the inflected stems explicitly rather than dropping the
+  // trailing boundary, which would also swallow products like "KARTON".
+  static final RegExp _paymentKeyword = RegExp(
+    r'\b(NAKİT|NAKIT|NAKİTLE|NAKITLE|KART|KARTI|KARTLA|KREDİ|KREDI|KARTE|'
+    r'GIROCARD|EC|BAR|CASH|CARD|DEBIT|CREDIT|VISA|MASTERCARD|POS|NACHLASS|'
+    r'RÜCKGELD|RUCKGELD)\b',
     caseSensitive: false,
   );
 
@@ -260,45 +316,80 @@ class ReceiptParser {
       final String line = _stripCurrencyTail(lines[i]);
       if (_isStructuralLine(line)) continue;
 
-      // Pattern A: qty × price on its own line modifies the previous item.
+      // Pattern A: a *standalone* "qty × price" line with no product name of
+      // its own ("2 AD X 37,50") is a quantity sub-line, not a product. Apply
+      // it to the previous item when there is one; otherwise it is column-split
+      // noise and must be dropped — never turned into an item named "2 ad X".
+      // A self-contained line like "SÜT 2 X 3,50 7,00" carries its own line
+      // total after the qty expression and keeps its name, so it falls through
+      // to Pattern B (trailing total wins over the unit price).
       final RegExpMatch? qtyMatch = _qtyTimesPrice.firstMatch(line);
-      if (qtyMatch != null && items.isNotEmpty) {
-        final num qty = _parseNumeric(qtyMatch.group(1)!);
-        final int unitPrice = _parseAmount(qtyMatch.group(2)!) ?? 0;
-        final ScannedItem prev = items.removeLast();
-        items.add(
-          prev.copyWith(
-            quantity: qty,
-            unitPrice: unitPrice,
-            totalPrice: (qty * unitPrice).round(),
-          ),
-        );
-        continue;
+      if (qtyMatch != null) {
+        final bool qtyIsTail =
+            !RegExp(r'\d').hasMatch(line.substring(qtyMatch.end));
+        final String beforeQty = line
+            .substring(0, qtyMatch.start)
+            .replaceAll(RegExp(r'[*x×•·]+$'), '')
+            .trim();
+        final bool hasOwnName = _letter.allMatches(beforeQty).length >= 2;
+        if (qtyIsTail && !hasOwnName) {
+          if (items.isNotEmpty) {
+            final num qty = _parseNumeric(qtyMatch.group(1)!);
+            final int unitPrice = _parseAmount(qtyMatch.group(2)!) ?? 0;
+            final ScannedItem prev = items.removeLast();
+            items.add(
+              prev.copyWith(
+                quantity: qty,
+                unitPrice: unitPrice,
+                totalPrice: (qty * unitPrice).round(),
+              ),
+            );
+          }
+          continue;
+        }
       }
 
-      // Pattern B: "name … 12,50" — most TR / DE / UK markets.
+      // Pattern B: "name … 12,50" — most TR / DE / UK markets. The price
+      // must carry a two-decimal cents tail; this rejects phone numbers,
+      // addresses, receipt/tax IDs and dates that would otherwise be read
+      // as items.
       final RegExpMatch? trailing = _trailingAmount.firstMatch(line);
       if (trailing == null) continue;
-      final int? amount = _parseAmount(trailing.group(1)!);
-      if (amount == null) continue;
-      final String name = line
-          .substring(0, trailing.start)
-          .trim()
-          .replaceAll(RegExp(r'[*x×•·]+$'), '')
-          .trim();
-      if (name.isEmpty || !_hasLetters.hasMatch(name)) continue;
+      if (!_priceShape.hasMatch(trailing.group(1)!)) continue;
+      final int? total = _parseAmount(trailing.group(1)!);
+      if (total == null) continue;
+
+      String name = line.substring(0, trailing.start).trim();
+
+      // An inline "qty × unit" before the total ("SÜT 2 X 3,50   7,00")
+      // gives the real quantity and unit price; strip it from the name so
+      // the displayed label is just the product ("SÜT").
+      num quantity = 1;
+      int unitPrice = total;
+      final RegExpMatch? inlineQty = _qtyTimesPrice.firstMatch(name);
+      if (inlineQty != null &&
+          !RegExp(r'\d').hasMatch(name.substring(inlineQty.end))) {
+        quantity = _parseNumeric(inlineQty.group(1)!);
+        unitPrice = _parseAmount(inlineQty.group(2)!) ?? total;
+        name = name.substring(0, inlineQty.start).trim();
+      }
+      name = name.replaceAll(RegExp(r'[*x×•·]+$'), '').trim();
+
+      if (name.isEmpty || _letter.allMatches(name).length < 2) continue;
       if (_totalKeyword.hasMatch(name) ||
+          _payableKeyword.hasMatch(name) ||
           _totalNegativeKeyword.hasMatch(name) ||
-          _taxKeyword.hasMatch(name)) {
+          _taxKeyword.hasMatch(name) ||
+          _paymentKeyword.hasMatch(name)) {
         continue;
       }
 
       items.add(
         ScannedItem(
           name: name,
-          quantity: 1,
-          unitPrice: amount,
-          totalPrice: amount,
+          quantity: quantity,
+          unitPrice: unitPrice,
+          totalPrice: total,
         ),
       );
     }

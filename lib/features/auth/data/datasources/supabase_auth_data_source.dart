@@ -91,11 +91,14 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
 
   @override
   Future<AppUser> signInWithApple() async {
+    // Email-only by design: the app does not display a name anywhere (email/
+    // password signup has no name field either), so we don't request the
+    // fullName scope. This keeps Apple sign-in consistent with the rest of
+    // auth and avoids collecting data we never use.
     final AuthorizationCredentialAppleID credential =
         await SignInWithApple.getAppleIDCredential(
       scopes: <AppleIDAuthorizationScopes>[
         AppleIDAuthorizationScopes.email,
-        AppleIDAuthorizationScopes.fullName,
       ],
     );
     final String? idToken = credential.identityToken;
@@ -106,7 +109,24 @@ class SupabaseAuthDataSourceImpl implements SupabaseAuthDataSource {
       provider: OAuthProvider.apple,
       idToken: idToken,
     );
-    return _requireUser(response);
+    final AppUser user = _requireUser(response);
+    // Register the Apple authorizationCode server-side so account deletion can
+    // revoke the Apple grant later (Guideline 5.1.1(v)). Apple returns a fresh,
+    // single-use code on every sign-in, so this refreshes the stored token each
+    // time. Best-effort: never block sign-in if it fails — the next sign-in
+    // retries. The code is always present per the Apple credential contract.
+    final String authorizationCode = credential.authorizationCode;
+    if (authorizationCode.isNotEmpty) {
+      try {
+        await _functions.invoke(
+          SupabaseConstants.fnAppleRegister,
+          body: <String, String>{'code': authorizationCode},
+        );
+      } on Exception {
+        // Swallowed intentionally; sign-in already succeeded.
+      }
+    }
+    return user;
   }
 
   @override

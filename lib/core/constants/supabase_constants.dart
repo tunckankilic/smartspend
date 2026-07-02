@@ -19,6 +19,11 @@ abstract class SupabaseConstants {
   static const String fnExportPdf = 'export-pdf';
   static const String fnDeleteAccount = 'delete-account';
 
+  /// Exchanges the native Apple authorizationCode for a refresh token and
+  /// stores it server-side so [fnDeleteAccount] can revoke the Apple grant on
+  /// account deletion (App Store Guideline 5.1.1(v)).
+  static const String fnAppleRegister = 'apple-register';
+
   /// Confirmation token the `delete-account` Edge Function requires in the
   /// request body — guards against accidental invocation.
   static const String deleteAccountConfirmToken = 'DELETE-MY-ACCOUNT';

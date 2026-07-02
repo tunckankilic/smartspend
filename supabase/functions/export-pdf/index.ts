@@ -140,7 +140,9 @@ export async function handle(req: Request): Promise<Response> {
   const { data: rows, error: queryError } = await supabase
     .from("expenses")
     .select(
-      "date, amount, currency, note, category:categories(name), receipt:receipts(store_name)",
+      // `currency` lives on `receipts`, not `expenses`; pull it from the
+      // embed and default to TRY for manual (receipt-less) expenses.
+      "date, amount, note, category:categories(name), receipt:receipts(store_name, currency)",
     )
     .gte("date", fromDate)
     .lte("date", toDate)
@@ -225,7 +227,7 @@ export function buildReportModel(
     store: String(row.receipt?.store_name ?? "—"),
     category: String(row.category?.name ?? "—"),
     amountMinor: Number(row.amount ?? 0),
-    currency: String(row.currency ?? ""),
+    currency: String(row.receipt?.currency ?? "TRY"),
   }));
   const totalMinor = lines.reduce((sum, l) => sum + l.amountMinor, 0);
   const currency = lines.length > 0 ? lines[0].currency : "";

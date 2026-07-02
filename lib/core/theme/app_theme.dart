@@ -19,6 +19,7 @@ abstract class AppTheme {
       seedColor: AppColors.primary,
       brightness: brightness,
       primary: AppColors.primary,
+      onPrimary: AppColors.onPrimary,
       secondary: AppColors.primaryLight,
       tertiary: AppColors.accent,
       error: AppColors.error,

@@ -54,15 +54,13 @@ Deno.test("buildReportModel sums amounts and maps nested fields", () => {
       {
         date: "2026-05-01",
         amount: 1250,
-        currency: "TRY",
         note: "lunch",
         category: { name: "Restoran" },
-        receipt: { store_name: "Kebapçı" },
+        receipt: { store_name: "Kebapçı", currency: "TRY" },
       },
       {
         date: "2026-05-02",
         amount: 750,
-        currency: "TRY",
         note: null,
         category: null,
         receipt: null,

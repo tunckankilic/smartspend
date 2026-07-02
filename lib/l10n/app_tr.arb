@@ -20,6 +20,13 @@
   "authSignUpTitle": "Hesap Oluştur",
   "authForgotPasswordTitle": "Şifremi Unuttum",
   "authSignOut": "Çıkış Yap",
+  "signOutUnsyncedTitle": "Senkronlanmamış veri",
+  "signOutUnsyncedBody": "{count} kayıt henüz buluta yedeklenmedi. Çıkış yaparsan bu kayıtlar bu cihazdan kalıcı olarak silinir. Yine de çıkılsın mı?",
+  "@signOutUnsyncedBody": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "signOutUnsyncedConfirm": "Yine de çık",
+  "signOutUnsyncedCancel": "Vazgeç",
   "authSignOutCta": "Çıkış Yap",
   "authDeleteAccount": "Hesabı sil",
   "authDeleteAccountCta": "Hesabımı sil",

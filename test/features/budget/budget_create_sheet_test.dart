@@ -77,11 +77,25 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(TextField), findsOneWidget);
-        // 3 period chips (weekly/monthly/yearly) + 1 "General" category chip.
-        expect(find.byType(ChoiceChip), findsNWidgets(4));
+        // 2 period chips (weekly/monthly) + 1 "General" category chip.
+        // `yearly` is held out of v1 (remote budgets_period_check rejects it).
+        expect(find.byType(ChoiceChip), findsNWidgets(3));
         expect(find.byType(FilledButton), findsOneWidget);
         // Create mode: no delete button.
         expect(find.byIcon(Icons.delete_outline_rounded), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'should prefix the amount field with the default currency symbol, '
+      'not a dollar icon',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(_wrap());
+        await tester.pumpAndSettle();
+
+        // Default currency is TRY → ₺; the old hardcoded "$" icon is gone.
+        expect(find.textContaining('₺'), findsOneWidget);
+        expect(find.byIcon(Icons.attach_money_rounded), findsNothing);
       },
     );
 

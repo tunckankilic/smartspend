@@ -27,6 +27,7 @@ import {
   UnauthorizedError,
   withCors,
 } from "../_shared/runtime.ts";
+import { revokeRefreshToken } from "../_shared/apple.ts";
 
 // deno-lint-ignore no-explicit-any
 declare const Deno: any;
@@ -77,6 +78,29 @@ export async function handle(req: Request): Promise<Response> {
     admin = getAdminClient();
   } catch (_e) {
     return withCors(fail("CONFIG_MISSING", "Edge runtime not configured.", 500), corsHeaders);
+  }
+
+  // 0. Revoke the Apple grant (best-effort) while the stored refresh token is
+  //    still readable. Required by Guideline 5.1.1(v) for Sign in with Apple.
+  //    A revoke failure (network, misconfig, user never used Apple) must NOT
+  //    strand the user's data deletion — log and continue. The credential row
+  //    itself is removed by the FK cascade when the auth user is deleted.
+  try {
+    const { data: cred } = await admin
+      .from("apple_credentials")
+      .select("refresh_token")
+      .eq("user_id", userId)
+      .maybeSingle();
+    const refreshToken =
+      (cred as { refresh_token?: string } | null)?.refresh_token;
+    if (refreshToken) {
+      const revoked = await revokeRefreshToken(refreshToken);
+      if (!revoked) {
+        console.error(`Apple token revoke returned non-200 for ${userId}`);
+      }
+    }
+  } catch (e) {
+    console.error(`Apple revoke step errored: ${(e as Error).message}`);
   }
 
   // 1. Purge storage objects under this user's prefix in every bucket.

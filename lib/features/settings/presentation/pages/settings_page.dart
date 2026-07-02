@@ -44,9 +44,18 @@ class _SettingsView extends StatelessWidget {
     final AppLocalizations l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(l.navSettings)),
-      body: BlocListener<ExportCubit, ExportState>(
-        listenWhen: (ExportState p, ExportState c) => p.status != c.status,
-        listener: _onExportStateChanged,
+      body: MultiBlocListener(
+        listeners: <BlocListener<dynamic, dynamic>>[
+          BlocListener<ExportCubit, ExportState>(
+            listenWhen: (ExportState p, ExportState c) => p.status != c.status,
+            listener: _onExportStateChanged,
+          ),
+          BlocListener<AuthBloc, AuthState>(
+            listenWhen: (AuthState p, AuthState c) =>
+                c is AuthSignOutPendingConfirmation,
+            listener: _onSignOutPending,
+          ),
+        ],
         child: ListView(
           children: const <Widget>[
             _AccountSection(),
@@ -60,6 +69,43 @@ class _SettingsView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _onSignOutPending(
+    BuildContext context,
+    AuthState state,
+  ) async {
+    if (state is! AuthSignOutPendingConfirmation) return;
+    final AppLocalizations l = AppLocalizations.of(context);
+    final AuthBloc bloc = context.read<AuthBloc>();
+    final ColorScheme colors = Theme.of(context).colorScheme;
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text(l.signOutUnsyncedTitle),
+          content: Text(l.signOutUnsyncedBody(state.pendingCount)),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(l.signOutUnsyncedCancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: TextButton.styleFrom(foregroundColor: colors.error),
+              child: Text(l.signOutUnsyncedConfirm),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed ?? false) {
+      bloc.add(const AuthSignOutConfirmed());
+    } else {
+      // Cancelled — the session is still active; re-resolve to return to the
+      // authenticated UI.
+      bloc.add(const AuthCheckRequested());
+    }
   }
 
   Future<void> _onExportStateChanged(

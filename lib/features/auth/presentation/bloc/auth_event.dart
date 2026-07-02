@@ -41,9 +41,18 @@ final class AuthSignUpRequested extends AuthEvent {
   List<Object?> get props => <Object?>[email, password];
 }
 
-/// User-initiated sign out — also clears the local Drift cache.
+/// User-initiated sign out — flushes pending writes, then clears the local
+/// Drift cache. If the flush leaves rows unsynced the bloc pauses on
+/// [AuthSignOutPendingConfirmation] instead of wiping.
 final class AuthSignOutRequested extends AuthEvent {
   const AuthSignOutRequested();
+}
+
+/// User confirmed sign-out despite unsynced local data — discards the
+/// still-pending queue and completes the wipe. Emitted by the UI in response
+/// to [AuthSignOutPendingConfirmation].
+final class AuthSignOutConfirmed extends AuthEvent {
+  const AuthSignOutConfirmed();
 }
 
 /// User-initiated account deletion — runs the server-side purge then clears

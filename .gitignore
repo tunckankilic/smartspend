@@ -58,6 +58,10 @@ app.*.map.json
 .env.*
 !.env.example
 
+# Apple / App Store private keys — NEVER commit (Sign in with Apple + ASC API)
+*.p8
+AuthKey_*.p8
+
 # Generated code — produced by build_runner, regenerated locally
 *.g.dart
 *.freezed.dart

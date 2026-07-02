@@ -10,6 +10,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// [SupabaseClient] query builder, so tests mock this interface instead of
 /// the (hard-to-fake) PostgREST builder chain.
 abstract class SyncRemoteDataSource {
+  /// The authenticated user's id, or `null` when no session is active.
+  ///
+  /// Push stamps this onto every row's `user_id` so Postgres RLS
+  /// (`auth.uid() = user_id`) accepts the write — locally created rows are
+  /// born without an owner and would otherwise be rejected.
+  String? get currentUserId;
+
   /// Upserts [values] into [table] (conflict on the `id` primary key) and
   /// returns the server-assigned `id`. Omit `id` from [values] to insert a
   /// fresh row and let Postgres generate the UUID.
@@ -29,6 +36,9 @@ class SupabaseSyncRemoteDataSource implements SyncRemoteDataSource {
   const SupabaseSyncRemoteDataSource(this._client);
 
   final SupabaseClient _client;
+
+  @override
+  String? get currentUserId => _client.auth.currentUser?.id;
 
   @override
   Future<String> upsert(String table, Map<String, dynamic> values) async {

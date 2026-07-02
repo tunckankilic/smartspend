@@ -26,6 +26,15 @@ void main() {
     test('should fall back to TRY when ambiguous', () {
       expect(parser.parseCurrency(<String>['TOPLAM 25,40']), 'TRY');
     });
+
+    test(r'should not read a bare $ as USD (ML Kit misreads TR * marker)', () {
+      // ML Kit routinely transcribes the TR receipt marker '*' as '$'.
+      expect(parser.parseCurrency(<String>[r'K.KARTI: $670,41']), 'TRY');
+    });
+
+    test('should detect USD only from the ISO code', () {
+      expect(parser.parseCurrency(<String>['TOTAL 5.00 USD']), 'USD');
+    });
   });
 
   group('parseDate', () {
@@ -120,6 +129,26 @@ void main() {
       final int? total = parser.parseTotal(<String>['TOTAL 1,234.56']);
       expect(total, 123456);
     });
+
+    test('should prefer ÖDENECEK TUTAR over MAL/HİZMET subtotal', () {
+      // A101 e-Arşiv: the goods subtotal matches TOPLAM, but the payable
+      // grand total is "Ödenecek Tutar" — that one must win.
+      final int? total = parser.parseTotal(<String>[
+        'MAL/HİZMET TOPLAM TUTARI 68,81',
+        'ÖDENECEK TUTAR 69,50',
+      ]);
+      expect(total, 6950);
+    });
+
+    test('should read "Ödenecek KDV Dahil Tutar" despite the KDV word', () {
+      // BİM e-Arşiv: the only grand-total line also says "KDV Dahil"; the
+      // payable keyword overrides the KDV negative filter (else total = 0).
+      final int? total = parser.parseTotal(<String>[
+        'TOPLAM KDV 2,70',
+        'Ödenecek KDV Dahil Tutar 257,00',
+      ]);
+      expect(total, 25700);
+    });
   });
 
   group('parseTax', () {
@@ -212,6 +241,104 @@ void main() {
       final List<ScannedItem> items = parser.parseItems(<String>[
         '8690123456789',
         'EKMEK 4,50',
+      ]);
+      expect(items.length, 1);
+      expect(items[0].name, 'EKMEK');
+    });
+
+    test('should reject lines whose trailing number has no cents tail', () {
+      // Addresses, phone numbers, receipt/tax IDs end in a bare integer —
+      // never a real item price.
+      final List<ScannedItem> items = parser.parseItems(<String>[
+        'ATATÜRK MAH. CUMHURİYET CAD. NO:42',
+        'TEL: 0212 555 12 34',
+        'EKMEK 4,50',
+      ]);
+      expect(items.length, 1);
+      expect(items[0].name, 'EKMEK');
+    });
+
+    test('should skip payment / change lines that carry an amount', () {
+      final List<ScannedItem> items = parser.parseItems(<String>[
+        'EKMEK 4,50',
+        'NAKİT 70,00',
+        'PARA ÜSTÜ 5,63',
+        'KART 64,37',
+      ]);
+      expect(items.length, 1);
+      expect(items[0].name, 'EKMEK');
+    });
+
+    test('should keep two-letter product names like SU', () {
+      final List<ScannedItem> items = parser.parseItems(<String>[
+        'SU 5L 12,00',
+      ]);
+      expect(items.length, 1);
+      expect(items[0].name, 'SU 5L');
+      expect(items[0].totalPrice, 1200);
+    });
+
+    test('should read qty + unit from an inline "qty x unit total" line', () {
+      // "SÜT 2 X 3,50  7,00" → name SÜT, qty 2, unit 350, total 700.
+      final List<ScannedItem> items = parser.parseItems(<String>[
+        'SÜT 1L           2 X 3,50    7,00',
+      ]);
+      expect(items.length, 1);
+      expect(items[0].name, 'SÜT 1L');
+      expect(items[0].quantity, 2);
+      expect(items[0].unitPrice, 350);
+      expect(items[0].totalPrice, 700);
+    });
+
+    test('should drop a standalone "N AD X price" qty sub-line with no '
+        'preceding item', () {
+      // TR e-Arşiv receipts print a unit-count line ("2 AD X 37,50") under a
+      // product. When column split strips the product, the bare qty line must
+      // never become an item named "2 ad X" (the real-device BİM regression).
+      final List<ScannedItem> items = parser.parseItems(<String>[
+        '2 ad X 37,50',
+        '2 ad X 49,50',
+      ]);
+      expect(items, isEmpty);
+    });
+
+    test('should apply a "N AD X price" sub-line to the previous item', () {
+      final List<ScannedItem> items = parser.parseItems(<String>[
+        'KAYA TUZU 1.5 KG 19,50',
+        '2 ad X 37,50',
+      ]);
+      expect(items.length, 1);
+      expect(items.single.name, 'KAYA TUZU 1.5 KG');
+      expect(items.single.quantity, 2);
+      expect(items.single.unitPrice, 3750);
+    });
+
+    test('should skip the "Ödenecek Tutar" payable line as an item', () {
+      // A101 e-Arşiv leaked "ÖDENECEK TUTAR" in as a product before this.
+      final List<ScannedItem> items = parser.parseItems(<String>[
+        'EKMEK 4,50',
+        'ÖDENECEK TUTAR 69,50',
+      ]);
+      expect(items.length, 1);
+      expect(items[0].name, 'EKMEK');
+    });
+
+    test('should skip Turkish-suffixed card lines like "K.KARTI"', () {
+      // "\bKART\b" missed the inflected "KARTI"; the payment filter lists it.
+      final List<ScannedItem> items = parser.parseItems(<String>[
+        'EKMEK 4,50',
+        'K.KARTI: 670,41',
+      ]);
+      expect(items.length, 1);
+      expect(items[0].name, 'EKMEK');
+    });
+
+    test('should skip card POS tender lines like "TEK POS"', () {
+      // ŞOK prints the masked card + "TEK POS" as the tender line; it must
+      // not become a product.
+      final List<ScannedItem> items = parser.parseItems(<String>[
+        'EKMEK 4,50',
+        '#494314*****6204 TEK POS 145,00',
       ]);
       expect(items.length, 1);
       expect(items[0].name, 'EKMEK');

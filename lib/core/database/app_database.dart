@@ -123,6 +123,15 @@ class AppDatabase extends _$AppDatabase {
       await delete(receipts).go();
       await delete(tags).go();
       await delete(syncLog).go();
+      // Reset the pull watermark so the next sign-in performs a full pull.
+      // lastSyncAt lives in userSettings, not the data tables wiped above; if
+      // it survived, the next session's incremental pull
+      // (`updated_at > lastSyncAt`) would return nothing and the dashboard
+      // would stay empty until a remote row happened to change. Theme/locale
+      // keys in userSettings are left untouched.
+      await (delete(userSettings)
+            ..where((UserSettings t) => t.key.equals(SyncDao.kLastSyncAtKey)))
+          .go();
       await (delete(categories)
             ..where(
               (Categories t) => t.userId.isNotNull() | t.isCustom.equals(true),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:smartspend/app/injection_container.dart';
+import 'package:smartspend/core/constants/app_constants.dart';
 import 'package:smartspend/core/utils/currency_formatter.dart';
 import 'package:smartspend/core/widgets/category_icon.dart';
 import 'package:smartspend/features/budget/domain/entities/budget_period.dart';
@@ -9,6 +10,17 @@ import 'package:smartspend/features/categories/domain/entities/category.dart';
 import 'package:smartspend/features/categories/domain/usecases/list_categories.dart';
 import 'package:smartspend/features/categories/presentation/widgets/category_picker_sheet.dart';
 import 'package:smartspend/l10n/generated/app_localizations.dart';
+
+/// Budget periods offered in the v1 create/edit UI. [BudgetPeriod] also
+/// defines `yearly` (and `BudgetWindow` computes it), but the remote
+/// `budgets_period_check` constraint only allows `weekly` + `monthly`, so a
+/// yearly budget can never sync — it is rejected server-side and silently
+/// stays `pending`. Re-add `BudgetPeriod.yearly` here once the constraint
+/// migration ships.
+const List<BudgetPeriod> _selectablePeriods = <BudgetPeriod>[
+  BudgetPeriod.weekly,
+  BudgetPeriod.monthly,
+];
 
 /// Outbound payload for [BudgetCreateSheet]. The page maps this into
 /// `BudgetCreated` / `BudgetUpdated` events on the bloc.
@@ -90,6 +102,11 @@ class _BudgetCreateSheetState extends State<BudgetCreateSheet> {
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l = AppLocalizations.of(context);
+    // Show the symbol for the budget's currency (its own when editing, the
+    // app default otherwise) — never a hardcoded "$"; SmartSpend targets
+    // TR/DE/UK (₺/€/£), not USD.
+    final String currencyCode =
+        widget.editing?.budget.currency ?? AppConstants.defaultCurrency;
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -113,7 +130,7 @@ class _BudgetCreateSheetState extends State<BudgetCreateSheet> {
               decoration: InputDecoration(
                 labelText: l.budgetSheetAmountLabel,
                 hintText: l.budgetSheetAmountHint,
-                prefixIcon: const Icon(Icons.attach_money_rounded),
+                prefixText: '${currencySymbol(currencyCode)} ',
                 errorText: _validationKey == 'amount'
                     ? l.budgetAmountInvalid
                     : null,
@@ -128,7 +145,7 @@ class _BudgetCreateSheetState extends State<BudgetCreateSheet> {
             Wrap(
               spacing: 8,
               children: <Widget>[
-                for (final BudgetPeriod p in BudgetPeriod.values)
+                for (final BudgetPeriod p in _selectablePeriods)
                   ChoiceChip(
                     label: Text(_periodLabel(l, p)),
                     selected: _period == p,

@@ -116,3 +116,7 @@ claude_*.md
 docs/internal/
 docs/private/
 docs/*.private.md
+
+# Machine-local dependency overrides (points receipt_ocr at a local clone
+# for fast iteration; CI resolves the private git dependency instead).
+pubspec_overrides.yaml

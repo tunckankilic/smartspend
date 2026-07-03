@@ -78,6 +78,14 @@ dependencies:
   image: ^4.5.4
   # OCR (on-device, free)
   google_mlkit_text_recognition: ^0.15.0
+  # OCR intelligence layer (models, parser, debug JSON, geometry
+  # reconstruction) — pure Dart, private repo: it's the app's core IP while
+  # this repo stays public. Local dev can point it at a clone via the
+  # gitignored pubspec_overrides.yaml; CI needs read access to the repo.
+  receipt_ocr:
+    git:
+      url: https://github.com/tunckankilic/receipt_ocr.git
+      ref: main
 
 dev_dependencies:
   flutter_test:

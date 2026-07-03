@@ -42,4 +42,13 @@ abstract class AppConstants {
   /// Cached image policy (cached_network_image).
   static const Duration imageCacheStaleAfter = Duration(days: 7);
   static const Duration imageCacheMaxAge = Duration(days: 30);
+
+  /// OCR corpus collection (OCR roadmap ADIM 1). Compile-time flag; defaults
+  /// to `false`, so it can never leak into a store build — `v*` tag builds
+  /// simply don't pass the define. Enable on a personal device with:
+  /// `flutter run --release --dart-define-from-file=.env
+  /// --dart-define=OCR_DEBUG=true` (release because ML Kit doesn't run in
+  /// debug builds on iOS 27). Unlocks the hidden 5-tap raw-OCR export on the
+  /// scan result screen.
+  static const bool ocrDebugEnabled = bool.fromEnvironment('OCR_DEBUG');
 }

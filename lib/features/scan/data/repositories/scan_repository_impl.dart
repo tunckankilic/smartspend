@@ -20,11 +20,11 @@ import 'package:smartspend/core/database/daos/expense_dao.dart';
 import 'package:smartspend/core/database/daos/receipt_dao.dart';
 import 'package:smartspend/core/error/exceptions.dart';
 import 'package:smartspend/core/error/failures.dart';
+import 'package:smartspend/core/services/ocr_debug_recorder.dart';
 import 'package:smartspend/core/supabase/supabase_storage_data_source.dart';
 import 'package:smartspend/features/categories/domain/entities/category.dart';
 import 'package:smartspend/features/scan/data/datasources/camera_data_source.dart';
 import 'package:smartspend/features/scan/data/datasources/ocr_data_source.dart';
-import 'package:smartspend/features/scan/data/parsers/receipt_parser.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_item.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
 import 'package:smartspend/features/scan/domain/repositories/scan_repository.dart';
@@ -52,6 +52,7 @@ class ScanRepositoryImpl implements ScanRepository {
     required CategoryDao categoryDao,
     required SupabaseStorageDataSource storage,
     Logger? logger,
+    OcrDebugRecorder? debugRecorder,
   }) : _camera = cameraDataSource,
        _mlKit = mlKitDataSource,
        _gemini = geminiDataSource,
@@ -61,7 +62,8 @@ class ScanRepositoryImpl implements ScanRepository {
        _expenses = expenseDao,
        _categories = categoryDao,
        _storage = storage,
-       _logger = logger;
+       _logger = logger,
+       _debugRecorder = debugRecorder;
 
   final CameraDataSource _camera;
   final OCRDataSource _mlKit;
@@ -73,6 +75,10 @@ class ScanRepositoryImpl implements ScanRepository {
   final CategoryDao _categories;
   final SupabaseStorageDataSource _storage;
   final Logger? _logger;
+
+  /// OCR corpus recorder (roadmap ADIM 1) — no-op unless the build defines
+  /// OCR_DEBUG. Optional so tests and store builds are untouched.
+  final OcrDebugRecorder? _debugRecorder;
 
   // ---------------------------------------------------------------------
   // Image acquisition
@@ -156,6 +162,9 @@ class ScanRepositoryImpl implements ScanRepository {
 
     try {
       mlKitResult = await _mlKit.recognizeText(image);
+      // Corpus collection wants the *raw on-device* output — record it
+      // before any parsing/escalation touches the flow.
+      _debugRecorder?.record(mlKitResult);
       fromMlKit = _toReceipt(mlKitResult, image.path);
     } on Exception catch (e) {
       // ML Kit is on-device; any failure just means "try the cloud engine".
@@ -229,7 +238,31 @@ class ScanRepositoryImpl implements ScanRepository {
   /// parser over raw text (ML Kit).
   ScannedReceipt _toReceipt(OCRResult ocr, String imagePath) {
     final OCRStructured? s = ocr.structured;
-    if (s == null) return _parser.parse(ocr, imagePath: imagePath);
+    if (s == null) {
+      // The parser (receipt_ocr package) is app-agnostic: it returns a
+      // ParsedReceipt without image path / raw text / confidence — those
+      // belong to this scan pipeline, so they're composed here.
+      final ParsedReceipt parsed = _parser.parse(ocr);
+      return ScannedReceipt(
+        imagePath: imagePath,
+        storeName: parsed.storeName,
+        date: parsed.date,
+        items: parsed.items
+            .map(
+              (ParsedItem i) => ScannedItem(
+                name: i.name,
+                quantity: i.quantity,
+                unitPrice: i.unitPrice,
+                totalPrice: i.totalPrice,
+              ),
+            )
+            .toList(growable: false),
+        total: parsed.total,
+        currency: parsed.currency,
+        rawText: ocr.rawText,
+        confidenceScore: ocr.confidence,
+      );
+    }
 
     final List<ScannedItem> items = s.items
         .map(

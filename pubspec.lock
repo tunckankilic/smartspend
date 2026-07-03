@@ -1193,7 +1193,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: e975372226f0d10a84963627de1209b9690f7474
+      resolved-ref: "5fc85a724804d229705b1b3dcf0fba6156fa700b"
       url: "https://github.com/tunckankilic/receipt_ocr.git"
     source: git
     version: "0.1.0"

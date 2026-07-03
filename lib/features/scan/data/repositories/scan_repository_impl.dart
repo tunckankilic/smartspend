@@ -30,15 +30,16 @@ import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
 import 'package:smartspend/features/scan/domain/repositories/scan_repository.dart';
 
 /// ML Kit confidence below this escalates to the Gemini Edge Function when
-/// online. Receipt OCR is bursty and a single bad block can wreck total
-/// parsing, so the bar is deliberately conservative.
-const double kOcrConfidenceThreshold = 0.70;
+/// online. The value (and the full gate) lives in the receipt_ocr package's
+/// [EscalationPolicy] so the eval harness measures the exact production
+/// rule; these aliases keep the app-side names stable.
+const double kOcrConfidenceThreshold = EscalationPolicy.confidenceThreshold;
 
 /// When the on-device parse finds items AND a printed total but they disagree
 /// by more than this fraction of the total, the parse is incomplete (a
 /// column-split receipt dropped line items, or a discount the regex missed) —
 /// escalate so the cloud engine can itemize from the image directly.
-const double kOcrItemsTotalTolerance = 0.10;
+const double kOcrItemsTotalTolerance = EscalationPolicy.itemsTotalTolerance;
 
 class ScanRepositoryImpl implements ScanRepository {
   const ScanRepositoryImpl({
@@ -206,27 +207,23 @@ class ScanRepositoryImpl implements ScanRepository {
     }
   }
 
-  /// Escalate when ML Kit threw, reported low confidence, or its parse left
-  /// out what the cloud engine is good at: line items or a positive total.
-  /// Escalating on *empty items even when a total was found* is deliberate —
-  /// block-layout ML Kit routinely reads the total but no items, and Gemini's
-  /// itemization is the whole point of the fallback. The escalation degrades
+  /// Thin adapter over the shared [EscalationPolicy] (receipt_ocr package):
+  /// the rule itself lives there so the eval harness's `would_escalate`
+  /// metric can never drift from production. The escalation degrades
   /// gracefully (offline / rate-limited / failed → keep the ML Kit result),
   /// so it never costs the user a usable scan.
   bool _shouldEscalate(OCRResult? mlKit, ScannedReceipt? parsed) {
     if (mlKit == null || parsed == null) return true;
-    if (mlKit.confidence < kOcrConfidenceThreshold) return true;
-    if (parsed.items.isEmpty || parsed.total <= 0) return true;
-    // Items found, but they don't reconcile with the printed total → the
-    // on-device parse missed lines (column split) or a discount. The cloud
-    // engine reads the layout directly, so escalate rather than trust a
-    // plausible-but-wrong itemization.
     final int itemsSum = parsed.items.fold<int>(
       0,
       (int sum, ScannedItem item) => sum + item.totalPrice,
     );
-    final int tolerance = (parsed.total * kOcrItemsTotalTolerance).round();
-    return (itemsSum - parsed.total).abs() > tolerance;
+    return EscalationPolicy.shouldEscalate(
+      confidence: mlKit.confidence,
+      itemCount: parsed.items.length,
+      itemsSum: itemsSum,
+      total: parsed.total,
+    );
   }
 
   /// Whether a result is worth preferring over the ML Kit fallback — i.e. the

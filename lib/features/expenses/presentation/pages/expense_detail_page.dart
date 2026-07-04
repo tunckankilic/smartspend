@@ -215,7 +215,10 @@ class _Loaded extends StatelessWidget {
           _DetailTile(
             icon: Icons.image_outlined,
             label: l.expenseDetailReceiptLabel,
-            value: l.expenseDetailReceiptImageSoon,
+            value: l.expenseDetailReceiptView,
+            onTap: () => GoRouter.of(
+              context,
+            ).push('/receipts/${expense.receiptId}'),
           ),
         if (expense.isPendingSync)
           _DetailTile(
@@ -291,16 +294,18 @@ class _DetailTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    this.onTap,
   });
 
   final IconData icon;
   final String label;
   final String value;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    return Padding(
+    final Widget row = Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,12 +318,31 @@ class _DetailTile extends StatelessWidget {
               children: <Widget>[
                 Text(label, style: theme.textTheme.labelMedium),
                 const SizedBox(height: 2),
-                Text(value, style: theme.textTheme.bodyMedium),
+                Text(
+                  value,
+                  style: onTap == null
+                      ? theme.textTheme.bodyMedium
+                      : theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                ),
               ],
             ),
           ),
+          if (onTap != null)
+            Icon(
+              Icons.chevron_right_rounded,
+              color: theme.colorScheme.outline,
+            ),
         ],
       ),
+    );
+    if (onTap == null) return row;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: row,
     );
   }
 }

@@ -170,7 +170,7 @@
   "expenseDetailRecurringMonthly": "Monatlich",
   "expenseDetailRecurringYearly": "Jährlich",
   "expenseDetailReceiptLabel": "Originalbeleg",
-  "expenseDetailReceiptImageSoon": "Belegbild kommt in Sprint 8.",
+  "expenseDetailReceiptView": "Beleg anzeigen",
   "expenseDetailSyncLabel": "Sync",
   "expenseDetailSyncPending": "Wartet auf die nächste Synchronisierung.",
   "expenseDetailDelete": "Löschen",

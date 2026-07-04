@@ -182,7 +182,7 @@
   "expenseDetailRecurringMonthly": "Aylık",
   "expenseDetailRecurringYearly": "Yıllık",
   "expenseDetailReceiptLabel": "Orijinal fiş",
-  "expenseDetailReceiptImageSoon": "Fiş görseli Sprint 8'de gelecek.",
+  "expenseDetailReceiptView": "Fişi görüntüle",
   "expenseDetailSyncLabel": "Eşitleme",
   "expenseDetailSyncPending": "Bir sonraki eşitleme bekleniyor.",
   "expenseDetailDelete": "Sil",

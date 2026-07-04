@@ -1,13 +1,13 @@
 # Codemagic CI/CD — SmartSpend
 # ─────────────────────────────────────────────────────────────────────────
-# Four workflows:
+# Three workflows (plus one on GitHub Actions):
 #   • pr-check        — pull requests: lint, codegen, analyze, test, coverage
 #                       gate, unsigned iOS build. (macOS)
-#   • backend-check   — pull requests touching supabase/: db lint + pgTAP RLS
-#                       tests. Runs on Linux — `supabase start` needs Docker,
-#                       which Codemagic macOS machines don't have.
-#   • release         — `v*` tag push: test, signed IPA, Sentry symbol upload,
-#                       TestFlight upload.
+#   • Backend Check   — NOT here: lives in .github/workflows/backend-check.yml
+#                       (Supabase db lint + pgTAP need Docker; Codemagic macOS
+#                       machines lack it and Linux isn't on the current plan).
+#   • release         — push to `main` (PR merge) or `v*` tag: test, signed
+#                       IPA, Sentry symbol upload, TestFlight upload.
 #   • supabase-deploy — `main` push: db push + Edge Function deploy.
 #                       NOTE: the very first deploy is done MANUALLY with
 #                       approval; this workflow exists for subsequent pushes.
@@ -112,43 +112,6 @@ workflows:
       - build/ios/iphoneos/*.app
 
   # ───────────────────────────────────────────────────────────────────────
-  # backend-check — Supabase db lint + pgTAP RLS tests on every PR that
-  # touches supabase/. Runs on Linux because `supabase start` needs Docker,
-  # which Codemagic's macOS machines do not provide.
-  # ───────────────────────────────────────────────────────────────────────
-  backend-check:
-    name: Backend Check (Supabase)
-    instance_type: linux_x2
-    max_build_duration: 30
-    triggering:
-      events:
-        - pull_request
-      cancel_previous_builds: true
-    when:
-      changeset:
-        includes:
-          - 'supabase/**'
-    scripts:
-      - name: Install Supabase CLI
-        script: |
-          curl -fsSL -o /tmp/supabase.deb \
-            https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.deb
-          sudo dpkg -i /tmp/supabase.deb
-          supabase --version
-      - name: Start local Supabase stack
-        script: |
-          supabase start
-      - name: Supabase db lint
-        script: |
-          supabase db lint --level warning
-      - name: pgTAP RLS tests
-        script: |
-          supabase test db
-      - name: Stop local Supabase stack
-        script: |
-          supabase stop --no-backup || true
-
-  # ───────────────────────────────────────────────────────────────────────
   # release — build, symbolicate, and ship to TestFlight on a `v*` tag.
   # ───────────────────────────────────────────────────────────────────────
   release:
@@ -171,24 +134,39 @@ workflows:
         bundle_identifier: site.tunckankilic.smartspend
     integrations:
       app_store_connect: CodeMagic - SmartSpend  # p8 API key
-    # CI shipping is now ADOPTED: pushing a `v*` tag builds a signed IPA and
-    # uploads it to TestFlight. App Store *release* submission stays manual
-    # (see publishing.submit_to_app_store: false below).
+    # CI shipping is now ADOPTED: every push to `main` (i.e. merging a PR)
+    # builds a signed IPA and uploads it to TestFlight. Pushing a `v*` tag
+    # still works as an alternative trigger. App Store *release* submission
+    # stays manual (see publishing.submit_to_app_store: false below).
     triggering:
       events:
+        - push
         - tag
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
       tag_patterns:
         - pattern: "v*"
           include: true
+      cancel_previous_builds: true
     scripts:
       - *write_env
       - *flutter_packages
       - *codegen
       - *gen_l10n
-      - name: Derive version + build number from tag
+      - name: Derive version + build number
         script: |
-          # Tag is like v1.2.3 → VERSION=1.2.3, BUILD=Codemagic build number.
-          VERSION="${CM_TAG#v}"
+          # Tag build (v1.2.3) → VERSION from the tag.
+          # main-push build (PR merge) → VERSION from pubspec.yaml.
+          # BUILD is always the Codemagic project build counter (unique,
+          # monotonic — ASC rejects duplicate build numbers per version).
+          if [ -n "${CM_TAG:-}" ]; then
+            VERSION="${CM_TAG#v}"
+          else
+            VERSION=$(grep '^version:' pubspec.yaml \
+              | sed 's/version:[[:space:]]*//' | cut -d+ -f1)
+          fi
           BUILD="$PROJECT_BUILD_NUMBER"
           echo "VERSION=$VERSION" >> "$CM_ENV"
           echo "BUILD=$BUILD" >> "$CM_ENV"

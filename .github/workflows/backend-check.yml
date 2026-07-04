@@ -1,0 +1,38 @@
+# Backend Check — Supabase db lint + pgTAP RLS tests.
+#
+# Lives on GitHub Actions (not Codemagic) because `supabase start` needs
+# Docker: Codemagic macOS machines don't provide it and Linux instances are
+# not included in the current Codemagic billing plan. Ubuntu runners ship
+# with Docker preinstalled and are free for public repos.
+#
+# Runs only on PRs that touch supabase/ — Flutter-only PRs skip it.
+name: Backend Check (Supabase)
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/**'
+
+jobs:
+  backend-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase stack
+        run: supabase start
+
+      - name: Supabase db lint
+        run: supabase db lint --level warning
+
+      - name: pgTAP RLS tests
+        run: supabase test db
+
+      - name: Stop local Supabase stack
+        if: always()
+        run: supabase stop --no-backup

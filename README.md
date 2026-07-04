@@ -425,3 +425,5 @@ Built over 10 weekly sprints:
 
 **İsmail Tunç Kankılıç** — built as a portfolio project demonstrating
 production-grade, full-stack Flutter engineering.
+
+

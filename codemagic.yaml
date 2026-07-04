@@ -136,7 +136,7 @@ workflows:
         distribution_type: app_store
         bundle_identifier: site.tunckankilic.smartspend
     integrations:
-      app_store_connect: SmartSpend App Store Connect Key  # p8 API key
+      app_store_connect: CodeMagic - SmartSpend  # p8 API key
     # CI shipping is now ADOPTED: pushing a `v*` tag builds a signed IPA and
     # uploads it to TestFlight. App Store *release* submission stays manual
     # (see publishing.submit_to_app_store: false below).
@@ -273,7 +273,7 @@ workflows:
 #
 #   group "appstore_connect"
 #     Created automatically by the App Store Connect API key integration
-#     ("SmartSpend App Store Connect Key"): upload the p8, key id, issuer id.
+#     ("CodeMagic - SmartSpend"): upload the p8, key id, issuer id.
 #
 # Also in the UI:
 #   • Add the App Store Connect API key integration (p8) and reference it as

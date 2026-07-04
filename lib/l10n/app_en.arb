@@ -173,7 +173,7 @@
   "expenseDetailRecurringMonthly": "Monthly",
   "expenseDetailRecurringYearly": "Yearly",
   "expenseDetailReceiptLabel": "Original receipt",
-  "expenseDetailReceiptImageSoon": "Receipt image arrives in Sprint 8.",
+  "expenseDetailReceiptView": "View receipt",
   "expenseDetailSyncLabel": "Sync",
   "expenseDetailSyncPending": "Waiting for the next sync.",
   "expenseDetailDelete": "Delete",

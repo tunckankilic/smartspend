@@ -1,8 +1,11 @@
 # Codemagic CI/CD — SmartSpend
 # ─────────────────────────────────────────────────────────────────────────
-# Three workflows:
+# Four workflows:
 #   • pr-check        — pull requests: lint, codegen, analyze, test, coverage
-#                       gate, Supabase db lint + pgTAP, unsigned iOS build.
+#                       gate, unsigned iOS build. (macOS)
+#   • backend-check   — pull requests touching supabase/: db lint + pgTAP RLS
+#                       tests. Runs on Linux — `supabase start` needs Docker,
+#                       which Codemagic macOS machines don't have.
 #   • release         — `v*` tag push: test, signed IPA, Sentry symbol upload,
 #                       TestFlight upload.
 #   • supabase-deploy — `main` push: db push + Edge Function deploy.
@@ -101,9 +104,37 @@ workflows:
           awk -v p="$PCT" -v t="$COVERAGE_THRESHOLD" \
             'BEGIN { exit !(p+0 >= t+0) }' \
             || { echo "Coverage ${PCT}% below threshold ${COVERAGE_THRESHOLD}%"; exit 1; }
+      - name: Build iOS (unsigned)
+        script: |
+          flutter build ios --no-codesign --dart-define-from-file=.env
+    artifacts:
+      - coverage/lcov.cleaned.info
+      - build/ios/iphoneos/*.app
+
+  # ───────────────────────────────────────────────────────────────────────
+  # backend-check — Supabase db lint + pgTAP RLS tests on every PR that
+  # touches supabase/. Runs on Linux because `supabase start` needs Docker,
+  # which Codemagic's macOS machines do not provide.
+  # ───────────────────────────────────────────────────────────────────────
+  backend-check:
+    name: Backend Check (Supabase)
+    instance_type: linux_x2
+    max_build_duration: 30
+    triggering:
+      events:
+        - pull_request
+      cancel_previous_builds: true
+    when:
+      changeset:
+        includes:
+          - 'supabase/**'
+    scripts:
       - name: Install Supabase CLI
         script: |
-          brew install supabase/tap/supabase
+          curl -fsSL -o /tmp/supabase.deb \
+            https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.deb
+          sudo dpkg -i /tmp/supabase.deb
+          supabase --version
       - name: Start local Supabase stack
         script: |
           supabase start
@@ -116,12 +147,6 @@ workflows:
       - name: Stop local Supabase stack
         script: |
           supabase stop --no-backup || true
-      - name: Build iOS (unsigned)
-        script: |
-          flutter build ios --no-codesign --dart-define-from-file=.env
-    artifacts:
-      - coverage/lcov.cleaned.info
-      - build/ios/iphoneos/*.app
 
   # ───────────────────────────────────────────────────────────────────────
   # release — build, symbolicate, and ship to TestFlight on a `v*` tag.

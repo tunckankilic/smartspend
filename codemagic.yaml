@@ -78,6 +78,11 @@ workflows:
         script: flutter analyze --fatal-infos
       - name: Run tests with coverage
         script: flutter test --coverage
+      - name: Install lcov
+        script: |
+          # Not preinstalled on Codemagic macOS images; needed by the two
+          # coverage steps below.
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install lcov
       - name: Filter generated sources out of coverage
         script: |
           lcov --remove coverage/lcov.info \

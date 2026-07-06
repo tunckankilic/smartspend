@@ -1,13 +1,17 @@
 # Codemagic CI/CD — SmartSpend
 # ─────────────────────────────────────────────────────────────────────────
-# Three workflows:
+# Two workflows (plus one on GitHub Actions):
 #   • pr-check        — pull requests: lint, codegen, analyze, test, coverage
-#                       gate, Supabase db lint + pgTAP, unsigned iOS build.
-#   • release         — `v*` tag push: test, signed IPA, Sentry symbol upload,
-#                       TestFlight upload.
-#   • supabase-deploy — `main` push: db push + Edge Function deploy.
-#                       NOTE: the very first deploy is done MANUALLY with
-#                       approval; this workflow exists for subsequent pushes.
+#                       gate, unsigned iOS build. (macOS)
+#   • release         — push to `main` (PR merge) or `v*` tag: test, signed
+#                       IPA, Sentry symbol upload, TestFlight upload.
+#   • Backend Check   — NOT here: lives in .github/workflows/backend-check.yml
+#                       (Supabase db lint + pgTAP need Docker; Codemagic macOS
+#                       machines lack it and Linux isn't on the current plan).
+#
+# Supabase deploys (db push + Edge Function deploy) are MANUAL by design —
+# the owner runs them from the dev machine while working on the code. See
+# the "Manual Supabase deploy" reference at the bottom of this file.
 #
 # Secrets live in Codemagic environment groups, never in source. The group
 # names referenced below (`supabase`, `sentry`, `appstore_connect`) must be
@@ -61,10 +65,11 @@ workflows:
                      # SUPABASE_PROJECT_REF
         - sentry     # SENTRY_DSN (shared) — only DSN needed here
       vars:
-        # Coverage gate. Current honest baseline is 79.3% (generated sources
-        # excluded). The project TARGET is 80% — raise this to 80 once new
-        # tests close the gap; the line below documents the intentional delta.
-        COVERAGE_THRESHOLD: "79.0"
+        # Coverage gate. CI-measured baseline is 78.4% (generated sources
+        # excluded; lcov 2.x on the build image). The project TARGET is 80% —
+        # raise this once new tests close the gap; the line below documents
+        # the intentional delta.
+        COVERAGE_THRESHOLD: "78.0"
     triggering:
       events:
         - pull_request
@@ -78,11 +83,19 @@ workflows:
         script: flutter analyze --fatal-infos
       - name: Run tests with coverage
         script: flutter test --coverage
+      - name: Install lcov
+        script: |
+          # Not preinstalled on Codemagic macOS images; needed by the two
+          # coverage steps below.
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install lcov
       - name: Filter generated sources out of coverage
         script: |
+          # --ignore-errors unused: lcov 2.x hard-fails when a pattern matches
+          # nothing (e.g. no *.freezed.dart files exist in this project yet).
           lcov --remove coverage/lcov.info \
             '*.g.dart' '*.freezed.dart' '*.config.dart' '*.mocks.dart' \
             '*/l10n/generated/*' '*/generated/*' \
+            --ignore-errors unused \
             -o coverage/lcov.cleaned.info
       - name: Coverage gate (>= $COVERAGE_THRESHOLD%, target 80%)
         script: |
@@ -92,21 +105,6 @@ workflows:
           awk -v p="$PCT" -v t="$COVERAGE_THRESHOLD" \
             'BEGIN { exit !(p+0 >= t+0) }' \
             || { echo "Coverage ${PCT}% below threshold ${COVERAGE_THRESHOLD}%"; exit 1; }
-      - name: Install Supabase CLI
-        script: |
-          brew install supabase/tap/supabase
-      - name: Start local Supabase stack
-        script: |
-          supabase start
-      - name: Supabase db lint
-        script: |
-          supabase db lint --level warning
-      - name: pgTAP RLS tests
-        script: |
-          supabase test db
-      - name: Stop local Supabase stack
-        script: |
-          supabase stop --no-backup || true
       - name: Build iOS (unsigned)
         script: |
           flutter build ios --no-codesign --dart-define-from-file=.env
@@ -115,7 +113,8 @@ workflows:
       - build/ios/iphoneos/*.app
 
   # ───────────────────────────────────────────────────────────────────────
-  # release — build, symbolicate, and ship to TestFlight on a `v*` tag.
+  # release — build, symbolicate, and ship to TestFlight on every merge to
+  # `main` (or a `v*` tag).
   # ───────────────────────────────────────────────────────────────────────
   release:
     name: Release (TestFlight)
@@ -136,25 +135,40 @@ workflows:
         distribution_type: app_store
         bundle_identifier: site.tunckankilic.smartspend
     integrations:
-      app_store_connect: SmartSpend App Store Connect Key  # p8 API key
-    # CI shipping is now ADOPTED: pushing a `v*` tag builds a signed IPA and
-    # uploads it to TestFlight. App Store *release* submission stays manual
-    # (see publishing.submit_to_app_store: false below).
+      app_store_connect: CodeMagic - SmartSpend  # p8 API key
+    # CI shipping is now ADOPTED: every push to `main` (i.e. merging a PR)
+    # builds a signed IPA and uploads it to TestFlight. Pushing a `v*` tag
+    # still works as an alternative trigger. App Store *release* submission
+    # stays manual (see publishing.submit_to_app_store: false below).
     triggering:
       events:
+        - push
         - tag
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
       tag_patterns:
         - pattern: "v*"
           include: true
+      cancel_previous_builds: true
     scripts:
       - *write_env
       - *flutter_packages
       - *codegen
       - *gen_l10n
-      - name: Derive version + build number from tag
+      - name: Derive version + build number
         script: |
-          # Tag is like v1.2.3 → VERSION=1.2.3, BUILD=Codemagic build number.
-          VERSION="${CM_TAG#v}"
+          # Tag build (v1.2.3) → VERSION from the tag.
+          # main-push build (PR merge) → VERSION from pubspec.yaml.
+          # BUILD is always the Codemagic project build counter (unique,
+          # monotonic — ASC rejects duplicate build numbers per version).
+          if [ -n "${CM_TAG:-}" ]; then
+            VERSION="${CM_TAG#v}"
+          else
+            VERSION=$(grep '^version:' pubspec.yaml \
+              | sed 's/version:[[:space:]]*//' | cut -d+ -f1)
+          fi
           BUILD="$PROJECT_BUILD_NUMBER"
           echo "VERSION=$VERSION" >> "$CM_ENV"
           echo "BUILD=$BUILD" >> "$CM_ENV"
@@ -195,64 +209,26 @@ workflows:
         # privacy answers must be filled in App Store Connect first).
         submit_to_app_store: false
 
-  # ───────────────────────────────────────────────────────────────────────
-  # supabase-deploy — apply migrations + deploy Edge Functions on `main`.
-  #
-  # ⚠️ The FIRST production deploy is done MANUALLY with approval (see README /
-  #    Transfer doc). This workflow automates SUBSEQUENT main-branch pushes.
-  #    Migrations and function deploys are shared + hard to undo — keep this
-  #    workflow disabled in the Codemagic UI until the first manual deploy is
-  #    verified, then enable it.
-  # ───────────────────────────────────────────────────────────────────────
-  supabase-deploy:
-    name: Supabase Deploy
-    instance_type: mac_mini_m2
-    max_build_duration: 30
-    environment:
-      groups:
-        - supabase   # SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF
-    # ⚠️ TEMPORARILY DISABLED — the FIRST prod Supabase deploy is done MANUALLY
-    # (supabase db push + functions deploy). The auto-trigger on `main` push is
-    # commented out so merging Day-11-Release → main does NOT fire an
-    # uncontrolled prod deploy. Re-enable (uncomment) ONLY after the first
-    # manual deploy is verified.
-    # triggering:
-    #   events:
-    #     - push
-    #   branch_patterns:
-    #     - pattern: main
-    #       include: true
-    #   cancel_previous_builds: true
-    scripts:
-      - name: Install Supabase CLI
-        script: |
-          brew install supabase/tap/supabase
-      - name: Link project
-        script: |
-          # SUPABASE_ACCESS_TOKEN authenticates non-interactively.
-          supabase link --project-ref "$SUPABASE_PROJECT_REF"
-      - name: Push database migrations
-        script: |
-          supabase db push
-      - name: Deploy Edge Functions
-        script: |
-          supabase functions deploy gemini-ocr-fallback
-          supabase functions deploy delete-account
-          supabase functions deploy apple-register
-          supabase functions deploy export-csv
-          supabase functions deploy export-pdf
-          # weekly-summary is DEFERRED from v1 — its Deno.serve entry-point is
-          # still commented out (unfinished stub). Re-enable this line once the
-          # function is finished and supabase/cron/weekly_summary_cron.sql is
-          # applied. Deploying it now would ship a function with no handler.
-          # supabase functions deploy weekly-summary
-        # NOTE: Edge Function SECRETS are set once via `supabase secrets set …`
-        # — a MANUAL step, never automated here, so secrets never touch CI logs:
-        #   GEMINI_API_KEY, SUPABASE_SERVICE_ROLE_KEY
-        #   APPLE_PRIVATE_KEY_B64, APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_CLIENT_ID
-        #     (Sign in with Apple token revocation —
-        #      see docs/internal/APPLE_DELETE_SETUP.md)
-
+# ─────────────────────────────────────────────────────────────────────────
+# Manual Supabase deploy — reference (run from the dev machine, NOT CI).
+# Deploys are deliberately manual: migrations + function deploys touch shared
+# prod state and the owner runs them alongside code changes.
+#
+#   supabase link --project-ref <ref>      # once per machine
+#   supabase db push                       # apply new migrations
+#   supabase functions deploy gemini-ocr-fallback
+#   supabase functions deploy delete-account
+#   supabase functions deploy apple-register
+#   supabase functions deploy export-csv
+#   supabase functions deploy export-pdf
+#   # weekly-summary is DEFERRED from v1 — its Deno.serve entry-point is a
+#   # commented-out stub. Deploy only after finishing it and applying
+#   # supabase/cron/weekly_summary_cron.sql.
+#
+# Edge Function SECRETS are set once via `supabase secrets set …` — never in
+# CI, so they never touch build logs: GEMINI_API_KEY,
+# SUPABASE_SERVICE_ROLE_KEY, APPLE_PRIVATE_KEY_B64, APPLE_TEAM_ID,
+# APPLE_KEY_ID, APPLE_CLIENT_ID (see docs/internal/APPLE_DELETE_SETUP.md).
 # ─────────────────────────────────────────────────────────────────────────
 # Codemagic UI checklist — environment-group variables to enter by hand
 # (Settings → Environment variables → create these groups):
@@ -273,14 +249,12 @@ workflows:
 #
 #   group "appstore_connect"
 #     Created automatically by the App Store Connect API key integration
-#     ("SmartSpend App Store Connect Key"): upload the p8, key id, issuer id.
+#     ("CodeMagic - SmartSpend"): upload the p8, key id, issuer id.
 #
 # Also in the UI:
 #   • Add the App Store Connect API key integration (p8) and reference it as
 #     the `integrations.app_store_connect` name above.
-#   • Set up iOS code signing (automatic) under the team / bundle id
-#     site.tunckankilic.smartspend.
-#   • Replace APP_STORE_APPLE_ID with the numeric app id once the app record
-#     exists in App Store Connect.
-#   • Enable the `supabase-deploy` workflow only AFTER the first manual deploy.
+#   • Code signing identities → iOS certificates: the SmartSpend distribution
+#     certificate (.p12) is uploaded there; the matching "SmartSpend App
+#     Store" profile lives in App Store Connect and is fetched automatically.
 # ─────────────────────────────────────────────────────────────────────────

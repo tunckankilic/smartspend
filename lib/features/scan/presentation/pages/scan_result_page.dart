@@ -1,11 +1,16 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'package:smartspend/app/injection_container.dart';
+import 'package:smartspend/core/constants/app_constants.dart';
+import 'package:smartspend/core/services/ocr_debug_recorder.dart';
 import 'package:smartspend/core/utils/currency_formatter.dart';
 import 'package:smartspend/core/widgets/category_icon.dart';
 import 'package:smartspend/features/categories/domain/entities/category.dart';
@@ -292,6 +297,11 @@ class _StoreField extends StatefulWidget {
 class _StoreFieldState extends State<_StoreField> {
   late final TextEditingController _ctrl;
 
+  // Hidden OCR corpus export (roadmap ADIM 1): view-local tap counter, so
+  // plain setState-free fields are fine here.
+  int _debugTaps = 0;
+  DateTime? _firstDebugTapAt;
+
   @override
   void initState() {
     super.initState();
@@ -304,6 +314,40 @@ class _StoreFieldState extends State<_StoreField> {
     super.dispose();
   }
 
+  /// 5 quick taps on the store icon share the last raw ML Kit output as a
+  /// `.json` file (AirDrop → `tools/ocr_corpus/device_json/`). Only
+  /// reachable when the build defines OCR_DEBUG; store builds compile the
+  /// plain icon instead.
+  Future<void> _exportOcrDebugJson() async {
+    final DateTime now = DateTime.now();
+    final DateTime? first = _firstDebugTapAt;
+    if (first == null || now.difference(first) > const Duration(seconds: 3)) {
+      _firstDebugTapAt = now;
+      _debugTaps = 1;
+    } else {
+      _debugTaps++;
+    }
+    if (_debugTaps < 5) return;
+    _debugTaps = 0;
+    _firstDebugTapAt = null;
+
+    final String? json = sl<OcrDebugRecorder>().lastJson;
+    if (json == null) return;
+    final Directory dir = await getTemporaryDirectory();
+    final String stamp = DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .split('.')
+        .first;
+    final File file = File('${dir.path}/ocr_$stamp.json');
+    await file.writeAsString(json);
+    await SharePlus.instance.share(
+      ShareParams(
+        files: <XFile>[XFile(file.path, mimeType: 'application/json')],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l = AppLocalizations.of(context);
@@ -313,7 +357,13 @@ class _StoreFieldState extends State<_StoreField> {
         labelText: l.editStoreLabel,
         hintText: l.editStoreHint,
         border: const OutlineInputBorder(),
-        prefixIcon: const Icon(Icons.store_rounded),
+        prefixIcon: AppConstants.ocrDebugEnabled
+            ? GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => unawaited(_exportOcrDebugJson()),
+                child: const Icon(Icons.store_rounded),
+              )
+            : const Icon(Icons.store_rounded),
       ),
       onChanged: (String v) => context
           .read<ReceiptEditBloc>()

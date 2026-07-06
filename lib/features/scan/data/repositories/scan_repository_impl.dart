@@ -20,25 +20,26 @@ import 'package:smartspend/core/database/daos/expense_dao.dart';
 import 'package:smartspend/core/database/daos/receipt_dao.dart';
 import 'package:smartspend/core/error/exceptions.dart';
 import 'package:smartspend/core/error/failures.dart';
+import 'package:smartspend/core/services/ocr_debug_recorder.dart';
 import 'package:smartspend/core/supabase/supabase_storage_data_source.dart';
 import 'package:smartspend/features/categories/domain/entities/category.dart';
 import 'package:smartspend/features/scan/data/datasources/camera_data_source.dart';
 import 'package:smartspend/features/scan/data/datasources/ocr_data_source.dart';
-import 'package:smartspend/features/scan/data/parsers/receipt_parser.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_item.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
 import 'package:smartspend/features/scan/domain/repositories/scan_repository.dart';
 
 /// ML Kit confidence below this escalates to the Gemini Edge Function when
-/// online. Receipt OCR is bursty and a single bad block can wreck total
-/// parsing, so the bar is deliberately conservative.
-const double kOcrConfidenceThreshold = 0.70;
+/// online. The value (and the full gate) lives in the receipt_ocr package's
+/// [EscalationPolicy] so the eval harness measures the exact production
+/// rule; these aliases keep the app-side names stable.
+const double kOcrConfidenceThreshold = EscalationPolicy.confidenceThreshold;
 
 /// When the on-device parse finds items AND a printed total but they disagree
 /// by more than this fraction of the total, the parse is incomplete (a
 /// column-split receipt dropped line items, or a discount the regex missed) —
 /// escalate so the cloud engine can itemize from the image directly.
-const double kOcrItemsTotalTolerance = 0.10;
+const double kOcrItemsTotalTolerance = EscalationPolicy.itemsTotalTolerance;
 
 class ScanRepositoryImpl implements ScanRepository {
   const ScanRepositoryImpl({
@@ -52,6 +53,7 @@ class ScanRepositoryImpl implements ScanRepository {
     required CategoryDao categoryDao,
     required SupabaseStorageDataSource storage,
     Logger? logger,
+    OcrDebugRecorder? debugRecorder,
   }) : _camera = cameraDataSource,
        _mlKit = mlKitDataSource,
        _gemini = geminiDataSource,
@@ -61,7 +63,8 @@ class ScanRepositoryImpl implements ScanRepository {
        _expenses = expenseDao,
        _categories = categoryDao,
        _storage = storage,
-       _logger = logger;
+       _logger = logger,
+       _debugRecorder = debugRecorder;
 
   final CameraDataSource _camera;
   final OCRDataSource _mlKit;
@@ -73,6 +76,10 @@ class ScanRepositoryImpl implements ScanRepository {
   final CategoryDao _categories;
   final SupabaseStorageDataSource _storage;
   final Logger? _logger;
+
+  /// OCR corpus recorder (roadmap ADIM 1) — no-op unless the build defines
+  /// OCR_DEBUG. Optional so tests and store builds are untouched.
+  final OcrDebugRecorder? _debugRecorder;
 
   // ---------------------------------------------------------------------
   // Image acquisition
@@ -156,6 +163,9 @@ class ScanRepositoryImpl implements ScanRepository {
 
     try {
       mlKitResult = await _mlKit.recognizeText(image);
+      // Corpus collection wants the *raw on-device* output — record it
+      // before any parsing/escalation touches the flow.
+      _debugRecorder?.record(mlKitResult);
       fromMlKit = _toReceipt(mlKitResult, image.path);
     } on Exception catch (e) {
       // ML Kit is on-device; any failure just means "try the cloud engine".
@@ -197,27 +207,23 @@ class ScanRepositoryImpl implements ScanRepository {
     }
   }
 
-  /// Escalate when ML Kit threw, reported low confidence, or its parse left
-  /// out what the cloud engine is good at: line items or a positive total.
-  /// Escalating on *empty items even when a total was found* is deliberate —
-  /// block-layout ML Kit routinely reads the total but no items, and Gemini's
-  /// itemization is the whole point of the fallback. The escalation degrades
+  /// Thin adapter over the shared [EscalationPolicy] (receipt_ocr package):
+  /// the rule itself lives there so the eval harness's `would_escalate`
+  /// metric can never drift from production. The escalation degrades
   /// gracefully (offline / rate-limited / failed → keep the ML Kit result),
   /// so it never costs the user a usable scan.
   bool _shouldEscalate(OCRResult? mlKit, ScannedReceipt? parsed) {
     if (mlKit == null || parsed == null) return true;
-    if (mlKit.confidence < kOcrConfidenceThreshold) return true;
-    if (parsed.items.isEmpty || parsed.total <= 0) return true;
-    // Items found, but they don't reconcile with the printed total → the
-    // on-device parse missed lines (column split) or a discount. The cloud
-    // engine reads the layout directly, so escalate rather than trust a
-    // plausible-but-wrong itemization.
     final int itemsSum = parsed.items.fold<int>(
       0,
       (int sum, ScannedItem item) => sum + item.totalPrice,
     );
-    final int tolerance = (parsed.total * kOcrItemsTotalTolerance).round();
-    return (itemsSum - parsed.total).abs() > tolerance;
+    return EscalationPolicy.shouldEscalate(
+      confidence: mlKit.confidence,
+      itemCount: parsed.items.length,
+      itemsSum: itemsSum,
+      total: parsed.total,
+    );
   }
 
   /// Whether a result is worth preferring over the ML Kit fallback — i.e. the
@@ -229,7 +235,31 @@ class ScanRepositoryImpl implements ScanRepository {
   /// parser over raw text (ML Kit).
   ScannedReceipt _toReceipt(OCRResult ocr, String imagePath) {
     final OCRStructured? s = ocr.structured;
-    if (s == null) return _parser.parse(ocr, imagePath: imagePath);
+    if (s == null) {
+      // The parser (receipt_ocr package) is app-agnostic: it returns a
+      // ParsedReceipt without image path / raw text / confidence — those
+      // belong to this scan pipeline, so they're composed here.
+      final ParsedReceipt parsed = _parser.parse(ocr);
+      return ScannedReceipt(
+        imagePath: imagePath,
+        storeName: parsed.storeName,
+        date: parsed.date,
+        items: parsed.items
+            .map(
+              (ParsedItem i) => ScannedItem(
+                name: i.name,
+                quantity: i.quantity,
+                unitPrice: i.unitPrice,
+                totalPrice: i.totalPrice,
+              ),
+            )
+            .toList(growable: false),
+        total: parsed.total,
+        currency: parsed.currency,
+        rawText: ocr.rawText,
+        confidenceScore: ocr.confidence,
+      );
+    }
 
     final List<ScannedItem> items = s.items
         .map(

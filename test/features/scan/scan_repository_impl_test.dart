@@ -15,7 +15,6 @@ import 'package:smartspend/core/error/failures.dart';
 import 'package:smartspend/core/supabase/supabase_storage_data_source.dart';
 import 'package:smartspend/features/scan/data/datasources/camera_data_source.dart';
 import 'package:smartspend/features/scan/data/datasources/ocr_data_source.dart';
-import 'package:smartspend/features/scan/data/parsers/receipt_parser.dart';
 import 'package:smartspend/features/scan/data/repositories/scan_repository_impl.dart';
 import 'package:smartspend/features/categories/domain/entities/category.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_item.dart';

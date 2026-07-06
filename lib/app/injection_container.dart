@@ -19,6 +19,7 @@ import 'package:smartspend/core/database/daos/tag_dao.dart';
 import 'package:smartspend/core/database/daos/user_correction_dao.dart';
 import 'package:smartspend/core/database/daos/user_settings_dao.dart';
 import 'package:smartspend/core/services/notification_service.dart';
+import 'package:smartspend/core/services/ocr_debug_recorder.dart';
 import 'package:smartspend/core/services/onboarding_flag_store.dart';
 import 'package:smartspend/core/services/recurring_expense_scheduler.dart';
 import 'package:smartspend/core/services/sync_remote_data_source.dart';
@@ -58,7 +59,6 @@ import 'package:smartspend/features/scan/data/datasources/camera_data_source.dar
 import 'package:smartspend/features/scan/data/datasources/gemini_ocr_data_source.dart';
 import 'package:smartspend/features/scan/data/datasources/mlkit_ocr_data_source.dart';
 import 'package:smartspend/features/scan/data/datasources/ocr_data_source.dart';
-import 'package:smartspend/features/scan/data/parsers/receipt_parser.dart';
 import 'package:smartspend/features/scan/data/repositories/scan_repository_impl.dart';
 import 'package:smartspend/features/scan/domain/repositories/scan_repository.dart';
 import 'package:smartspend/features/scan/domain/usecases/capture_image.dart';
@@ -341,6 +341,10 @@ Future<void> configureDependencies() async {
       instanceName: 'gemini',
     )
     ..registerLazySingleton<ReceiptParser>(ReceiptParser.new)
+    // OCR corpus recorder — inert (no-op) unless the build was compiled
+    // with --dart-define=OCR_DEBUG=true. Feeds the hidden export trigger
+    // on the scan result screen.
+    ..registerLazySingleton<OcrDebugRecorder>(OcrDebugRecorder.new)
     ..registerLazySingleton<ScanRepository>(
       () => ScanRepositoryImpl(
         cameraDataSource: sl<CameraDataSource>(),
@@ -353,6 +357,7 @@ Future<void> configureDependencies() async {
         categoryDao: sl<CategoryDao>(),
         storage: sl<SupabaseStorageDataSource>(),
         logger: sl<Logger>(),
+        debugRecorder: sl<OcrDebugRecorder>(),
       ),
     )
     ..registerLazySingleton<CaptureImageUseCase>(

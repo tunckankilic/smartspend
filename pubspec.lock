@@ -1191,11 +1191,9 @@ packages:
   receipt_ocr:
     dependency: "direct main"
     description:
-      path: "."
-      ref: main
-      resolved-ref: "24a298dcf3e31b43d82da45add742958c492623a"
-      url: "https://github.com/tunckankilic/receipt_ocr.git"
-    source: git
+      path: "/Users/ismailtunckankilic/Documents/GitHub/receipt_ocr"
+      relative: false
+    source: path
     version: "0.1.0"
   record_use:
     dependency: transitive

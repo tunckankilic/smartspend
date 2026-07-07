@@ -45,6 +45,15 @@ definitions:
         # receipt_ocr is a private GitHub repo pulled as a git dependency.
         # GH_PAT is a fine-grained, read-only (Contents: Read) token scoped
         # to tunckankilic/receipt_ocr, stored in the `github` env group.
+        # Fail fast with a clear message — without the token, pub get dies
+        # later with an opaque git authentication error.
+        if [ -z "${GH_PAT:-}" ]; then
+          echo "ERROR: GH_PAT is not set. Create the 'github' environment"
+          echo "group in Codemagic with a fine-grained read-only PAT for"
+          echo "tunckankilic/receipt_ocr (see checklist at the bottom of"
+          echo "codemagic.yaml)."
+          exit 1
+        fi
         git config --global \
           url."https://x-access-token:${GH_PAT}@github.com/".insteadOf \
           "https://github.com/"

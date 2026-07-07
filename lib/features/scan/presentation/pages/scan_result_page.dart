@@ -50,6 +50,11 @@ class _ScanResultView extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppLocalizations l = AppLocalizations.of(context);
     return Scaffold(
+      // Shrinking the body under the keyboard collapses the draggable
+      // sheet, which lets the lazy ListView dispose the focused TextField
+      // (keyboard closes on tap). Keep the body full-size instead; the
+      // form adds bottom inset padding so fields scroll above the keyboard.
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(title: Text(l.editTitle)),
       body: BlocConsumer<ReceiptEditBloc, ReceiptEditState>(
         listenWhen: (ReceiptEditState p, ReceiptEditState n) => p != n,
@@ -211,7 +216,12 @@ class _EditForm extends StatelessWidget {
       ),
       child: ListView(
         controller: scrollController,
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          24 + MediaQuery.of(context).viewInsets.bottom,
+        ),
         children: <Widget>[
           Center(
             child: Container(

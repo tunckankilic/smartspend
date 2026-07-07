@@ -1,5 +1,7 @@
+import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:smartspend/core/error/failures.dart';
 import 'package:smartspend/features/dashboard/domain/entities/dashboard_insight.dart';
 import 'package:smartspend/features/dashboard/domain/entities/dashboard_snapshot.dart';
 import 'package:smartspend/features/dashboard/domain/usecases/get_dashboard_insight.dart';
@@ -54,8 +56,7 @@ void main() {
     expect(spike.tone, DashboardInsightTone.warning);
   });
 
-  test('should pick the biggest spike when multiple exceed the threshold',
-      () {
+  test('should pick the biggest spike when multiple exceed the threshold', () {
     final insight = GetDashboardInsightUseCase.evaluate(
       _snap(
         current: <int, int>{1: 20000, 2: 30000},
@@ -87,5 +88,51 @@ void main() {
 
   test('threshold constant should be 20%', () {
     expect(kInsightSpikeThresholdPercent, 20);
+  });
+
+  group('call()', () {
+    test('should wrap the evaluated insight in Right', () async {
+      // A clean 100% spike — the async wrapper must surface the same
+      // insight the sync evaluator returns.
+      final Either<Failure, DashboardInsight?> result =
+          await const GetDashboardInsightUseCase()(
+            GetDashboardInsightParams(
+              snapshot: _snap(
+                current: <int, int>{1: 200000},
+                previous: <int, int>{1: 100000},
+              ),
+              now: DateTime.utc(2026, 7, 7),
+            ),
+          );
+
+      expect(result.isRight(), isTrue);
+      expect(
+        result.getOrElse(() => null),
+        isA<CategorySpikeInsight>(),
+      );
+    });
+
+    test('should return Right(null) when no rule fires', () async {
+      final Either<Failure, DashboardInsight?> result =
+          await const GetDashboardInsightUseCase()(
+            const GetDashboardInsightParams(snapshot: DashboardSnapshot.empty),
+          );
+
+      expect(result, const Right<Failure, DashboardInsight?>(null));
+    });
+
+    test('should compare params by snapshot, budgets and clock', () {
+      final DateTime now = DateTime.utc(2026, 7, 7);
+      expect(
+        GetDashboardInsightParams(snapshot: DashboardSnapshot.empty, now: now),
+        GetDashboardInsightParams(snapshot: DashboardSnapshot.empty, now: now),
+      );
+      expect(
+        GetDashboardInsightParams(snapshot: DashboardSnapshot.empty, now: now),
+        isNot(
+          const GetDashboardInsightParams(snapshot: DashboardSnapshot.empty),
+        ),
+      );
+    });
   });
 }

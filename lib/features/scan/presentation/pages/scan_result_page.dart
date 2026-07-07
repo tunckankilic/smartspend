@@ -50,7 +50,24 @@ class _ScanResultView extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppLocalizations l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(l.editTitle)),
+      // Shrinking the body under the keyboard collapses the draggable
+      // sheet, which lets the lazy ListView dispose the focused TextField
+      // (keyboard closes on tap). Keep the body full-size instead; the
+      // form adds bottom inset padding so fields scroll above the keyboard.
+      resizeToAvoidBottomInset: false,
+      appBar: AppBar(
+        title: Text(l.editTitle),
+        actions: <Widget>[
+          // Visible one-tap corpus export — debug builds only. The 5-tap
+          // store-icon gesture stays as a fallback; both compile away
+          // without OCR_DEBUG.
+          if (AppConstants.ocrDebugEnabled)
+            IconButton(
+              icon: const Icon(Icons.ios_share),
+              onPressed: () => unawaited(_shareOcrDebugJson()),
+            ),
+        ],
+      ),
       body: BlocConsumer<ReceiptEditBloc, ReceiptEditState>(
         listenWhen: (ReceiptEditState p, ReceiptEditState n) => p != n,
         listener: _onStateChange,
@@ -211,7 +228,12 @@ class _EditForm extends StatelessWidget {
       ),
       child: ListView(
         controller: scrollController,
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          24 + MediaQuery.of(context).viewInsets.bottom,
+        ),
         children: <Widget>[
           Center(
             child: Container(
@@ -285,6 +307,28 @@ class _EditForm extends StatelessWidget {
 // Fields
 // =============================================================================
 
+/// Shares the last raw ML Kit output as a `.json` file (AirDrop →
+/// `corpus/device_json/`), the raw material of the OCR eval corpus.
+/// No-op when nothing was recorded. Unreachable in store builds — every
+/// call site is gated on [AppConstants.ocrDebugEnabled].
+Future<void> _shareOcrDebugJson() async {
+  final String? json = sl<OcrDebugRecorder>().lastJson;
+  if (json == null) return;
+  final Directory dir = await getTemporaryDirectory();
+  final String stamp = DateTime.now()
+      .toIso8601String()
+      .replaceAll(':', '-')
+      .split('.')
+      .first;
+  final File file = File('${dir.path}/ocr_$stamp.json');
+  await file.writeAsString(json);
+  await SharePlus.instance.share(
+    ShareParams(
+      files: <XFile>[XFile(file.path, mimeType: 'application/json')],
+    ),
+  );
+}
+
 class _StoreField extends StatefulWidget {
   const _StoreField({required this.receipt});
 
@@ -330,22 +374,7 @@ class _StoreFieldState extends State<_StoreField> {
     if (_debugTaps < 5) return;
     _debugTaps = 0;
     _firstDebugTapAt = null;
-
-    final String? json = sl<OcrDebugRecorder>().lastJson;
-    if (json == null) return;
-    final Directory dir = await getTemporaryDirectory();
-    final String stamp = DateTime.now()
-        .toIso8601String()
-        .replaceAll(':', '-')
-        .split('.')
-        .first;
-    final File file = File('${dir.path}/ocr_$stamp.json');
-    await file.writeAsString(json);
-    await SharePlus.instance.share(
-      ShareParams(
-        files: <XFile>[XFile(file.path, mimeType: 'application/json')],
-      ),
-    );
+    await _shareOcrDebugJson();
   }
 
   @override

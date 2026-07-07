@@ -1,7 +1,7 @@
 name: smartspend
 description: "SmartSpend — AI-powered expense tracker with OCR receipt scanning."
 publish_to: 'none'
-version: 1.1.0+1
+version: 1.1.0+2
 
 environment:
   sdk: ^3.12.0

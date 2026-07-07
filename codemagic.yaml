@@ -39,6 +39,15 @@ definitions:
         SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-production}
         APP_FLAVOR=production
         EOF
+    - &github_token_for_private_pubs
+      name: Authorize git for the private receipt_ocr dependency
+      script: |
+        # receipt_ocr is a private GitHub repo pulled as a git dependency.
+        # GH_PAT is a fine-grained, read-only (Contents: Read) token scoped
+        # to tunckankilic/receipt_ocr, stored in the `github` env group.
+        git config --global \
+          url."https://x-access-token:${GH_PAT}@github.com/".insteadOf \
+          "https://github.com/"
     - &flutter_packages
       name: Get Flutter packages
       script: flutter pub get
@@ -64,18 +73,18 @@ workflows:
         - supabase   # SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_ACCESS_TOKEN,
                      # SUPABASE_PROJECT_REF
         - sentry     # SENTRY_DSN (shared) — only DSN needed here
+        - github     # GH_PAT — read-only token for the private receipt_ocr
       vars:
-        # Coverage gate. CI-measured baseline is 78.4% (generated sources
-        # excluded; lcov 2.x on the build image). The project TARGET is 80% —
-        # raise this once new tests close the gap; the line below documents
-        # the intentional delta.
-        COVERAGE_THRESHOLD: "78.0"
+        # Coverage gate. Local measurement (same lcov filtering) is 80.2%,
+        # so the 80% project target is now enforced directly.
+        COVERAGE_THRESHOLD: "80.0"
     triggering:
       events:
         - pull_request
       cancel_previous_builds: true
     scripts:
       - *write_env
+      - *github_token_for_private_pubs
       - *flutter_packages
       - *codegen
       - *gen_l10n
@@ -128,6 +137,7 @@ workflows:
         - sentry            # SENTRY_DSN, SENTRY_AUTH_TOKEN, SENTRY_ORG,
                             # SENTRY_PROJECT
         - appstore_connect  # APP_STORE_CONNECT_* (managed by integration)
+        - github            # GH_PAT — read-only token for receipt_ocr
       vars:
         BUNDLE_ID: "site.tunckankilic.smartspend"
         APP_STORE_APPLE_ID: "6768886898"
@@ -154,6 +164,7 @@ workflows:
       cancel_previous_builds: true
     scripts:
       - *write_env
+      - *github_token_for_private_pubs
       - *flutter_packages
       - *codegen
       - *gen_l10n
@@ -246,6 +257,10 @@ workflows:
 #     SENTRY_AUTH_TOKEN       upload token                          [secure]
 #     (org/project live in pubspec.yaml's `sentry:` block — already set to
 #      org: tuncsoftwareagency / project: smartspend; not secrets, no env var)
+#
+#   group "github"
+#     GH_PAT                  fine-grained PAT, read-only (Contents: Read),
+#                             scoped to tunckankilic/receipt_ocr     [secure]
 #
 #   group "appstore_connect"
 #     Created automatically by the App Store Connect API key integration

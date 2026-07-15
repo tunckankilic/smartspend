@@ -28,6 +28,9 @@ import 'package:smartspend/features/scan/data/datasources/ocr_data_source.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_item.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
 import 'package:smartspend/features/scan/domain/repositories/scan_repository.dart';
+import 'package:smartspend/features/settings/domain/entities/ai_consent_status.dart';
+import 'package:smartspend/features/settings/domain/entities/user_preferences.dart';
+import 'package:smartspend/features/settings/domain/repositories/settings_repository.dart';
 
 /// ML Kit confidence below this escalates to the Gemini Edge Function when
 /// online. The value (and the full gate) lives in the receipt_ocr package's
@@ -52,6 +55,7 @@ class ScanRepositoryImpl implements ScanRepository {
     required ExpenseDao expenseDao,
     required CategoryDao categoryDao,
     required SupabaseStorageDataSource storage,
+    required SettingsRepository settingsRepository,
     Logger? logger,
     OcrDebugRecorder? debugRecorder,
   }) : _camera = cameraDataSource,
@@ -63,6 +67,7 @@ class ScanRepositoryImpl implements ScanRepository {
        _expenses = expenseDao,
        _categories = categoryDao,
        _storage = storage,
+       _settings = settingsRepository,
        _logger = logger,
        _debugRecorder = debugRecorder;
 
@@ -75,6 +80,7 @@ class ScanRepositoryImpl implements ScanRepository {
   final ExpenseDao _expenses;
   final CategoryDao _categories;
   final SupabaseStorageDataSource _storage;
+  final SettingsRepository _settings;
   final Logger? _logger;
 
   /// OCR corpus recorder (roadmap ADIM 1) — no-op unless the build defines
@@ -174,6 +180,19 @@ class ScanRepositoryImpl implements ScanRepository {
     }
 
     if (!_shouldEscalate(mlKitResult, fromMlKit)) return fromMlKit!;
+
+    // Privacy gate (App Store 5.1.2(i)): the receipt photo may only leave
+    // the device when the user has explicitly allowed the Gemini fallback.
+    // Anything else — never asked, denied, or the preference unreadable —
+    // degrades to the on-device result, exactly like being offline.
+    if (!await _aiConsentGranted()) {
+      _logger?.i('AI consent not granted — keeping on-device OCR result.');
+      if (fromMlKit != null) return fromMlKit;
+      throw OCRException(
+        message: 'OCR failed and cloud fallback is not permitted: $mlKitError',
+        code: 'mlkit_no_ai_consent',
+      );
+    }
 
     if (!await _isOnline()) {
       _logger?.i('Offline — keeping on-device OCR result.');
@@ -292,9 +311,20 @@ class ScanRepositoryImpl implements ScanRepository {
   }
 
   Future<bool> _isOnline() async {
-    final List<ConnectivityResult> result =
-        await _connectivity.checkConnectivity();
+    final List<ConnectivityResult> result = await _connectivity
+        .checkConnectivity();
     return result.any((ConnectivityResult r) => r != ConnectivityResult.none);
+  }
+
+  /// Fails closed: only an explicit [AiConsentStatus.granted] opens the
+  /// cloud path; a read failure counts as "no consent".
+  Future<bool> _aiConsentGranted() async {
+    final Either<Failure, UserPreferences> prefs = await _settings
+        .getPreferences();
+    return prefs.fold(
+      (Failure _) => false,
+      (UserPreferences p) => p.aiConsent == AiConsentStatus.granted,
+    );
   }
 
   // ---------------------------------------------------------------------
@@ -331,8 +361,7 @@ class ScanRepositoryImpl implements ScanRepository {
     required int color,
   }) async {
     try {
-      final int sortOrder =
-          (await _categories.getAll()).length + 1;
+      final int sortOrder = (await _categories.getAll()).length + 1;
       final int id = await _categories.insertCustom(
         CategoriesCompanion.insert(
           name: name,

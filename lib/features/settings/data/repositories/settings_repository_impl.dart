@@ -4,6 +4,7 @@ import 'package:smartspend/core/constants/app_constants.dart';
 import 'package:smartspend/core/database/daos/user_settings_dao.dart';
 import 'package:smartspend/core/error/failures.dart';
 import 'package:smartspend/core/utils/currency_formatter.dart';
+import 'package:smartspend/features/settings/domain/entities/ai_consent_status.dart';
 import 'package:smartspend/features/settings/domain/entities/user_preferences.dart';
 import 'package:smartspend/features/settings/domain/repositories/settings_repository.dart';
 
@@ -20,22 +21,31 @@ class SettingsRepositoryImpl implements SettingsRepository {
 
   static const String _kCurrency = 'default_currency';
   static const String _kNotifications = 'notifications_enabled';
+  static const String _kAiConsent = 'ai_consent';
 
   @override
   Future<Either<Failure, UserPreferences>> getPreferences() async {
     try {
       final String? currency = await dao.getValue(_kCurrency);
       final String? notifications = await dao.getValue(_kNotifications);
+      final String? aiConsent = await dao.getValue(_kAiConsent);
       final String resolvedCurrency =
           (currency != null && kSupportedCurrencies.contains(currency))
-              ? currency
-              : AppConstants.defaultCurrency;
+          ? currency
+          : AppConstants.defaultCurrency;
       return Right<Failure, UserPreferences>(
         UserPreferences(
           currencyCode: resolvedCurrency,
           notificationsEnabled: notifications == null
               ? UserPreferences.defaults.notificationsEnabled
               : notifications == 'true',
+          // Anything other than an explicit grant reads as no consent — a
+          // corrupt value must never open the cloud path.
+          aiConsent: aiConsent == null
+              ? AiConsentStatus.notAsked
+              : (aiConsent == 'true'
+                    ? AiConsentStatus.granted
+                    : AiConsentStatus.denied),
         ),
       );
     } on Object catch (e) {
@@ -58,6 +68,11 @@ class SettingsRepositoryImpl implements SettingsRepository {
   @override
   Future<Either<Failure, Unit>> setNotificationsEnabled(bool enabled) {
     return _write(_kNotifications, enabled ? 'true' : 'false');
+  }
+
+  @override
+  Future<Either<Failure, Unit>> setAiConsent(bool granted) {
+    return _write(_kAiConsent, granted ? 'true' : 'false');
   }
 
   Future<Either<Failure, Unit>> _write(String key, String value) async {

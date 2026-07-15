@@ -7,8 +7,10 @@ import 'package:equatable/equatable.dart';
 
 import 'package:smartspend/core/error/failures.dart';
 import 'package:smartspend/features/expenses/domain/usecases/usecase.dart';
+import 'package:smartspend/features/settings/domain/entities/ai_consent_status.dart';
 import 'package:smartspend/features/settings/domain/entities/user_preferences.dart';
 import 'package:smartspend/features/settings/domain/usecases/get_preferences.dart';
+import 'package:smartspend/features/settings/domain/usecases/set_ai_consent.dart';
 import 'package:smartspend/features/settings/domain/usecases/set_currency.dart';
 import 'package:smartspend/features/settings/domain/usecases/set_notifications_enabled.dart';
 
@@ -22,19 +24,23 @@ class SettingsCubit extends Cubit<SettingsState> {
     required GetPreferencesUseCase getPreferences,
     required SetCurrencyUseCase setCurrency,
     required SetNotificationsEnabledUseCase setNotifications,
-  })  : _getPreferences = getPreferences,
-        _setCurrency = setCurrency,
-        _setNotifications = setNotifications,
-        super(const SettingsState());
+    required SetAiConsentUseCase setAiConsentUseCase,
+  }) : _getPreferences = getPreferences,
+       _setCurrency = setCurrency,
+       _setNotifications = setNotifications,
+       _setAiConsent = setAiConsentUseCase,
+       super(const SettingsState());
 
   final GetPreferencesUseCase _getPreferences;
   final SetCurrencyUseCase _setCurrency;
   final SetNotificationsEnabledUseCase _setNotifications;
+  final SetAiConsentUseCase _setAiConsent;
 
   Future<void> load() async {
     emit(state.copyWith(status: SettingsStatus.loading));
-    final Either<Failure, UserPreferences> result =
-        await _getPreferences(const NoParams());
+    final Either<Failure, UserPreferences> result = await _getPreferences(
+      const NoParams(),
+    );
     result.fold(
       (Failure f) => emit(
         state.copyWith(status: SettingsStatus.failure, failure: f),
@@ -73,6 +79,32 @@ class SettingsCubit extends Cubit<SettingsState> {
       ),
     );
     final Either<Failure, Unit> result = await _setNotifications(enabled);
+    result.fold(
+      (Failure f) => emit(
+        state.copyWith(
+          status: SettingsStatus.failure,
+          failure: f,
+          preferences: prev,
+        ),
+      ),
+      (_) {},
+    );
+  }
+
+  /// Grants or revokes the third-party AI (Google Gemini) consent from the
+  /// Settings toggle. Optimistic like the other setters; rolls back on a
+  /// failed write, which also keeps the scan repository's fail-closed gate
+  /// truthful (it re-reads the stored value on every scan).
+  Future<void> setAiConsent({required bool granted}) async {
+    final UserPreferences prev = state.preferences;
+    emit(
+      state.copyWith(
+        preferences: prev.copyWith(
+          aiConsent: granted ? AiConsentStatus.granted : AiConsentStatus.denied,
+        ),
+      ),
+    );
+    final Either<Failure, Unit> result = await _setAiConsent(granted);
     result.fold(
       (Failure f) => emit(
         state.copyWith(

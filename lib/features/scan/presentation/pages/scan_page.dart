@@ -6,21 +6,31 @@ import 'package:go_router/go_router.dart';
 
 import 'package:smartspend/app/injection_container.dart';
 import 'package:smartspend/core/error/failures.dart';
+import 'package:smartspend/features/scan/presentation/bloc/ai_consent_cubit.dart';
 import 'package:smartspend/features/scan/presentation/bloc/scan_bloc.dart';
 import 'package:smartspend/features/scan/presentation/pages/scan_camera_page.dart';
+import 'package:smartspend/features/scan/presentation/widgets/scan_ai_consent_dialog.dart';
+import 'package:smartspend/features/settings/domain/entities/ai_consent_status.dart';
 import 'package:smartspend/l10n/generated/app_localizations.dart';
 
 /// Entry point for the Scan tab.
 ///
 /// Owns the [ScanBloc] for its lifetime — when the user leaves the tab the
-/// bloc is closed so partial scans are discarded.
+/// bloc is closed so partial scans are discarded. [AiConsentCubit] rides
+/// along to run the one-time third-party-AI consent ask before the first
+/// capture (App Store 5.1.2(i)).
 class ScanPage extends StatelessWidget {
   const ScanPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<ScanBloc>(
-      create: (_) => sl<ScanBloc>(),
+    return MultiBlocProvider(
+      providers: <BlocProvider<dynamic>>[
+        BlocProvider<ScanBloc>(create: (_) => sl<ScanBloc>()),
+        BlocProvider<AiConsentCubit>(
+          create: (_) => sl<AiConsentCubit>()..ensureLoaded(),
+        ),
+      ],
       child: const _ScanView(),
     );
   }
@@ -70,10 +80,26 @@ class _ScanView extends StatelessWidget {
 class _IntroPanel extends StatelessWidget {
   const _IntroPanel();
 
+  /// One-time third-party-AI consent ask, run before either capture entry
+  /// point so the user has decided before any image could reach the cloud
+  /// fallback. Scanning proceeds with either answer — the choice only
+  /// controls whether the Gemini fallback may be used, and it stays
+  /// editable in Settings.
+  Future<void> _askAiConsentIfNeeded(BuildContext context) async {
+    final AiConsentCubit cubit = context.read<AiConsentCubit>();
+    final AiConsentStatus status = await cubit.ensureLoaded();
+    if (status != AiConsentStatus.notAsked) return;
+    if (!context.mounted) return;
+    final bool granted = await showScanAiConsentDialog(context);
+    await cubit.decide(granted: granted);
+  }
+
   /// Push the in-app camera (wireframe 02). The page pops with a
   /// [ScanCameraResult]; if the camera could not start we fall back to
   /// the system camera via [CameraOpened], which owns the permission UX.
   Future<void> _openCamera(BuildContext context, ScanBloc bloc) async {
+    await _askAiConsentIfNeeded(context);
+    if (!context.mounted) return;
     final ScanCameraResult? result = await GoRouter.of(
       context,
     ).push<ScanCameraResult>('/scan/camera');
@@ -128,7 +154,10 @@ class _IntroPanel extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           OutlinedButton.icon(
-            onPressed: () => bloc.add(const GalleryOpened()),
+            onPressed: () async {
+              await _askAiConsentIfNeeded(context);
+              bloc.add(const GalleryOpened());
+            },
             icon: const Icon(Icons.photo_library_rounded),
             label: Text(l.scanActionGallery),
             style: OutlinedButton.styleFrom(

@@ -19,6 +19,9 @@ import 'package:smartspend/features/scan/data/repositories/scan_repository_impl.
 import 'package:smartspend/features/categories/domain/entities/category.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_item.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
+import 'package:smartspend/features/settings/domain/entities/ai_consent_status.dart';
+import 'package:smartspend/features/settings/domain/entities/user_preferences.dart';
+import 'package:smartspend/features/settings/domain/repositories/settings_repository.dart';
 
 import '../../helpers/test_database.dart';
 
@@ -36,6 +39,8 @@ class _MockCategoryDao extends Mock implements CategoryDao {}
 
 class _MockStorage extends Mock implements SupabaseStorageDataSource {}
 
+class _MockSettingsRepository extends Mock implements SettingsRepository {}
+
 class _FakeFile extends Fake implements File {}
 
 void main() {
@@ -51,10 +56,19 @@ void main() {
   late _MockExpenseDao expenseDao;
   late _MockCategoryDao categoryDao;
   late _MockStorage storage;
+  late _MockSettingsRepository settings;
   late ReceiptParser parser;
   late ScanRepositoryImpl repo;
   late File raw;
   late File processed;
+
+  void mockAiConsent(AiConsentStatus status) {
+    when(() => settings.getPreferences()).thenAnswer(
+      (_) async => Right<Failure, UserPreferences>(
+        UserPreferences.defaults.copyWith(aiConsent: status),
+      ),
+    );
+  }
 
   setUp(() {
     camera = _MockCameraDataSource();
@@ -65,7 +79,11 @@ void main() {
     expenseDao = _MockExpenseDao();
     categoryDao = _MockCategoryDao();
     storage = _MockStorage();
+    settings = _MockSettingsRepository();
     parser = ReceiptParser();
+    // Consent granted by default so the escalation tests exercise the
+    // OCR pipeline itself; the consent-gate group overrides this.
+    mockAiConsent(AiConsentStatus.granted);
     repo = ScanRepositoryImpl(
       cameraDataSource: camera,
       mlKitDataSource: mlKit,
@@ -76,6 +94,7 @@ void main() {
       expenseDao: expenseDao,
       categoryDao: categoryDao,
       storage: storage,
+      settingsRepository: settings,
     );
     raw = File('/tmp/raw.jpg');
     processed = File('/tmp/raw.processed.jpg');
@@ -92,8 +111,9 @@ void main() {
   group('captureImage', () {
     test('should return the preprocessed file on success', () async {
       when(() => camera.captureImage()).thenAnswer((_) async => raw);
-      when(() => camera.preprocessImage(raw))
-          .thenAnswer((_) async => processed);
+      when(
+        () => camera.preprocessImage(raw),
+      ).thenAnswer((_) async => processed);
 
       final Either<Failure, File> result = await repo.captureImage();
 
@@ -130,8 +150,9 @@ void main() {
 
     test('should translate CacheException → CacheFailure', () async {
       when(() => camera.captureImage()).thenAnswer((_) async => raw);
-      when(() => camera.preprocessImage(raw))
-          .thenThrow(const CacheException(message: 'decode failed'));
+      when(
+        () => camera.preprocessImage(raw),
+      ).thenThrow(const CacheException(message: 'decode failed'));
 
       final Either<Failure, File> result = await repo.captureImage();
       expect(
@@ -144,8 +165,9 @@ void main() {
   group('pickFromGallery', () {
     test('should return the preprocessed file on success', () async {
       when(() => camera.pickFromGallery()).thenAnswer((_) async => raw);
-      when(() => camera.preprocessImage(raw))
-          .thenAnswer((_) async => processed);
+      when(
+        () => camera.preprocessImage(raw),
+      ).thenAnswer((_) async => processed);
 
       final Either<Failure, File> result = await repo.pickFromGallery();
       expect(result, Right<Failure, File>(processed));
@@ -154,13 +176,13 @@ void main() {
 
   group('scanReceipt', () {
     OCRResult mlKitResult(String text, {double confidence = 0.9}) => OCRResult(
-          rawText: text,
-          blocks: <OCRTextBlock>[
-            OCRTextBlock(text: text, confidence: confidence),
-          ],
-          confidence: confidence,
-          engine: OCREngine.mlKit,
-        );
+      rawText: text,
+      blocks: <OCRTextBlock>[
+        OCRTextBlock(text: text, confidence: confidence),
+      ],
+      confidence: confidence,
+      engine: OCREngine.mlKit,
+    );
 
     OCRResult geminiResult({
       List<OCRStructuredItem> items = const <OCRStructuredItem>[],
@@ -169,44 +191,45 @@ void main() {
       String? currency,
       String rawText = '',
       double confidence = 0.93,
-    }) =>
-        OCRResult(
-          rawText: rawText,
-          blocks: <OCRTextBlock>[
-            OCRTextBlock(text: rawText, confidence: confidence),
-          ],
-          confidence: confidence,
-          engine: OCREngine.gemini,
-          structured: OCRStructured(
-            items: items,
-            total: total,
-            storeName: store,
-            currency: currency,
+    }) => OCRResult(
+      rawText: rawText,
+      blocks: <OCRTextBlock>[
+        OCRTextBlock(text: rawText, confidence: confidence),
+      ],
+      confidence: confidence,
+      engine: OCREngine.gemini,
+      structured: OCRStructured(
+        items: items,
+        total: total,
+        storeName: store,
+        currency: currency,
+      ),
+    );
+
+    test(
+      'parses a confident, itemized ML Kit result without escalating',
+      () async {
+        when(() => mlKit.recognizeText(any())).thenAnswer(
+          (_) async => mlKitResult(
+            'BİM BİRLEŞİK MAĞAZALAR A.Ş.\n'
+            'TARİH: 15/04/2026\n'
+            'EKMEK 4,50\n'
+            'TOPLAM 4,50',
           ),
         );
 
-    test('parses a confident, itemized ML Kit result without escalating',
-        () async {
-      when(() => mlKit.recognizeText(any())).thenAnswer(
-        (_) async => mlKitResult(
-          'BİM BİRLEŞİK MAĞAZALAR A.Ş.\n'
-          'TARİH: 15/04/2026\n'
-          'EKMEK 4,50\n'
-          'TOPLAM 4,50',
-        ),
-      );
-
-      final ScannedReceipt receipt = (await repo.scanReceipt(raw)).getOrElse(
-        () => throw StateError('expected Right'),
-      );
-      expect(receipt.storeName, 'BİM BİRLEŞİK MAĞAZALAR A.Ş.');
-      expect(receipt.date, DateTime.utc(2026, 4, 15));
-      expect(receipt.total, 450);
-      expect(receipt.currency, 'TRY');
-      expect(receipt.imagePath, raw.path);
-      expect(receipt.confidenceScore, 0.9);
-      verifyNever(() => gemini.recognizeText(any()));
-    });
+        final ScannedReceipt receipt = (await repo.scanReceipt(raw)).getOrElse(
+          () => throw StateError('expected Right'),
+        );
+        expect(receipt.storeName, 'BİM BİRLEŞİK MAĞAZALAR A.Ş.');
+        expect(receipt.date, DateTime.utc(2026, 4, 15));
+        expect(receipt.total, 450);
+        expect(receipt.currency, 'TRY');
+        expect(receipt.imagePath, raw.path);
+        expect(receipt.confidenceScore, 0.9);
+        verifyNever(() => gemini.recognizeText(any()));
+      },
+    );
 
     test('escalates to Gemini when a confident ML Kit result parses to no '
         'items', () async {
@@ -241,8 +264,7 @@ void main() {
       expect(receipt.items.single.name, 'HİBİSKUS');
     });
 
-    test('escalates when ML Kit finds a total but cannot itemize it',
-        () async {
+    test('escalates when ML Kit finds a total but cannot itemize it', () async {
       // ML Kit reads the printed TOPLAM but the block layout yields no line
       // items — itemization is exactly what the cloud engine is for, so we
       // escalate even though a positive total was already found.
@@ -272,43 +294,45 @@ void main() {
       expect(receipt.items.single.name, 'HİBİSKUS ÇAYI');
     });
 
-    test('escalates when ML Kit items do not reconcile with the total',
-        () async {
-      // Column-split BİM receipt: the parser captures a couple of lines but
-      // their sum (87,00) is far below the printed total (374,00) → the parse
-      // is incomplete, so the cloud engine should itemize it rather than the
-      // app trusting a plausible-but-wrong 87,00 total.
-      when(() => mlKit.recognizeText(any())).thenAnswer(
-        (_) async => mlKitResult(
-          'BİM BİRLEŞİK MAĞAZALAR\n'
-          'KAYA TUZU 37,50\n'
-          'MAKARNA 49,50\n'
-          'Ödenecek KDV Dahil Tutar 374,00',
-        ),
-      );
-      mockOnline();
-      when(() => gemini.recognizeText(any())).thenAnswer(
-        (_) async => geminiResult(
-          store: 'BİM BİRLEŞİK MAĞAZALAR',
-          total: 37400,
-          items: const <OCRStructuredItem>[
-            OCRStructuredItem(
-              name: 'KAYA TUZU 1.5 KG',
-              quantity: 1,
-              unitPrice: 1950,
-              totalPrice: 1950,
-            ),
-          ],
-        ),
-      );
+    test(
+      'escalates when ML Kit items do not reconcile with the total',
+      () async {
+        // Column-split BİM receipt: the parser captures a couple of lines but
+        // their sum (87,00) is far below the printed total (374,00) → the parse
+        // is incomplete, so the cloud engine should itemize it rather than the
+        // app trusting a plausible-but-wrong 87,00 total.
+        when(() => mlKit.recognizeText(any())).thenAnswer(
+          (_) async => mlKitResult(
+            'BİM BİRLEŞİK MAĞAZALAR\n'
+            'KAYA TUZU 37,50\n'
+            'MAKARNA 49,50\n'
+            'Ödenecek KDV Dahil Tutar 374,00',
+          ),
+        );
+        mockOnline();
+        when(() => gemini.recognizeText(any())).thenAnswer(
+          (_) async => geminiResult(
+            store: 'BİM BİRLEŞİK MAĞAZALAR',
+            total: 37400,
+            items: const <OCRStructuredItem>[
+              OCRStructuredItem(
+                name: 'KAYA TUZU 1.5 KG',
+                quantity: 1,
+                unitPrice: 1950,
+                totalPrice: 1950,
+              ),
+            ],
+          ),
+        );
 
-      final ScannedReceipt receipt = (await repo.scanReceipt(raw)).getOrElse(
-        () => throw StateError('expected Right'),
-      );
-      verify(() => gemini.recognizeText(any())).called(1);
-      expect(receipt.total, 37400);
-      expect(receipt.storeName, 'BİM BİRLEŞİK MAĞAZALAR');
-    });
+        final ScannedReceipt receipt = (await repo.scanReceipt(raw)).getOrElse(
+          () => throw StateError('expected Right'),
+        );
+        verify(() => gemini.recognizeText(any())).called(1);
+        expect(receipt.total, 37400);
+        expect(receipt.storeName, 'BİM BİRLEŞİK MAĞAZALAR');
+      },
+    );
 
     test('keeps a reconciled ML Kit itemization without escalating', () async {
       // Items sum to the printed total within tolerance → the on-device parse
@@ -330,44 +354,46 @@ void main() {
       verifyNever(() => gemini.recognizeText(any()));
     });
 
-    test('maps Gemini structured output directly, skipping the regex parser',
-        () async {
-      // raw_text is deliberate noise: a parser run would yield nothing, so a
-      // populated receipt proves the structured branch was taken.
-      when(() => mlKit.recognizeText(any())).thenAnswer(
-        (_) async => mlKitResult('unparseable', confidence: 0.2),
-      );
-      mockOnline();
-      when(() => gemini.recognizeText(any())).thenAnswer(
-        (_) async => geminiResult(
-          rawText: 'noise noise noise',
-          store: 'ŞAHUTOĞLU',
-          total: 67041,
-          currency: 'TRY',
-          items: const <OCRStructuredItem>[
-            OCRStructuredItem(
-              name: 'A',
-              quantity: 1,
-              unitPrice: 30000,
-              totalPrice: 30000,
-            ),
-            OCRStructuredItem(
-              name: 'B',
-              quantity: 1,
-              unitPrice: 37041,
-              totalPrice: 37041,
-            ),
-          ],
-        ),
-      );
+    test(
+      'maps Gemini structured output directly, skipping the regex parser',
+      () async {
+        // raw_text is deliberate noise: a parser run would yield nothing, so a
+        // populated receipt proves the structured branch was taken.
+        when(() => mlKit.recognizeText(any())).thenAnswer(
+          (_) async => mlKitResult('unparseable', confidence: 0.2),
+        );
+        mockOnline();
+        when(() => gemini.recognizeText(any())).thenAnswer(
+          (_) async => geminiResult(
+            rawText: 'noise noise noise',
+            store: 'ŞAHUTOĞLU',
+            total: 67041,
+            currency: 'TRY',
+            items: const <OCRStructuredItem>[
+              OCRStructuredItem(
+                name: 'A',
+                quantity: 1,
+                unitPrice: 30000,
+                totalPrice: 30000,
+              ),
+              OCRStructuredItem(
+                name: 'B',
+                quantity: 1,
+                unitPrice: 37041,
+                totalPrice: 37041,
+              ),
+            ],
+          ),
+        );
 
-      final ScannedReceipt receipt = (await repo.scanReceipt(raw)).getOrElse(
-        () => throw StateError('expected Right'),
-      );
-      expect(receipt.items.length, 2);
-      expect(receipt.total, 67041);
-      expect(receipt.storeName, 'ŞAHUTOĞLU');
-    });
+        final ScannedReceipt receipt = (await repo.scanReceipt(raw)).getOrElse(
+          () => throw StateError('expected Right'),
+        );
+        expect(receipt.items.length, 2);
+        expect(receipt.total, 67041);
+        expect(receipt.storeName, 'ŞAHUTOĞLU');
+      },
+    );
 
     test('sums Gemini items when the structured total is null', () async {
       when(() => mlKit.recognizeText(any())).thenAnswer(
@@ -400,19 +426,21 @@ void main() {
       expect(receipt.currency, 'TRY'); // null currency defaults to TRY
     });
 
-    test('keeps the ML Kit result when offline even at low confidence',
-        () async {
-      when(() => mlKit.recognizeText(any())).thenAnswer(
-        (_) async => mlKitResult('EKMEK 4,50\nTOPLAM 4,50', confidence: 0.4),
-      );
-      mockOnline(online: false);
+    test(
+      'keeps the ML Kit result when offline even at low confidence',
+      () async {
+        when(() => mlKit.recognizeText(any())).thenAnswer(
+          (_) async => mlKitResult('EKMEK 4,50\nTOPLAM 4,50', confidence: 0.4),
+        );
+        mockOnline(online: false);
 
-      final ScannedReceipt receipt = (await repo.scanReceipt(raw)).getOrElse(
-        () => throw StateError('expected Right'),
-      );
-      expect(receipt.total, 450);
-      verifyNever(() => gemini.recognizeText(any()));
-    });
+        final ScannedReceipt receipt = (await repo.scanReceipt(raw)).getOrElse(
+          () => throw StateError('expected Right'),
+        );
+        expect(receipt.total, 450);
+        verifyNever(() => gemini.recognizeText(any()));
+      },
+    );
 
     test('escalates to Gemini when ML Kit throws and we are online', () async {
       when(() => mlKit.recognizeText(any())).thenThrow(
@@ -445,8 +473,9 @@ void main() {
       );
       mockOnline(online: false);
 
-      final Either<Failure, ScannedReceipt> result =
-          await repo.scanReceipt(raw);
+      final Either<Failure, ScannedReceipt> result = await repo.scanReceipt(
+        raw,
+      );
       expect(
         result.swap().getOrElse(() => throw StateError('left')),
         isA<OCRFailure>(),
@@ -454,8 +483,7 @@ void main() {
       verifyNever(() => gemini.recognizeText(any()));
     });
 
-    test('degrades to the ML Kit result when Gemini is rate-limited',
-        () async {
+    test('degrades to the ML Kit result when Gemini is rate-limited', () async {
       when(() => mlKit.recognizeText(any())).thenAnswer(
         (_) async => mlKitResult('EKMEK 4,50\nTOPLAM 4,50', confidence: 0.4),
       );
@@ -480,29 +508,119 @@ void main() {
         const RateLimitException(message: 'limit'),
       );
 
-      final Either<Failure, ScannedReceipt> result =
-          await repo.scanReceipt(raw);
+      final Either<Failure, ScannedReceipt> result = await repo.scanReceipt(
+        raw,
+      );
       expect(
         result.swap().getOrElse(() => throw StateError('left')),
         isA<RateLimitFailure>(),
       );
     });
 
-    test('degrades to the ML Kit result when Gemini throws a generic error',
-        () async {
+    test(
+      'degrades to the ML Kit result when Gemini throws a generic error',
+      () async {
+        when(() => mlKit.recognizeText(any())).thenAnswer(
+          (_) async => mlKitResult('EKMEK 4,50\nTOPLAM 4,50', confidence: 0.4),
+        );
+        mockOnline();
+        when(() => gemini.recognizeText(any())).thenThrow(
+          const OCRException(message: 'gemini down'),
+        );
+
+        final ScannedReceipt receipt = (await repo.scanReceipt(raw)).getOrElse(
+          () => throw StateError('expected Right'),
+        );
+        expect(receipt.total, 450);
+      },
+    );
+  });
+
+  group('scanReceipt — AI consent gate (App Store 5.1.2(i))', () {
+    // A low-confidence ML Kit result that would normally escalate.
+    void mockEscalatingMlKit() {
+      const String text = 'EKMEK 4,50\nTOPLAM 4,50';
       when(() => mlKit.recognizeText(any())).thenAnswer(
-        (_) async => mlKitResult('EKMEK 4,50\nTOPLAM 4,50', confidence: 0.4),
+        (_) async => const OCRResult(
+          rawText: text,
+          blocks: <OCRTextBlock>[
+            OCRTextBlock(text: text, confidence: 0.4),
+          ],
+          confidence: 0.4,
+          engine: OCREngine.mlKit,
+        ),
       );
+    }
+
+    test('should keep the on-device result when consent was denied', () async {
+      mockEscalatingMlKit();
       mockOnline();
-      when(() => gemini.recognizeText(any())).thenThrow(
-        const OCRException(message: 'gemini down'),
-      );
+      mockAiConsent(AiConsentStatus.denied);
 
       final ScannedReceipt receipt = (await repo.scanReceipt(raw)).getOrElse(
         () => throw StateError('expected Right'),
       );
+
       expect(receipt.total, 450);
+      verifyNever(() => gemini.recognizeText(any()));
     });
+
+    test(
+      'should keep the on-device result when consent was never asked',
+      () async {
+        mockEscalatingMlKit();
+        mockOnline();
+        mockAiConsent(AiConsentStatus.notAsked);
+
+        final ScannedReceipt receipt = (await repo.scanReceipt(raw)).getOrElse(
+          () => throw StateError('expected Right'),
+        );
+
+        expect(receipt.total, 450);
+        verifyNever(() => gemini.recognizeText(any()));
+      },
+    );
+
+    test(
+      'should fail closed when the consent preference is unreadable',
+      () async {
+        mockEscalatingMlKit();
+        mockOnline();
+        when(() => settings.getPreferences()).thenAnswer(
+          (_) async => const Left<Failure, UserPreferences>(
+            CacheFailure(message: 'prefs unreadable'),
+          ),
+        );
+
+        final ScannedReceipt receipt = (await repo.scanReceipt(raw)).getOrElse(
+          () => throw StateError('expected Right'),
+        );
+
+        expect(receipt.total, 450);
+        verifyNever(() => gemini.recognizeText(any()));
+      },
+    );
+
+    test(
+      'should surface OCRFailure when ML Kit fails and consent is denied',
+      () async {
+        when(() => mlKit.recognizeText(any())).thenThrow(
+          const OCRException(message: 'recognizer crashed'),
+        );
+        mockOnline();
+        mockAiConsent(AiConsentStatus.denied);
+
+        final Either<Failure, ScannedReceipt> result = await repo.scanReceipt(
+          raw,
+        );
+
+        expect(
+          result.swap().getOrElse(() => throw StateError('left')),
+          isA<OCRFailure>(),
+        );
+        verifyNever(() => gemini.recognizeText(any()));
+      },
+    );
   });
 
   group('categories + save (integration with in-memory Drift)', () {
@@ -523,6 +641,7 @@ void main() {
         expenseDao: db.expenseDao,
         categoryDao: db.categoryDao,
         storage: storage,
+        settingsRepository: settings,
       );
     });
 
@@ -531,8 +650,8 @@ void main() {
     });
 
     test('listCategories should return the 15 seeded defaults', () async {
-      final Either<Failure, List<Category>> result =
-          await liveRepo.listCategories();
+      final Either<Failure, List<Category>> result = await liveRepo
+          .listCategories();
       final List<Category> cats = result.getOrElse(
         () => throw StateError('expected Right'),
       );
@@ -544,8 +663,7 @@ void main() {
     });
 
     test('createCategory should persist a custom category', () async {
-      final Either<Failure, Category> result =
-          await liveRepo.createCategory(
+      final Either<Failure, Category> result = await liveRepo.createCategory(
         name: 'Hediye Kartı',
         icon: 'card_giftcard',
         color: 0xFFCE93D8,
@@ -557,18 +675,19 @@ void main() {
       expect(created.name, 'Hediye Kartı');
       expect(created.isCustom, isTrue);
 
-      final List<Category> all = (await liveRepo.listCategories())
-          .getOrElse(() => throw StateError('left'));
+      final List<Category> all = (await liveRepo.listCategories()).getOrElse(
+        () => throw StateError('left'),
+      );
       expect(
         all.any((Category c) => c.name == 'Hediye Kartı'),
         isTrue,
       );
     });
 
-    test('saveReceipt should write 1 receipt + N items + N expenses',
-        () async {
-      final List<Category> cats = (await liveRepo.listCategories())
-          .getOrElse(() => throw StateError('left'));
+    test('saveReceipt should write 1 receipt + N items + N expenses', () async {
+      final List<Category> cats = (await liveRepo.listCategories()).getOrElse(
+        () => throw StateError('left'),
+      );
       final int marketId = cats
           .firstWhere((Category c) => c.name == 'Market')
           .id;
@@ -609,8 +728,9 @@ void main() {
       final List<ReceiptItem> items = await db.receiptDao.getItems(receiptId);
       expect(items.length, 2);
 
-      final List<Expense> expenses =
-          await db.expenseDao.getByCategory(marketId);
+      final List<Expense> expenses = await db.expenseDao.getByCategory(
+        marketId,
+      );
       expect(expenses.length, greaterThanOrEqualTo(2));
       final int sum = expenses
           .map((Expense e) => e.amount)
@@ -618,13 +738,14 @@ void main() {
       expect(sum, 1150);
     });
 
-    test(
-        'saveReceipt with no items but a positive total writes one expense '
+    test('saveReceipt with no items but a positive total writes one expense '
         'from the receipt total', () async {
-      final List<Category> cats = (await liveRepo.listCategories())
-          .getOrElse(() => throw StateError('left'));
-      final int marketId =
-          cats.firstWhere((Category c) => c.name == 'Market').id;
+      final List<Category> cats = (await liveRepo.listCategories()).getOrElse(
+        () => throw StateError('left'),
+      );
+      final int marketId = cats
+          .firstWhere((Category c) => c.name == 'Market')
+          .id;
 
       const ScannedReceipt receipt = ScannedReceipt(
         imagePath: '/tmp/x.jpg',
@@ -639,60 +760,69 @@ void main() {
       final int receiptId = (await liveRepo.saveReceipt(
         receipt: receipt,
         defaultCategoryId: marketId,
-      ))
-          .getOrElse(() => throw StateError('expected Right'));
+      )).getOrElse(() => throw StateError('expected Right'));
 
       final List<ReceiptItem> items = await db.receiptDao.getItems(receiptId);
       expect(items, isEmpty);
 
-      final List<Expense> expenses =
-          await db.expenseDao.getByCategory(marketId);
+      final List<Expense> expenses = await db.expenseDao.getByCategory(
+        marketId,
+      );
       expect(expenses.length, 1);
       expect(expenses.first.amount, 14200);
       expect(expenses.first.note, 'GÜNEŞ');
       expect(expenses.first.isManual, isFalse);
     });
 
-    test('saveReceipt should skip the upload when the image is missing',
-        () async {
-      final List<Category> cats = (await liveRepo.listCategories())
-          .getOrElse(() => throw StateError('left'));
-      final int marketId =
-          cats.firstWhere((Category c) => c.name == 'Market').id;
+    test(
+      'saveReceipt should skip the upload when the image is missing',
+      () async {
+        final List<Category> cats = (await liveRepo.listCategories()).getOrElse(
+          () => throw StateError('left'),
+        );
+        final int marketId = cats
+            .firstWhere((Category c) => c.name == 'Market')
+            .id;
 
-      const ScannedReceipt receipt = ScannedReceipt(
-        imagePath: '/tmp/does-not-exist.jpg',
-        items: <ScannedItem>[
-          ScannedItem(
-            name: 'EKMEK',
-            quantity: 1,
-            unitPrice: 450,
-            totalPrice: 450,
+        const ScannedReceipt receipt = ScannedReceipt(
+          imagePath: '/tmp/does-not-exist.jpg',
+          items: <ScannedItem>[
+            ScannedItem(
+              name: 'EKMEK',
+              quantity: 1,
+              unitPrice: 450,
+              totalPrice: 450,
+            ),
+          ],
+          total: 450,
+          currency: 'TRY',
+          rawText: 'EKMEK 4,50',
+          confidenceScore: 0.9,
+          storeName: 'BİM',
+        );
+
+        await liveRepo.saveReceipt(
+          receipt: receipt,
+          defaultCategoryId: marketId,
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        verifyNever(
+          () => storage.uploadReceiptImage(
+            receiptId: any(named: 'receiptId'),
+            image: any(named: 'image'),
           ),
-        ],
-        total: 450,
-        currency: 'TRY',
-        rawText: 'EKMEK 4,50',
-        confidenceScore: 0.9,
-        storeName: 'BİM',
-      );
-
-      await liveRepo.saveReceipt(receipt: receipt, defaultCategoryId: marketId);
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-
-      verifyNever(
-        () => storage.uploadReceiptImage(
-          receiptId: any(named: 'receiptId'),
-          image: any(named: 'image'),
-        ),
-      );
-    });
+        );
+      },
+    );
 
     test('saveReceipt should upload and persist storageObjectPath', () async {
-      final List<Category> cats = (await liveRepo.listCategories())
-          .getOrElse(() => throw StateError('left'));
-      final int marketId =
-          cats.firstWhere((Category c) => c.name == 'Market').id;
+      final List<Category> cats = (await liveRepo.listCategories()).getOrElse(
+        () => throw StateError('left'),
+      );
+      final int marketId = cats
+          .firstWhere((Category c) => c.name == 'Market')
+          .id;
 
       final File temp = File(
         '${Directory.systemTemp.path}/receipt_${DateTime.now().microsecondsSinceEpoch}.jpg',
@@ -732,8 +862,9 @@ void main() {
         receipt: receipt,
         defaultCategoryId: marketId,
       );
-      final int receiptId =
-          result.getOrElse(() => throw StateError('expected Right'));
+      final int receiptId = result.getOrElse(
+        () => throw StateError('expected Right'),
+      );
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
       verify(

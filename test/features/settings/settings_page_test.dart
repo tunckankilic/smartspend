@@ -15,6 +15,7 @@ import 'package:smartspend/features/settings/domain/entities/export_result.dart'
 import 'package:smartspend/features/settings/domain/entities/user_preferences.dart';
 import 'package:smartspend/features/settings/domain/usecases/export_data.dart';
 import 'package:smartspend/features/settings/domain/usecases/get_preferences.dart';
+import 'package:smartspend/features/settings/domain/usecases/set_ai_consent.dart';
 import 'package:smartspend/features/settings/domain/usecases/set_currency.dart';
 import 'package:smartspend/features/settings/domain/usecases/set_notifications_enabled.dart';
 import 'package:smartspend/features/settings/presentation/bloc/export_cubit.dart';
@@ -30,6 +31,8 @@ class _MockSetCurrency extends Mock implements SetCurrencyUseCase {}
 class _MockSetNotifications extends Mock
     implements SetNotificationsEnabledUseCase {}
 
+class _MockSetAiConsent extends Mock implements SetAiConsentUseCase {}
+
 class _MockExportData extends Mock implements ExportDataUseCase {}
 
 class _MockAuthBloc extends MockBloc<AuthEvent, AuthState>
@@ -41,6 +44,7 @@ void main() {
   late _MockGetPreferences getPreferences;
   late _MockSetCurrency setCurrency;
   late _MockSetNotifications setNotifications;
+  late _MockSetAiConsent setAiConsent;
   late _MockExportData exportData;
   late _MockAuthBloc authBloc;
   late _MockSyncCubit syncCubit;
@@ -62,6 +66,7 @@ void main() {
     getPreferences = _MockGetPreferences();
     setCurrency = _MockSetCurrency();
     setNotifications = _MockSetNotifications();
+    setAiConsent = _MockSetAiConsent();
     exportData = _MockExportData();
     authBloc = _MockAuthBloc();
     syncCubit = _MockSyncCubit();
@@ -80,6 +85,7 @@ void main() {
           getPreferences: getPreferences,
           setCurrency: setCurrency,
           setNotifications: setNotifications,
+          setAiConsentUseCase: setAiConsent,
         ),
       )
       ..registerFactory<ExportCubit>(
@@ -110,6 +116,14 @@ void main() {
     );
   }
 
+  /// The preferences column grew past the default 800x600 test surface —
+  /// give tap-based tests a taller viewport so ensureVisible + tap land.
+  void useTallViewport(WidgetTester tester) {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+  }
+
   testWidgets('renders the account, preferences and data tiles', (
     WidgetTester tester,
   ) async {
@@ -121,13 +135,14 @@ void main() {
     // Initial placeholder avatar (no avatar bucket).
     expect(find.text('J'), findsOneWidget);
     expect(find.byType(DropdownButton<String>), findsOneWidget);
-    // Notifications + dark mode.
-    expect(find.byType(SwitchListTile), findsNWidgets(2));
+    // Notifications + AI consent + dark mode.
+    expect(find.byType(SwitchListTile), findsNWidgets(3));
   });
 
   testWidgets('toggles dark mode through AppBloc', (
     WidgetTester tester,
   ) async {
+    useTallViewport(tester);
     await tester.pumpWidget(wrap());
     await tester.pumpAndSettle();
 
@@ -139,9 +154,32 @@ void main() {
     expect(appBloc.state.themeMode, ThemeMode.dark);
   });
 
+  testWidgets('grants AI consent through the settings toggle', (
+    WidgetTester tester,
+  ) async {
+    useTallViewport(tester);
+    when(
+      () => setAiConsent(any()),
+    ).thenAnswer((_) async => const Right<Failure, Unit>(unit));
+    await tester.pumpWidget(wrap());
+    await tester.pumpAndSettle();
+
+    final Finder tile = find.widgetWithText(
+      SwitchListTile,
+      'AI-enhanced scanning',
+    );
+    await tester.ensureVisible(tile);
+    await tester.pumpAndSettle();
+    await tester.tap(tile);
+    await tester.pump();
+
+    verify(() => setAiConsent(true)).called(1);
+  });
+
   testWidgets('requests an export when "download my data" is tapped', (
     WidgetTester tester,
   ) async {
+    useTallViewport(tester);
     when(() => exportData(any())).thenAnswer(
       (_) async =>
           const Left<Failure, ExportResult>(ServerFailure(message: 'x')),
@@ -161,6 +199,7 @@ void main() {
   testWidgets('requests a PDF export when "Download PDF report" is tapped', (
     WidgetTester tester,
   ) async {
+    useTallViewport(tester);
     when(() => exportData(any())).thenAnswer(
       (_) async =>
           const Left<Failure, ExportResult>(ServerFailure(message: 'x')),

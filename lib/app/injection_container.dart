@@ -87,6 +87,7 @@ import 'package:smartspend/features/budget/presentation/bloc/budget_bloc.dart';
 import 'package:smartspend/features/dashboard/domain/usecases/get_dashboard_insight.dart';
 import 'package:smartspend/features/dashboard/domain/usecases/get_dashboard_snapshot.dart';
 import 'package:smartspend/features/dashboard/presentation/bloc/dashboard_bloc.dart';
+import 'package:smartspend/features/scan/presentation/bloc/ai_consent_cubit.dart';
 import 'package:smartspend/features/scan/presentation/bloc/receipt_edit_bloc.dart';
 import 'package:smartspend/features/scan/presentation/bloc/scan_bloc.dart';
 import 'package:smartspend/features/receipts/data/repositories/receipt_archive_repository_impl.dart';
@@ -109,6 +110,7 @@ import 'package:smartspend/features/settings/domain/repositories/export_reposito
 import 'package:smartspend/features/settings/domain/repositories/settings_repository.dart';
 import 'package:smartspend/features/settings/domain/usecases/export_data.dart';
 import 'package:smartspend/features/settings/domain/usecases/get_preferences.dart';
+import 'package:smartspend/features/settings/domain/usecases/set_ai_consent.dart';
 import 'package:smartspend/features/settings/domain/usecases/set_currency.dart';
 import 'package:smartspend/features/settings/domain/usecases/set_notifications_enabled.dart';
 import 'package:smartspend/features/settings/presentation/bloc/export_cubit.dart';
@@ -305,11 +307,15 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton<SetNotificationsEnabledUseCase>(
       () => SetNotificationsEnabledUseCase(sl<SettingsRepository>()),
     )
+    ..registerLazySingleton<SetAiConsentUseCase>(
+      () => SetAiConsentUseCase(sl<SettingsRepository>()),
+    )
     ..registerFactory<SettingsCubit>(
       () => SettingsCubit(
         getPreferences: sl<GetPreferencesUseCase>(),
         setCurrency: sl<SetCurrencyUseCase>(),
         setNotifications: sl<SetNotificationsEnabledUseCase>(),
+        setAiConsentUseCase: sl<SetAiConsentUseCase>(),
       ),
     )
     ..registerLazySingleton<ExportRemoteDataSource>(
@@ -356,6 +362,7 @@ Future<void> configureDependencies() async {
         expenseDao: sl<ExpenseDao>(),
         categoryDao: sl<CategoryDao>(),
         storage: sl<SupabaseStorageDataSource>(),
+        settingsRepository: sl<SettingsRepository>(),
         logger: sl<Logger>(),
         debugRecorder: sl<OcrDebugRecorder>(),
       ),
@@ -376,6 +383,13 @@ Future<void> configureDependencies() async {
         captureImage: sl<CaptureImageUseCase>(),
         pickImage: sl<PickImageUseCase>(),
         scanReceipt: sl<ScanReceiptUseCase>(),
+      ),
+    )
+    // One-time third-party-AI consent ask on the Scan tab (5.1.2(i)).
+    ..registerFactory<AiConsentCubit>(
+      () => AiConsentCubit(
+        getPreferences: sl<GetPreferencesUseCase>(),
+        setAiConsent: sl<SetAiConsentUseCase>(),
       ),
     )
     // ReceiptEditBloc is also a factory — its lifetime is bound to the

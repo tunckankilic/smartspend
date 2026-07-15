@@ -9,6 +9,7 @@ import 'package:smartspend/core/constants/app_constants.dart';
 import 'package:smartspend/core/utils/currency_formatter.dart';
 import 'package:smartspend/features/auth/domain/entities/app_user.dart';
 import 'package:smartspend/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:smartspend/features/settings/domain/entities/ai_consent_status.dart';
 import 'package:smartspend/features/settings/domain/entities/export_result.dart';
 import 'package:smartspend/features/settings/domain/entities/user_preferences.dart';
 import 'package:smartspend/features/settings/presentation/bloc/export_cubit.dart';
@@ -319,6 +320,17 @@ class _PreferencesSection extends StatelessWidget {
                       .read<SettingsCubit>()
                       .toggleNotifications(enabled),
                 ),
+                // Third-party AI consent (App Store 5.1.2(i)) — the scan
+                // flow asks once; this keeps the choice user-editable.
+                SwitchListTile(
+                  secondary: const Icon(Icons.auto_awesome_rounded),
+                  title: Text(l.settingsAiConsent),
+                  subtitle: Text(l.settingsAiConsentSubtitle),
+                  value: prefs.aiConsent == AiConsentStatus.granted,
+                  onChanged: (bool granted) => context
+                      .read<SettingsCubit>()
+                      .setAiConsent(granted: granted),
+                ),
               ],
             );
           },
@@ -428,9 +440,9 @@ class _DataSection extends StatelessWidget {
                   subtitle: l.settingsDownloadPdfSubtitle,
                   busy: inProgress && state.format == ExportFormat.pdf,
                   anyBusy: inProgress,
-                  onTap: () => context
-                      .read<ExportCubit>()
-                      .exportData(format: ExportFormat.pdf),
+                  onTap: () => context.read<ExportCubit>().exportData(
+                    format: ExportFormat.pdf,
+                  ),
                 ),
               ],
             );

@@ -16,4 +16,10 @@ abstract class SettingsRepository {
   /// A bare on/off flag — a named param would add no clarity here.
   // ignore: avoid_positional_boolean_parameters
   Future<Either<Failure, Unit>> setNotificationsEnabled(bool enabled);
+
+  /// Records the user's decision on sending receipt photos to the
+  /// third-party AI service (Google Gemini). `true` → granted, `false` →
+  /// denied; there is no way back to "not asked" by design.
+  // ignore: avoid_positional_boolean_parameters
+  Future<Either<Failure, Unit>> setAiConsent(bool granted);
 }

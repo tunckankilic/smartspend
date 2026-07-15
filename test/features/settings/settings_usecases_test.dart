@@ -10,6 +10,7 @@ import 'package:smartspend/features/settings/domain/repositories/export_reposito
 import 'package:smartspend/features/settings/domain/repositories/settings_repository.dart';
 import 'package:smartspend/features/settings/domain/usecases/export_data.dart';
 import 'package:smartspend/features/settings/domain/usecases/get_preferences.dart';
+import 'package:smartspend/features/settings/domain/usecases/set_ai_consent.dart';
 import 'package:smartspend/features/settings/domain/usecases/set_currency.dart';
 import 'package:smartspend/features/settings/domain/usecases/set_notifications_enabled.dart';
 
@@ -47,11 +48,13 @@ void main() {
 
   group('SetCurrencyUseCase', () {
     test('should forward the currency code', () async {
-      when(() => settings.setCurrency('EUR'))
-          .thenAnswer((_) async => const Right<Failure, Unit>(unit));
+      when(
+        () => settings.setCurrency('EUR'),
+      ).thenAnswer((_) async => const Right<Failure, Unit>(unit));
 
-      final Either<Failure, Unit> result =
-          await SetCurrencyUseCase(settings)('EUR');
+      final Either<Failure, Unit> result = await SetCurrencyUseCase(settings)(
+        'EUR',
+      );
 
       expect(result, const Right<Failure, Unit>(unit));
       verify(() => settings.setCurrency('EUR')).called(1);
@@ -60,14 +63,31 @@ void main() {
 
   group('SetNotificationsEnabledUseCase', () {
     test('should forward the toggle value', () async {
-      when(() => settings.setNotificationsEnabled(false))
-          .thenAnswer((_) async => const Right<Failure, Unit>(unit));
+      when(
+        () => settings.setNotificationsEnabled(false),
+      ).thenAnswer((_) async => const Right<Failure, Unit>(unit));
 
-      final Either<Failure, Unit> result =
-          await SetNotificationsEnabledUseCase(settings)(false);
+      final Either<Failure, Unit> result = await SetNotificationsEnabledUseCase(
+        settings,
+      )(false);
 
       expect(result, const Right<Failure, Unit>(unit));
       verify(() => settings.setNotificationsEnabled(false)).called(1);
+    });
+  });
+
+  group('SetAiConsentUseCase', () {
+    test('should forward the consent decision', () async {
+      when(
+        () => settings.setAiConsent(true),
+      ).thenAnswer((_) async => const Right<Failure, Unit>(unit));
+
+      final Either<Failure, Unit> result = await SetAiConsentUseCase(settings)(
+        true,
+      );
+
+      expect(result, const Right<Failure, Unit>(unit));
+      verify(() => settings.setAiConsent(true)).called(1);
     });
   });
 
@@ -88,8 +108,9 @@ void main() {
         ),
       ).thenAnswer((_) async => Right<Failure, ExportResult>(expected));
 
-      final Either<Failure, ExportResult> result =
-          await ExportDataUseCase(export)(ExportParams(from: from, to: to));
+      final Either<Failure, ExportResult> result = await ExportDataUseCase(
+        export,
+      )(ExportParams(from: from, to: to));
 
       expect(result, Right<Failure, ExportResult>(expected));
       verify(

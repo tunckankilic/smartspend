@@ -31,8 +31,9 @@ void main() {
 
   group('CaptureImageUseCase', () {
     test('should delegate to ScanRepository.captureImage', () async {
-      when(() => repo.captureImage())
-          .thenAnswer((_) async => Right<Failure, File>(file));
+      when(
+        () => repo.captureImage(),
+      ).thenAnswer((_) async => Right<Failure, File>(file));
 
       final CaptureImageUseCase usecase = CaptureImageUseCase(repo);
       final Either<Failure, File> result = await usecase(const NoParams());
@@ -44,8 +45,9 @@ void main() {
 
   group('PickImageUseCase', () {
     test('should delegate to ScanRepository.pickFromGallery', () async {
-      when(() => repo.pickFromGallery())
-          .thenAnswer((_) async => Right<Failure, File>(file));
+      when(
+        () => repo.pickFromGallery(),
+      ).thenAnswer((_) async => Right<Failure, File>(file));
 
       final PickImageUseCase usecase = PickImageUseCase(repo);
       final Either<Failure, File> result = await usecase(const NoParams());

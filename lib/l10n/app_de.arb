@@ -87,6 +87,11 @@
   "scanAiConsentHint": "Du kannst diese Einstellung jederzeit in den Einstellungen ändern.",
   "scanAiConsentAllow": "Erlauben",
   "scanAiConsentDeny": "Nicht erlauben",
+  "scanAiStatusOn": "KI-gestütztes Scannen: An",
+  "scanAiStatusOff": "KI-gestütztes Scannen: Aus",
+  "scanAiStatusChangeHint": "Zum Ändern tippen",
+  "scanErrorNoAiConsent": "Der Beleg konnte auf dem Gerät nicht gelesen werden. KI-gestütztes Scannen ist deaktiviert, daher durfte die Cloud-Erkennung nicht helfen.",
+  "scanActionRetryWithAi": "Erneut mit KI versuchen",
 
   "editTitle": "Beleg bearbeiten",
   "editStoreLabel": "Geschäft",

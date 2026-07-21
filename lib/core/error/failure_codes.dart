@@ -24,3 +24,8 @@ abstract class AuthFailureCode {
 /// gallery picker. The scan flow translates this into a silent
 /// return-to-initial rather than a surfaced error.
 const String kCameraCancelledCode = 'cancelled';
+
+/// On-device OCR failed outright and the cloud fallback was not permitted
+/// because third-party-AI consent is absent. The scan error UI branches on
+/// this to offer a contextual "retry with AI" re-ask.
+const String kOcrNoAiConsentCode = 'mlkit_no_ai_consent';

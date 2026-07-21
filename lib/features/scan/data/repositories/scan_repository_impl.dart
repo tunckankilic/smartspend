@@ -19,6 +19,7 @@ import 'package:smartspend/core/database/daos/category_dao.dart';
 import 'package:smartspend/core/database/daos/expense_dao.dart';
 import 'package:smartspend/core/database/daos/receipt_dao.dart';
 import 'package:smartspend/core/error/exceptions.dart';
+import 'package:smartspend/core/error/failure_codes.dart';
 import 'package:smartspend/core/error/failures.dart';
 import 'package:smartspend/core/services/ocr_debug_recorder.dart';
 import 'package:smartspend/core/supabase/supabase_storage_data_source.dart';
@@ -190,7 +191,7 @@ class ScanRepositoryImpl implements ScanRepository {
       if (fromMlKit != null) return fromMlKit;
       throw OCRException(
         message: 'OCR failed and cloud fallback is not permitted: $mlKitError',
-        code: 'mlkit_no_ai_consent',
+        code: kOcrNoAiConsentCode,
       );
     }
 

@@ -29,8 +29,7 @@ void main() {
     test('should stay inert when OCR_DEBUG is not defined', () {
       // Tests run without --dart-define=OCR_DEBUG=true, which is exactly
       // the store-build configuration: recording must be a no-op.
-      final OcrDebugRecorder recorder = OcrDebugRecorder()
-        ..record(mlKitResult);
+      final OcrDebugRecorder recorder = OcrDebugRecorder()..record(mlKitResult);
 
       expect(recorder.lastJson, isNull);
     });

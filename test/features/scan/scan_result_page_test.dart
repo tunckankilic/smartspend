@@ -14,8 +14,7 @@ import 'package:smartspend/features/scan/presentation/bloc/receipt_edit_bloc.dar
 import 'package:smartspend/features/scan/presentation/pages/scan_result_page.dart';
 import 'package:smartspend/l10n/generated/app_localizations.dart';
 
-class _MockReceiptEditBloc
-    extends MockBloc<ReceiptEditEvent, ReceiptEditState>
+class _MockReceiptEditBloc extends MockBloc<ReceiptEditEvent, ReceiptEditState>
     implements ReceiptEditBloc {}
 
 const Category _groceries = Category(

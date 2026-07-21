@@ -62,10 +62,15 @@ final class ScanSaved extends ScanState {
 
 /// Something went wrong. The UI surfaces [failure.message] and a Retry CTA.
 final class ScanError extends ScanState {
-  const ScanError({required this.failure});
+  const ScanError({required this.failure, this.image});
 
   final Failure failure;
 
+  /// The image OCR was attempted on, when the failure happened after capture.
+  /// Non-null enables [ScanRetried] to re-run OCR on the same image (e.g.
+  /// after the user grants AI consent from the error screen).
+  final File? image;
+
   @override
-  List<Object?> get props => <Object?>[failure];
+  List<Object?> get props => <Object?>[failure, image?.path];
 }

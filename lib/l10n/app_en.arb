@@ -90,6 +90,11 @@
   "scanAiConsentHint": "You can change this anytime in Settings.",
   "scanAiConsentAllow": "Allow",
   "scanAiConsentDeny": "Don't Allow",
+  "scanAiStatusOn": "AI-enhanced scanning: On",
+  "scanAiStatusOff": "AI-enhanced scanning: Off",
+  "scanAiStatusChangeHint": "Tap to change",
+  "scanErrorNoAiConsent": "The receipt couldn't be read on your device. AI-enhanced scanning is off, so the cloud engine wasn't allowed to help.",
+  "scanActionRetryWithAi": "Try Again with AI",
 
   "editTitle": "Edit receipt",
   "editStoreLabel": "Store name",

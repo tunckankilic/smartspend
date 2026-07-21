@@ -55,6 +55,13 @@ final class ReceiptConfirmed extends ScanEvent {
   List<Object?> get props => <Object?>[receipt];
 }
 
+/// User asked to re-run OCR on the image a previous scan failed on —
+/// e.g. after granting AI consent from the error screen. Ignored unless
+/// the current state is a [ScanError] that still holds the image.
+final class ScanRetried extends ScanEvent {
+  const ScanRetried();
+}
+
 /// Reset the flow (e.g. user tapped "Retake" or backed out of the page).
 final class ScanReset extends ScanEvent {
   const ScanReset();

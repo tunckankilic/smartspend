@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
@@ -5,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:smartspend/app/injection_container.dart';
+import 'package:smartspend/core/error/failure_codes.dart';
 import 'package:smartspend/core/error/failures.dart';
 import 'package:smartspend/features/expenses/domain/usecases/usecase.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_item.dart';
@@ -192,6 +195,123 @@ void main() {
 
         expect(find.byType(ScanAiConsentDialog), findsNothing);
         verify(() => bloc.add(const GalleryOpened())).called(1);
+      },
+    );
+
+    testWidgets(
+      'shows the AI status row on the intro panel and reflects consent',
+      (WidgetTester tester) async {
+        when(() => bloc.state).thenReturn(const ScanInitial());
+        mockAiConsent(AiConsentStatus.granted);
+        await tester.pumpWidget(wrap());
+        await tester.pumpAndSettle();
+
+        expect(find.text('AI-enhanced scanning: On'), findsOneWidget);
+
+        // Tear the tree down so a fresh page (and cubit) is created for
+        // the denied variant — element reuse would keep the old cubit.
+        await tester.pumpWidget(const SizedBox.shrink());
+        mockAiConsent(AiConsentStatus.denied);
+        await tester.pumpWidget(wrap());
+        await tester.pumpAndSettle();
+
+        expect(find.text('AI-enhanced scanning: Off'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'lets the user change consent from the intro status row',
+      (WidgetTester tester) async {
+        when(() => bloc.state).thenReturn(const ScanInitial());
+        mockAiConsent(AiConsentStatus.denied);
+        await tester.pumpWidget(wrap());
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('AI-enhanced scanning: Off'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ScanAiConsentDialog), findsOneWidget);
+        await tester.tap(find.text('Allow'));
+        await tester.pumpAndSettle();
+
+        verify(() => setAiConsent(true)).called(1);
+        expect(find.text('AI-enhanced scanning: On'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'offers a contextual AI re-ask when OCR failed without consent',
+      (WidgetTester tester) async {
+        when(() => bloc.state).thenReturn(
+          ScanError(
+            failure: const OCRFailure(
+              message: 'no consent',
+              code: kOcrNoAiConsentCode,
+            ),
+            image: File('/tmp/receipt.jpg'),
+          ),
+        );
+        mockAiConsent(AiConsentStatus.denied);
+        await tester.pumpWidget(wrap());
+        await tester.pumpAndSettle();
+
+        expect(find.text('Try Again with AI'), findsOneWidget);
+
+        await tester.tap(find.text('Try Again with AI'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ScanAiConsentDialog), findsOneWidget);
+        await tester.tap(find.text('Allow'));
+        await tester.pumpAndSettle();
+
+        verify(() => setAiConsent(true)).called(1);
+        verify(() => bloc.add(const ScanRetried())).called(1);
+      },
+    );
+
+    testWidgets(
+      'keeps the error screen when the AI re-ask is declined again',
+      (WidgetTester tester) async {
+        when(() => bloc.state).thenReturn(
+          ScanError(
+            failure: const OCRFailure(
+              message: 'no consent',
+              code: kOcrNoAiConsentCode,
+            ),
+            image: File('/tmp/receipt.jpg'),
+          ),
+        );
+        mockAiConsent(AiConsentStatus.denied);
+        await tester.pumpWidget(wrap());
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Try Again with AI'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text("Don't Allow"));
+        await tester.pumpAndSettle();
+
+        verify(() => setAiConsent(false)).called(1);
+        verifyNever(() => bloc.add(const ScanRetried()));
+        expect(find.byIcon(Icons.error_outline_rounded), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'shows only the plain retry on consent failure without an image',
+      (WidgetTester tester) async {
+        when(() => bloc.state).thenReturn(
+          const ScanError(
+            failure: OCRFailure(
+              message: 'no consent',
+              code: kOcrNoAiConsentCode,
+            ),
+          ),
+        );
+        await tester.pumpWidget(wrap());
+        await tester.pumpAndSettle();
+
+        expect(find.text('Try Again with AI'), findsNothing);
+        expect(find.byIcon(Icons.refresh_rounded), findsOneWidget);
       },
     );
 

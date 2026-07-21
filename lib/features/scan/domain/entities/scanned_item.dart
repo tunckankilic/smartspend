@@ -49,6 +49,11 @@ class ScannedItem extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      <Object?>[name, quantity, unitPrice, totalPrice, categoryId];
+  List<Object?> get props => <Object?>[
+    name,
+    quantity,
+    unitPrice,
+    totalPrice,
+    categoryId,
+  ];
 }

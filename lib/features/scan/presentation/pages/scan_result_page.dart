@@ -34,8 +34,8 @@ class ScanResultPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<ReceiptEditBloc>(
-      create: (_) => sl<ReceiptEditBloc>()
-        ..add(ReceiptEditStarted(receipt: receipt)),
+      create: (_) =>
+          sl<ReceiptEditBloc>()..add(ReceiptEditStarted(receipt: receipt)),
       child: _ScanResultView(initialImagePath: receipt.imagePath),
     );
   }
@@ -74,21 +74,21 @@ class _ScanResultView extends StatelessWidget {
         builder: (BuildContext context, ReceiptEditState state) {
           return switch (state) {
             ReceiptEditInitial() => const Center(
-                child: CircularProgressIndicator(),
-              ),
+              child: CircularProgressIndicator(),
+            ),
             ReceiptEditReady() => _ReadyBody(
-                state: state,
-                imagePath: initialImagePath,
-              ),
+              state: state,
+              imagePath: initialImagePath,
+            ),
             ReceiptEditSaving() => Stack(
-                children: <Widget>[
-                  _ImageHero(imagePath: initialImagePath),
-                  const _SavingOverlay(),
-                ],
-              ),
+              children: <Widget>[
+                _ImageHero(imagePath: initialImagePath),
+                const _SavingOverlay(),
+              ],
+            ),
             ReceiptEditSaved() => const Center(
-                child: CircularProgressIndicator(),
-              ),
+              child: CircularProgressIndicator(),
+            ),
             ReceiptEditFailure() => const SizedBox.shrink(),
           };
         },
@@ -137,8 +137,7 @@ class _ImageHero extends StatelessWidget {
         File(imagePath),
         fit: BoxFit.cover,
         width: double.infinity,
-        errorBuilder:
-            (BuildContext c, Object e, StackTrace? s) => Container(
+        errorBuilder: (BuildContext c, Object e, StackTrace? s) => Container(
           color: cs.surfaceContainerHighest,
           alignment: Alignment.center,
           child: Icon(Icons.broken_image_rounded, color: cs.error),
@@ -199,8 +198,7 @@ class _ReadyBody extends StatelessWidget {
           initialChildSize: 0.62,
           minChildSize: 0.55,
           maxChildSize: 0.95,
-          builder:
-              (BuildContext context, ScrollController controller) {
+          builder: (BuildContext context, ScrollController controller) {
             return _EditForm(state: state, scrollController: controller);
           },
         ),
@@ -266,9 +264,9 @@ class _EditForm extends StatelessWidget {
             children: <Widget>[
               Text(l.editItemsHeader, style: theme.textTheme.titleMedium),
               TextButton.icon(
-                onPressed: () => context
-                    .read<ReceiptEditBloc>()
-                    .add(const ReceiptItemAdded()),
+                onPressed: () => context.read<ReceiptEditBloc>().add(
+                  const ReceiptItemAdded(),
+                ),
                 icon: const Icon(Icons.add_rounded),
                 label: Text(l.editAddItem),
               ),
@@ -394,9 +392,9 @@ class _StoreFieldState extends State<_StoreField> {
               )
             : const Icon(Icons.store_rounded),
       ),
-      onChanged: (String v) => context
-          .read<ReceiptEditBloc>()
-          .add(ReceiptStoreNameChanged(storeName: v)),
+      onChanged: (String v) => context.read<ReceiptEditBloc>().add(
+        ReceiptStoreNameChanged(storeName: v),
+      ),
     );
   }
 }
@@ -428,13 +426,15 @@ class _DateField extends StatelessWidget {
             lastDate: DateTime.now().add(const Duration(days: 1)),
           );
           if (picked == null || !context.mounted) return;
-          context
-              .read<ReceiptEditBloc>()
-              .add(ReceiptDateChanged(date: DateTime.utc(
+          context.read<ReceiptEditBloc>().add(
+            ReceiptDateChanged(
+              date: DateTime.utc(
                 picked.year,
                 picked.month,
                 picked.day,
-              )));
+              ),
+            ),
+          );
         },
         child: Text(text),
       ),
@@ -469,9 +469,9 @@ class _CurrencyField extends StatelessWidget {
           .toList(growable: false),
       onChanged: (String? picked) {
         if (picked == null) return;
-        context
-            .read<ReceiptEditBloc>()
-            .add(ReceiptCurrencyChanged(currency: picked));
+        context.read<ReceiptEditBloc>().add(
+          ReceiptCurrencyChanged(currency: picked),
+        );
       },
     );
   }
@@ -626,9 +626,9 @@ class _ItemCardState extends State<_ItemCard> {
           color: Theme.of(context).colorScheme.onErrorContainer,
         ),
       ),
-      onDismissed: (_) => context
-          .read<ReceiptEditBloc>()
-          .add(ReceiptItemRemoved(index: widget.index)),
+      onDismissed: (_) => context.read<ReceiptEditBloc>().add(
+        ReceiptItemRemoved(index: widget.index),
+      ),
       child: Card(
         margin: EdgeInsets.zero,
         child: Padding(
@@ -678,9 +678,9 @@ class _ItemCardState extends State<_ItemCard> {
                 onTap: () async {
                   final CategoryPickerResult? r =
                       await CategoryPickerSheet.show(
-                    context,
-                    categories: widget.categories,
-                  );
+                        context,
+                        categories: widget.categories,
+                      );
                   if (r == null || !context.mounted) return;
                   if (r is CategoryPickerSelected) {
                     context.read<ReceiptEditBloc>().add(
@@ -861,9 +861,8 @@ class _ActionButtons extends StatelessWidget {
     return Column(
       children: <Widget>[
         FilledButton.icon(
-          onPressed: () => context
-              .read<ReceiptEditBloc>()
-              .add(const ReceiptEditSubmitted()),
+          onPressed: () =>
+              context.read<ReceiptEditBloc>().add(const ReceiptEditSubmitted()),
           icon: const Icon(Icons.check_rounded),
           label: Text(l.editSave),
           style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),

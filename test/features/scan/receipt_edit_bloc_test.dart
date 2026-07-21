@@ -58,8 +58,7 @@ class _FixedEngine implements CategorizationEngine {
     required String? storeName,
     required List<String> itemNames,
     required List<Category> availableCategories,
-  }) async =>
-      _suggestion;
+  }) async => _suggestion;
 }
 
 void main() {
@@ -94,7 +93,8 @@ void main() {
       imagePath: '/tmp/x.jpg',
       storeName: 'BİM',
       date: date ?? DateTime.utc(2026, 4, 15),
-      items: items ??
+      items:
+          items ??
           const <ScannedItem>[
             ScannedItem(
               name: 'EKMEK',
@@ -117,11 +117,11 @@ void main() {
   }
 
   ReceiptEditBloc build({CategorizationEngine? engine}) => ReceiptEditBloc(
-        repository: repo,
-        suggestCategory: SuggestCategoryForReceiptUseCase(
-          engine ?? const _NoMatchEngine(),
-        ),
-      );
+    repository: repo,
+    suggestCategory: SuggestCategoryForReceiptUseCase(
+      engine ?? const _NoMatchEngine(),
+    ),
+  );
 
   void mockCategoriesOK() {
     when(() => repo.listCategories()).thenAnswer(
@@ -327,8 +327,9 @@ void main() {
 
       final ReceiptEditBloc b = build();
       final List<ReceiptEditState> states = <ReceiptEditState>[];
-      final StreamSubscription<ReceiptEditState> sub =
-          b.stream.listen(states.add);
+      final StreamSubscription<ReceiptEditState> sub = b.stream.listen(
+        states.add,
+      );
 
       b.add(ReceiptEditStarted(receipt: baseReceipt()));
       await Future<void>.delayed(Duration.zero);
@@ -369,64 +370,69 @@ void main() {
       );
     });
 
-    test('save with no items but a positive OCR total should still save',
-        () async {
-      mockCategoriesOK();
-      when(
-        () => repo.saveReceipt(
-          receipt: any(named: 'receipt'),
-          defaultCategoryId: any(named: 'defaultCategoryId'),
-        ),
-      ).thenAnswer((_) async => const Right<Failure, int>(7));
+    test(
+      'save with no items but a positive OCR total should still save',
+      () async {
+        mockCategoriesOK();
+        when(
+          () => repo.saveReceipt(
+            receipt: any(named: 'receipt'),
+            defaultCategoryId: any(named: 'defaultCategoryId'),
+          ),
+        ).thenAnswer((_) async => const Right<Failure, int>(7));
 
-      final ReceiptEditBloc b = build();
-      final List<ReceiptEditState> states = <ReceiptEditState>[];
-      final StreamSubscription<ReceiptEditState> sub =
-          b.stream.listen(states.add);
+        final ReceiptEditBloc b = build();
+        final List<ReceiptEditState> states = <ReceiptEditState>[];
+        final StreamSubscription<ReceiptEditState> sub = b.stream.listen(
+          states.add,
+        );
 
-      // baseReceipt total is 1150; dropping both items leaves the OCR total
-      // intact, so the receipt is still saveable as a single expense.
-      b.add(ReceiptEditStarted(receipt: baseReceipt()));
-      await Future<void>.delayed(Duration.zero);
-      b
-        ..add(const ReceiptItemRemoved(index: 0))
-        ..add(const ReceiptItemRemoved(index: 0));
-      await Future<void>.delayed(Duration.zero);
+        // baseReceipt total is 1150; dropping both items leaves the OCR total
+        // intact, so the receipt is still saveable as a single expense.
+        b.add(ReceiptEditStarted(receipt: baseReceipt()));
+        await Future<void>.delayed(Duration.zero);
+        b
+          ..add(const ReceiptItemRemoved(index: 0))
+          ..add(const ReceiptItemRemoved(index: 0));
+        await Future<void>.delayed(Duration.zero);
 
-      b.add(const ReceiptEditSubmitted());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+        b.add(const ReceiptEditSubmitted());
+        await Future<void>.delayed(const Duration(milliseconds: 20));
 
-      expect(states.last, isA<ReceiptEditSaved>());
+        expect(states.last, isA<ReceiptEditSaved>());
 
-      await sub.cancel();
-    });
+        await sub.cancel();
+      },
+    );
 
-    test('save with no items and a zero total surfaces nonPositiveTotal',
-        () async {
-      mockCategoriesOK();
-      final ReceiptEditBloc b = build();
-      b.add(
-        ReceiptEditStarted(
-          receipt: baseReceipt(items: const <ScannedItem>[], total: 0),
-        ),
-      );
-      await Future<void>.delayed(Duration.zero);
+    test(
+      'save with no items and a zero total surfaces nonPositiveTotal',
+      () async {
+        mockCategoriesOK();
+        final ReceiptEditBloc b = build();
+        b.add(
+          ReceiptEditStarted(
+            receipt: baseReceipt(items: const <ScannedItem>[], total: 0),
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
 
-      b.add(const ReceiptEditSubmitted());
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+        b.add(const ReceiptEditSubmitted());
+        await Future<void>.delayed(const Duration(milliseconds: 20));
 
-      final ReceiptEditReady ready = b.state as ReceiptEditReady;
-      expect(
-        ready.validationErrors,
-        contains(ReceiptEditValidationError.nonPositiveTotal),
-      );
-      verifyNever(
-        () => repo.saveReceipt(
-          receipt: any(named: 'receipt'),
-          defaultCategoryId: any(named: 'defaultCategoryId'),
-        ),
-      );
-    });
+        final ReceiptEditReady ready = b.state as ReceiptEditReady;
+        expect(
+          ready.validationErrors,
+          contains(ReceiptEditValidationError.nonPositiveTotal),
+        );
+        verifyNever(
+          () => repo.saveReceipt(
+            receipt: any(named: 'receipt'),
+            defaultCategoryId: any(named: 'defaultCategoryId'),
+          ),
+        );
+      },
+    );
 
     test('computeTotal sums positive item totals only', () {
       const List<ScannedItem> items = <ScannedItem>[

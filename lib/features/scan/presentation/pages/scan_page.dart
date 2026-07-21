@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:smartspend/app/injection_container.dart';
+import 'package:smartspend/core/error/failure_codes.dart';
 import 'package:smartspend/core/error/failures.dart';
 import 'package:smartspend/features/scan/presentation/bloc/ai_consent_cubit.dart';
 import 'package:smartspend/features/scan/presentation/bloc/scan_bloc.dart';
@@ -67,7 +68,8 @@ class _ScanView extends StatelessWidget {
               ScanSuccess() => const _ProcessingPanel(),
               ScanEditing() => const _ProcessingPanel(),
               ScanSaved() => const _SavedPanel(),
-              ScanError(failure: final Failure f) => _ErrorPanel(failure: f),
+              ScanError(failure: final Failure f, image: final File? img) =>
+                _ErrorPanel(failure: f, image: img),
             };
           },
         ),
@@ -164,9 +166,77 @@ class _IntroPanel extends StatelessWidget {
               minimumSize: const Size.fromHeight(56),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
+          const _AiConsentStatusRow(),
+          const SizedBox(height: 8),
         ],
       ),
+    );
+  }
+}
+
+/// Surfaces the third-party-AI consent state right where scanning starts,
+/// so users don't have to discover the Settings toggle to understand (or
+/// change) why cloud-enhanced results do or don't appear. Tapping re-opens
+/// the same consent dialog; Settings remains the persistent home of the
+/// choice (App Store 5.1.2(i)).
+class _AiConsentStatusRow extends StatelessWidget {
+  const _AiConsentStatusRow();
+
+  Future<void> _change(BuildContext context) async {
+    final AiConsentCubit cubit = context.read<AiConsentCubit>();
+    final bool granted = await showScanAiConsentDialog(context);
+    await cubit.decide(granted: granted);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AppLocalizations l = AppLocalizations.of(context);
+    final ThemeData theme = Theme.of(context);
+    return BlocBuilder<AiConsentCubit, AiConsentState>(
+      builder: (BuildContext context, AiConsentState state) {
+        if (state is! AiConsentReady) return const SizedBox.shrink();
+        final bool granted = state.status == AiConsentStatus.granted;
+        return InkWell(
+          onTap: () => _change(context),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 18,
+                  color: granted
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.outline,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        granted ? l.scanAiStatusOn : l.scanAiStatusOff,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        l.scanAiStatusChangeHint,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.outline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -285,9 +355,28 @@ class _SavedPanel extends StatelessWidget {
 }
 
 class _ErrorPanel extends StatelessWidget {
-  const _ErrorPanel({required this.failure});
+  const _ErrorPanel({required this.failure, this.image});
 
   final Failure failure;
+
+  /// Image the failed OCR ran on — enables the contextual "retry with AI"
+  /// re-ask when the failure was the missing-consent refusal.
+  final File? image;
+
+  bool get _canRetryWithAi =>
+      failure.code == kOcrNoAiConsentCode && image != null;
+
+  /// Second chance at the consent ask, offered exactly when its absence
+  /// blocked the user. Granting persists the choice (the repository
+  /// re-reads it) and re-runs OCR on the same image; declining just
+  /// re-records the denial and stays on the error screen.
+  Future<void> _retryWithAi(BuildContext context) async {
+    final AiConsentCubit cubit = context.read<AiConsentCubit>();
+    final ScanBloc bloc = context.read<ScanBloc>();
+    final bool granted = await showScanAiConsentDialog(context);
+    await cubit.decide(granted: granted);
+    if (granted) bloc.add(const ScanRetried());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -295,10 +384,12 @@ class _ErrorPanel extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     final ScanBloc bloc = context.read<ScanBloc>();
 
-    final String message = switch (failure) {
-      PermissionFailure() => l.scanPermissionDenied,
-      _ => l.scanGenericError,
-    };
+    final String message = _canRetryWithAi
+        ? l.scanErrorNoAiConsent
+        : switch (failure) {
+            PermissionFailure() => l.scanPermissionDenied,
+            _ => l.scanGenericError,
+          };
 
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -319,11 +410,24 @@ class _ErrorPanel extends StatelessWidget {
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: () => bloc.add(const ScanReset()),
-            icon: const Icon(Icons.refresh_rounded),
-            label: Text(l.scanErrorRetry),
-          ),
+          if (_canRetryWithAi) ...<Widget>[
+            FilledButton.icon(
+              onPressed: () => _retryWithAi(context),
+              icon: const Icon(Icons.auto_awesome_rounded),
+              label: Text(l.scanActionRetryWithAi),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => bloc.add(const ScanReset()),
+              icon: const Icon(Icons.refresh_rounded),
+              label: Text(l.scanErrorRetry),
+            ),
+          ] else
+            FilledButton.icon(
+              onPressed: () => bloc.add(const ScanReset()),
+              icon: const Icon(Icons.refresh_rounded),
+              label: Text(l.scanErrorRetry),
+            ),
         ],
       ),
     );

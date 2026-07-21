@@ -46,9 +46,9 @@ class ReceiptEditBloc extends Bloc<ReceiptEditEvent, ReceiptEditState> {
   ReceiptEditBloc({
     required ScanRepository repository,
     required SuggestCategoryForReceiptUseCase suggestCategory,
-  })  : _repository = repository,
-        _suggestCategory = suggestCategory,
-        super(const ReceiptEditInitial()) {
+  }) : _repository = repository,
+       _suggestCategory = suggestCategory,
+       super(const ReceiptEditInitial()) {
     on<ReceiptEditStarted>(_onStarted);
     on<ReceiptStoreNameChanged>(_onStoreName);
     on<ReceiptDateChanged>(_onDate);
@@ -74,14 +74,13 @@ class ReceiptEditBloc extends Bloc<ReceiptEditEvent, ReceiptEditState> {
     Emitter<ReceiptEditState> emit,
   ) async {
     emit(const ReceiptEditInitial());
-    final Either<Failure, List<Category>> result =
-        await _repository.listCategories();
+    final Either<Failure, List<Category>> result = await _repository
+        .listCategories();
     await result.fold<Future<void>>(
       (Failure f) async => emit(ReceiptEditFailure(failure: f)),
       (List<Category> cats) async {
         final ScannedReceipt seeded = _ensureAtLeastOneItem(event.receipt);
-        final int? guessed =
-            await _guessDefaultCategory(seeded, cats);
+        final int? guessed = await _guessDefaultCategory(seeded, cats);
         emit(
           ReceiptEditReady(
             receipt: seeded,
@@ -110,17 +109,18 @@ class ReceiptEditBloc extends Bloc<ReceiptEditEvent, ReceiptEditState> {
 
     final Either<Failure, CategorizationSuggestion> result =
         await _suggestCategory(
-      SuggestCategoryParams(
-        storeName: receipt.storeName,
-        itemNames: receipt.items
-            .map((ScannedItem i) => i.name)
-            .where((String n) => n.trim().isNotEmpty)
-            .toList(growable: false),
-        availableCategories: cats,
-      ),
+          SuggestCategoryParams(
+            storeName: receipt.storeName,
+            itemNames: receipt.items
+                .map((ScannedItem i) => i.name)
+                .where((String n) => n.trim().isNotEmpty)
+                .toList(growable: false),
+            availableCategories: cats,
+          ),
+        );
+    final CategorizationSuggestion suggestion = result.getOrElse(
+      () => const CategorizationSuggestion.none(),
     );
-    final CategorizationSuggestion suggestion =
-        result.getOrElse(() => const CategorizationSuggestion.none());
     if (suggestion.hasMatch) return suggestion.category!.id;
 
     // Fallback: keep the Sprint 2 default so an offline / empty-store
@@ -142,8 +142,9 @@ class ReceiptEditBloc extends Bloc<ReceiptEditEvent, ReceiptEditState> {
     Emitter<ReceiptEditState> emit,
   ) {
     _mutate(emit, (ReceiptEditReady s) {
-      final String? trimmed =
-          event.storeName.trim().isEmpty ? null : event.storeName.trim();
+      final String? trimmed = event.storeName.trim().isEmpty
+          ? null
+          : event.storeName.trim();
       return s.copyWith(receipt: s.receipt.copyWith(storeName: trimmed));
     });
   }
@@ -238,8 +239,7 @@ class ReceiptEditBloc extends Bloc<ReceiptEditEvent, ReceiptEditState> {
     final ReceiptEditState current = state;
     if (current is! ReceiptEditReady) return;
 
-    final Either<Failure, Category> result =
-        await _repository.createCategory(
+    final Either<Failure, Category> result = await _repository.createCategory(
       name: event.name,
       icon: event.icon,
       color: event.color,
@@ -311,8 +311,9 @@ class ReceiptEditBloc extends Bloc<ReceiptEditEvent, ReceiptEditState> {
     // layout, low-confidence scans). Such a receipt is still saveable — the
     // repository creates one expense from the OCR total — so Save is gated
     // on the *effective* total, not on the presence of line items.
-    final int effectiveTotal =
-        valid.isEmpty ? s.receipt.total : computeTotal(valid);
+    final int effectiveTotal = valid.isEmpty
+        ? s.receipt.total
+        : computeTotal(valid);
     if (effectiveTotal <= 0) {
       errors.add(ReceiptEditValidationError.nonPositiveTotal);
     }

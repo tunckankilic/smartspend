@@ -5,8 +5,8 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:smartspend/core/error/failure_codes.dart';
 import 'package:smartspend/core/error/failures.dart';
-import 'package:smartspend/features/scan/data/datasources/camera_data_source.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
 import 'package:smartspend/features/scan/domain/usecases/capture_image.dart';
 import 'package:smartspend/features/scan/domain/usecases/pick_image.dart';
@@ -57,8 +57,9 @@ void main() {
     blocTest<ScanBloc, ScanState>(
       'should emit [ScanProcessing, ImageReady] on capture success',
       build: () {
-        when(() => capture(any()))
-            .thenAnswer((_) async => Right<Failure, File>(image));
+        when(
+          () => capture(any()),
+        ).thenAnswer((_) async => Right<Failure, File>(image));
         return build();
       },
       act: (ScanBloc b) => b.add(const CameraOpened()),
@@ -116,8 +117,9 @@ void main() {
     blocTest<ScanBloc, ScanState>(
       'should emit [ScanProcessing, ImageReady] on gallery pick success',
       build: () {
-        when(() => pick(any()))
-            .thenAnswer((_) async => Right<Failure, File>(image));
+        when(
+          () => pick(any()),
+        ).thenAnswer((_) async => Right<Failure, File>(image));
         return build();
       },
       act: (ScanBloc b) => b.add(const GalleryOpened()),
@@ -158,7 +160,7 @@ void main() {
     );
 
     blocTest<ScanBloc, ScanState>(
-      'should emit ScanError when scanReceipt fails',
+      'should emit ScanError carrying the image when scanReceipt fails',
       build: () {
         when(() => scanReceipt(any())).thenAnswer(
           (_) async => const Left<Failure, ScannedReceipt>(
@@ -173,6 +175,78 @@ void main() {
         isA<ScanProcessing>(),
         isA<ScanError>(),
       ],
+      verify: (ScanBloc b) {
+        expect((b.state as ScanError).image?.path, image.path);
+      },
+    );
+  });
+
+  group('ScanRetried', () {
+    blocTest<ScanBloc, ScanState>(
+      'should re-run OCR on the failed image and emit ScanSuccess',
+      build: () {
+        when(() => scanReceipt(any())).thenAnswer(
+          (_) async => Right<Failure, ScannedReceipt>(
+            ScannedReceipt.pending(image.path),
+          ),
+        );
+        return build();
+      },
+      seed: () => ScanError(
+        failure: const OCRFailure(
+          message: 'no consent',
+          code: kOcrNoAiConsentCode,
+        ),
+        image: image,
+      ),
+      act: (ScanBloc b) => b.add(const ScanRetried()),
+      expect: () => <Matcher>[
+        isA<ScanProcessing>(),
+        isA<ScanSuccess>(),
+      ],
+      verify: (ScanBloc b) {
+        expect((b.state as ScanSuccess).receipt.imagePath, image.path);
+      },
+    );
+
+    blocTest<ScanBloc, ScanState>(
+      'should emit ScanError again (still holding the image) on failure',
+      build: () {
+        when(() => scanReceipt(any())).thenAnswer(
+          (_) async => const Left<Failure, ScannedReceipt>(
+            OCRFailure(message: 'engine down'),
+          ),
+        );
+        return build();
+      },
+      seed: () => ScanError(
+        failure: const OCRFailure(message: 'first failure'),
+        image: image,
+      ),
+      act: (ScanBloc b) => b.add(const ScanRetried()),
+      expect: () => <Matcher>[
+        isA<ScanProcessing>(),
+        isA<ScanError>(),
+      ],
+      verify: (ScanBloc b) {
+        expect((b.state as ScanError).image?.path, image.path);
+      },
+    );
+
+    blocTest<ScanBloc, ScanState>(
+      'should be a no-op when the error state has no image',
+      build: build,
+      seed: () => const ScanError(failure: OCRFailure(message: 'no image')),
+      act: (ScanBloc b) => b.add(const ScanRetried()),
+      expect: () => const <Matcher>[],
+    );
+
+    blocTest<ScanBloc, ScanState>(
+      'should be a no-op outside of an error state',
+      build: build,
+      seed: () => ImageReady(image: image),
+      act: (ScanBloc b) => b.add(const ScanRetried()),
+      expect: () => const <Matcher>[],
     );
   });
 

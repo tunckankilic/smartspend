@@ -46,6 +46,7 @@ class ScanBloc extends Bloc<ScanEvent, ScanState> {
     on<GalleryOpened>(_onGalleryOpened);
     on<ImageCaptured>(_onImageCaptured);
     on<ScanStarted>(_onScanStarted);
+    on<ScanRetried>(_onScanRetried);
     on<ResultEdited>(_onResultEdited);
     on<ReceiptConfirmed>(_onReceiptConfirmed);
     on<ScanReset>(_onScanReset);
@@ -106,12 +107,29 @@ class ScanBloc extends Bloc<ScanEvent, ScanState> {
       // Defensive — UI should not allow ScanStarted without an image.
       return;
     }
+    await _runOcr(current.image, emit);
+  }
+
+  /// Re-run OCR on the image the previous attempt failed on. Only valid
+  /// from a [ScanError] that kept the image; anything else is a no-op.
+  Future<void> _onScanRetried(
+    ScanRetried event,
+    Emitter<ScanState> emit,
+  ) async {
+    final ScanState current = state;
+    if (current is! ScanError) return;
+    final File? image = current.image;
+    if (image == null) return;
+    await _runOcr(image, emit);
+  }
+
+  Future<void> _runOcr(File image, Emitter<ScanState> emit) async {
     emit(const ScanProcessing());
     final Either<Failure, ScannedReceipt> result = await _scanReceipt(
-      ScanReceiptParams(image: current.image),
+      ScanReceiptParams(image: image),
     );
     result.fold(
-      (Failure f) => emit(ScanError(failure: f)),
+      (Failure f) => emit(ScanError(failure: f, image: image)),
       (ScannedReceipt receipt) => emit(ScanSuccess(receipt: receipt)),
     );
   }

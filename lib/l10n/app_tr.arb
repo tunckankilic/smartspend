@@ -93,6 +93,11 @@
   "scanAiConsentHint": "Bu tercihi istediğin zaman Ayarlar'dan değiştirebilirsin.",
   "scanAiConsentAllow": "İzin Ver",
   "scanAiConsentDeny": "İzin Verme",
+  "scanAiStatusOn": "Yapay zekâ destekli tarama: Açık",
+  "scanAiStatusOff": "Yapay zekâ destekli tarama: Kapalı",
+  "scanAiStatusChangeHint": "Değiştirmek için dokun",
+  "scanErrorNoAiConsent": "Fiş cihaz üzerinde okunamadı. Yapay zekâ destekli tarama kapalı olduğu için buluttan yardım alınamadı.",
+  "scanActionRetryWithAi": "Yapay Zekâ ile Tekrar Dene",
 
   "editTitle": "Fişi Düzenle",
   "editStoreLabel": "Mağaza adı",

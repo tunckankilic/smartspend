@@ -62,7 +62,7 @@ dependencies:
   fl_chart: ^1.1.0
 
   # Local notifications (budget alerts, recurring reminders) — Sprint 6
-  flutter_local_notifications: ^21.0.0
+  flutter_local_notifications: ^22.2.0
   timezone: ^0.11.0
 
   # System share sheet (Sprint 7: split-summary share — WhatsApp/SMS/etc.).
@@ -74,10 +74,10 @@ dependencies:
   # Scan pipeline
   image_picker: ^1.1.2
   # In-app camera preview with receipt frame overlay (wireframe 02)
-  camera: ^0.11.0
+  camera: ^0.12.0+2
   image: ^4.5.4
   # OCR (on-device, free)
-  google_mlkit_text_recognition: ^0.15.0
+  google_mlkit_text_recognition: ^0.16.0
   # OCR intelligence layer (models, parser, debug JSON, geometry
   # reconstruction) — pure Dart, private repo: it's the app's core IP while
   # this repo stays public. Local dev can point it at a clone via the
@@ -108,7 +108,7 @@ dev_dependencies:
   # Release tooling: uploads iOS dSYMs + Dart (split-debug-info) symbols to
   # Sentry so release crashes symbolicate. Run via `dart run sentry_dart_plugin`
   # in the Codemagic `release` workflow after the build.
-  sentry_dart_plugin: ^2.4.0
+  sentry_dart_plugin: ^3.4.0
 
 # sentry_dart_plugin configuration. org/project are not secrets; the auth token
 # is read from the SENTRY_AUTH_TOKEN env var in CI (never committed). The

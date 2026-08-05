@@ -18,6 +18,8 @@ import 'package:smartspend/core/database/daos/sync_log_dao.dart';
 import 'package:smartspend/core/database/daos/tag_dao.dart';
 import 'package:smartspend/core/database/daos/user_correction_dao.dart';
 import 'package:smartspend/core/database/daos/user_settings_dao.dart';
+import 'package:smartspend/core/market/market_registry.dart';
+import 'package:smartspend/core/services/feature_flag_service.dart';
 import 'package:smartspend/core/services/notification_service.dart';
 import 'package:smartspend/core/services/ocr_debug_recorder.dart';
 import 'package:smartspend/core/services/onboarding_flag_store.dart';
@@ -164,6 +166,13 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton<UserSettingsDao>(
       () => sl<AppDatabase>().userSettingsDao,
     )
+    // Feature flags — all off by default; `load()` is awaited in main.dart so
+    // reads are synchronous everywhere else.
+    ..registerLazySingleton<FeatureFlagService>(
+      () => FeatureFlagService(settingsDao: sl<UserSettingsDao>()),
+    )
+    // Market (country) profile — TR only in 2.0.0; DE/UK are new files.
+    ..registerLazySingleton<MarketRegistry>(MarketRegistry.new)
     // Local notifications — single shared plugin instance, initialised in
     // main.dart after DI wiring completes.
     ..registerLazySingleton<NotificationService>(

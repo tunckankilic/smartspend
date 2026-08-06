@@ -82,10 +82,12 @@ dependencies:
   # reconstruction) — pure Dart, private repo: it's the app's core IP while
   # this repo stays public. Local dev can point it at a clone via the
   # gitignored pubspec_overrides.yaml; CI needs read access to the repo.
+  # Pinned to a git TAG, never a moving branch: the OCR contract must not
+  # change under the app without an explicit version bump here.
   receipt_ocr:
     git:
       url: https://github.com/tunckankilic/receipt_ocr.git
-      ref: main
+      ref: v0.1.0
 
 dev_dependencies:
   flutter_test:

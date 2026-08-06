@@ -9,6 +9,7 @@ import 'package:smartspend/app/app.dart';
 import 'package:smartspend/app/bloc_observer.dart';
 import 'package:smartspend/app/injection_container.dart';
 import 'package:smartspend/core/observability/sentry_scrubber.dart';
+import 'package:smartspend/core/services/feature_flag_service.dart';
 import 'package:smartspend/core/services/notification_service.dart';
 import 'package:smartspend/core/services/recurring_expense_scheduler.dart';
 import 'package:smartspend/core/services/sync_service.dart';
@@ -49,6 +50,10 @@ Future<void> main() async {
     appRunner: () async {
       await SupabaseClientProvider.initialize();
       await configureDependencies();
+      // Feature flags before anything that can read them (router guards,
+      // widgets). Overrides live in Drift, so this must follow DI; after it
+      // every `isEnabled` call is synchronous.
+      await sl<FeatureFlagService>().load();
       // Notification plugin needs platform channels — must run after
       // `configureDependencies` so `sl<NotificationService>()` is wired,
       // and before `runApp` so any boot-time scheduler (Sprint 6) can

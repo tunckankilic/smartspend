@@ -1191,10 +1191,10 @@ packages:
   receipt_ocr:
     dependency: "direct main"
     description:
-      path: "/Users/ismailtunckankilic/Documents/GitHub/receipt_ocr"
-      relative: false
+      path: "../receipt_ocr"
+      relative: true
     source: path
-    version: "0.1.0"
+    version: "0.2.0"
   record_use:
     dependency: transitive
     description:

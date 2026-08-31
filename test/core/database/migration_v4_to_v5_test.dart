@@ -55,11 +55,19 @@ void main() {
       await db.customStatement('DROP TABLE IF EXISTS "$name";');
     }
 
+    // Strip comments line by line *before* splitting on `;`. Splitting first
+    // and then discarding chunks that start with `--` silently swallows the
+    // statement that follows the header block, because the header holds no
+    // semicolon of its own and rides along with it.
     final String snapshot =
         await File('test/core/database/schemas/v4.sql').readAsString();
-    for (final String statement in snapshot.split(';')) {
+    final String ddl = snapshot
+        .split('\n')
+        .where((String line) => !line.trimLeft().startsWith('--'))
+        .join('\n');
+    for (final String statement in ddl.split(';')) {
       final String sql = statement.trim();
-      if (sql.isEmpty || sql.startsWith('--')) continue;
+      if (sql.isEmpty) continue;
       await db.customStatement('$sql;');
     }
     await db.customStatement('PRAGMA user_version = 4;');
@@ -82,13 +90,39 @@ void main() {
     return rows.map((QueryRow r) => r.read<String>('name')).toSet();
   }
 
-  test('upgrading a v4 database creates sync_conflict_payloads', () async {
+  test('the v4 fixture replays the whole snapshot, not part of it', () async {
+    // Guards the fixture itself: an earlier version of `buildV4Database`
+    // split the file on `;` first, which made the header comment swallow the
+    // first CREATE TABLE. The migration tests still passed, because none of
+    // them happened to touch that table.
+    final String snapshot =
+        await File('test/core/database/schemas/v4.sql').readAsString();
+    final Iterable<String> declared = RegExp(
+      r'CREATE (?:TABLE|INDEX) "?(\w+)"?',
+    ).allMatches(snapshot).map((RegExpMatch m) => m.group(1)!);
+    expect(declared, contains('budget_alerts'));
+
+    await buildV4Database();
+    final AppDatabase db = AppDatabase.forTesting(NativeDatabase(dbFile));
+    addTearDown(db.close);
+    final Set<String> live = await tableNames(db);
+    final Iterable<String> tables =
+        declared.where((String n) => !n.startsWith('idx_'));
+    for (final String name in tables) {
+      expect(live, contains(name), reason: '$name missing from the fixture');
+    }
+  });
+
+  test('upgrading a v4 database creates both 1.3.0 tables', () async {
     await buildV4Database();
 
     final AppDatabase db = AppDatabase.forTesting(NativeDatabase(dbFile));
     addTearDown(db.close);
 
-    expect(await tableNames(db), contains('sync_conflict_payloads'));
+    expect(
+      await tableNames(db),
+      containsAll(<String>['sync_conflict_payloads', 'sync_deferred_rows']),
+    );
     expect(await userVersion(db), 5);
   });
 
@@ -151,19 +185,29 @@ void main() {
     expect(stored.single.remoteId, 'rcpt-remote');
   });
 
-  test('the upgrade path and a fresh install agree on the new table', () async {
-    // A migration that builds a subtly different table than `createAll` is a
-    // classic way for two users on the same version to diverge. Compare the
-    // DDL SQLite itself reports for each path.
+  test('the upgrade path and a fresh install agree on the whole schema',
+      () async {
+    // A migration that builds subtly different tables than `createAll` is a
+    // classic way for two users on the same version to diverge — and it only
+    // shows up for the half of them who upgraded. Compare every object SQLite
+    // itself reports, not just the tables this release happened to add.
+    Future<Map<String, String>> schemaOf(AppDatabase db) async {
+      final List<QueryRow> rows = await db
+          .customSelect(
+            'SELECT name, sql FROM sqlite_master '
+            "WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' "
+            'ORDER BY name;',
+          )
+          .get();
+      return <String, String>{
+        for (final QueryRow r in rows)
+          r.read<String>('name'): r.read<String>('sql'),
+      };
+    }
+
     await buildV4Database();
     final AppDatabase migrated = AppDatabase.forTesting(NativeDatabase(dbFile));
-    final String migratedDdl = (await migrated
-            .customSelect(
-              "SELECT sql FROM sqlite_master WHERE type = 'table' "
-              "AND name = 'sync_conflict_payloads';",
-            )
-            .getSingle())
-        .read<String>('sql');
+    final Map<String, String> migratedSchema = await schemaOf(migrated);
     // Closed before the second database opens: two live AppDatabase
     // instances make Drift (rightly) warn about racing executors, and a
     // noisy test log trains you to ignore the warning that matters.
@@ -171,14 +215,9 @@ void main() {
 
     final AppDatabase fresh = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(fresh.close);
-    final String freshDdl = (await fresh
-            .customSelect(
-              "SELECT sql FROM sqlite_master WHERE type = 'table' "
-              "AND name = 'sync_conflict_payloads';",
-            )
-            .getSingle())
-        .read<String>('sql');
+    final Map<String, String> freshSchema = await schemaOf(fresh);
 
-    expect(migratedDdl, freshDdl);
+    expect(migratedSchema.keys, freshSchema.keys);
+    expect(migratedSchema, freshSchema);
   });
 }

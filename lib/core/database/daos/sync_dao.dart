@@ -29,6 +29,7 @@ part 'sync_dao.g.dart';
     UserCorrections,
     UserSettings,
     SyncConflictPayloads,
+    SyncDeferredRows,
   ],
 )
 class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
@@ -330,6 +331,62 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
           ..orderBy(<OrderClauseGenerator<$SyncConflictPayloadsTable>>[
             ($SyncConflictPayloadsTable t) =>
                 OrderingTerm.desc(t.detectedAt),
+          ]))
+        .get();
+  }
+
+  // ---------------------------------------------------------------------
+  // Deferred rows (parent not here yet)
+  // ---------------------------------------------------------------------
+
+  /// Keeps a pulled row that could not be applied because [missingParentTable]
+  /// does not hold [missingParentRemoteId] on this device yet.
+  ///
+  /// Called from the pull loop rather than from a DAO apply method, because
+  /// the parent lookup fails before any `apply*FromRemote` is reached — there
+  /// is nothing for the DAO to decide about.
+  ///
+  /// Re-recording the same row replaces the earlier entry instead of stacking
+  /// a duplicate: a watermark reset (sign-out, fresh install) re-pulls the
+  /// whole history, and the same orphan would otherwise be filed again on
+  /// every full pull.
+  Future<void> recordDeferredRow({
+    required String tableName,
+    required String remoteId,
+    required Map<String, dynamic> remotePayload,
+    required DateTime remoteUpdatedAt,
+    required String missingParentTable,
+    String? missingParentRemoteId,
+    String? userId,
+  }) async {
+    await (delete(syncDeferredRows)..where(
+          ($SyncDeferredRowsTable t) =>
+              t.deferredTableName.equals(tableName) &
+              t.remoteId.equals(remoteId),
+        ))
+        .go();
+    await into(syncDeferredRows).insert(
+      SyncDeferredRowsCompanion.insert(
+        userId: Value<String?>(userId),
+        deferredTableName: tableName,
+        remoteId: remoteId,
+        remotePayload: jsonEncode(
+          remotePayload,
+          toEncodable: (Object? o) => o.toString(),
+        ),
+        remoteUpdatedAt: remoteUpdatedAt.toUtc(),
+        missingParentTable: missingParentTable,
+        missingParentRemoteId: Value<String?>(missingParentRemoteId),
+        detectedAt: DateTime.now().toUtc(),
+      ),
+    );
+  }
+
+  /// Rows still waiting on a parent, most recently detected first.
+  Future<List<SyncDeferredRow>> getDeferredRows() {
+    return (select(syncDeferredRows)
+          ..orderBy(<OrderClauseGenerator<$SyncDeferredRowsTable>>[
+            ($SyncDeferredRowsTable t) => OrderingTerm.desc(t.detectedAt),
           ]))
         .get();
   }

@@ -61,6 +61,25 @@ void main() {
       expect(await db.syncDao.getConflictPayloads(), isEmpty);
     });
 
+    test('wipes deferred remote rows', () async {
+      // Same reasoning as the quarantined payloads: a deferred row is the
+      // user's own financial data held as raw JSON.
+      await db.syncDao.recordDeferredRow(
+        tableName: 'expenses',
+        remoteId: 'exp-orphan',
+        remotePayload: <String, dynamic>{'id': 'exp-orphan', 'amount': 100},
+        remoteUpdatedAt: DateTime.utc(2026, 5),
+        missingParentTable: 'categories',
+        missingParentRemoteId: 'cat-missing',
+        userId: 'user-1',
+      );
+      expect(await db.syncDao.getDeferredRows(), isNotEmpty);
+
+      await db.clearUserData();
+
+      expect(await db.syncDao.getDeferredRows(), isEmpty);
+    });
+
     test('resets the lastSyncAt watermark so the next sign-in pulls all',
         () async {
       final DateTime now = DateTime.now().toUtc();

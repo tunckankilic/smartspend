@@ -47,6 +47,7 @@ class SyncReport extends Equatable {
     this.pulled = 0,
     this.conflicts = 0,
     this.failed = 0,
+    this.deferred = 0,
   });
 
   /// Rows successfully upserted to Supabase.
@@ -61,16 +62,22 @@ class SyncReport extends Equatable {
   /// Rows whose push failed and were left `pending_*` for the next run.
   final int failed;
 
+  /// Pulled rows held back because a parent they reference is not local yet.
+  /// Kept in `sync_deferred_rows`; retrying them is 1.4.0's job.
+  final int deferred;
+
   /// Sums two reports — used to merge the push leg into the pull leg.
   SyncReport operator +(SyncReport other) => SyncReport(
     pushed: pushed + other.pushed,
     pulled: pulled + other.pulled,
     conflicts: conflicts + other.conflicts,
     failed: failed + other.failed,
+    deferred: deferred + other.deferred,
   );
 
   @override
-  List<Object?> get props => <Object?>[pushed, pulled, conflicts, failed];
+  List<Object?> get props =>
+      <Object?>[pushed, pulled, conflicts, failed, deferred];
 }
 
 /// UI-facing snapshot of the sync engine's state. Distinct from the

@@ -437,6 +437,7 @@ class SupabaseSyncServiceImpl implements SyncService {
       final DateTime? since = await database.syncDao.getLastSyncAt();
       int pulled = 0;
       int conflicts = 0;
+      int deferred = 0;
 
       // Categories.
       for (final Map<String, dynamic> row in await remote.fetchSince(
@@ -501,7 +502,19 @@ class SupabaseSyncServiceImpl implements SyncService {
       )) {
         final int? localReceipt = await database.syncDao
             .localReceiptIdForRemote(row['receipt_id'] as String?);
-        if (localReceipt == null) continue; // Parent not present locally yet.
+        if (localReceipt == null) {
+          // The parent receipt is not here yet. Hold the row instead of
+          // dropping it: the watermark below moves past it either way, so a
+          // bare `continue` meant this device would never ask for it again.
+          deferred++;
+          await _deferRow(
+            table: 'receipt_items',
+            row: row,
+            missingParentTable: 'receipts',
+            missingParentRemoteId: row['receipt_id'] as String?,
+          );
+          continue;
+        }
         final int? localCat = await database.syncDao.localCategoryIdForRemote(
           row['category_id'] as String?,
         );
@@ -553,7 +566,16 @@ class SupabaseSyncServiceImpl implements SyncService {
         final int? localCat = await database.syncDao.localCategoryIdForRemote(
           row['category_id'] as String?,
         );
-        if (localCat == null) continue; // Category not present locally yet.
+        if (localCat == null) {
+          deferred++;
+          await _deferRow(
+            table: 'expenses',
+            row: row,
+            missingParentTable: 'categories',
+            missingParentRemoteId: row['category_id'] as String?,
+          );
+          continue;
+        }
         final int? localReceipt = await database.syncDao
             .localReceiptIdForRemote(row['receipt_id'] as String?);
         final bool written = await database.syncDao.applyExpenseFromRemote(
@@ -613,7 +635,16 @@ class SupabaseSyncServiceImpl implements SyncService {
       )) {
         final int? localNewCat = await database.syncDao
             .localCategoryIdForRemote(row['new_category_id'] as String?);
-        if (localNewCat == null) continue; // Category not present locally yet.
+        if (localNewCat == null) {
+          deferred++;
+          await _deferRow(
+            table: 'user_corrections',
+            row: row,
+            missingParentTable: 'categories',
+            missingParentRemoteId: row['new_category_id'] as String?,
+          );
+          continue;
+        }
         final int? localOldCat = await database.syncDao
             .localCategoryIdForRemote(row['old_category_id'] as String?);
         final bool written = await database.syncDao
@@ -638,7 +669,7 @@ class SupabaseSyncServiceImpl implements SyncService {
 
       await database.syncDao.setLastSyncAt(DateTime.now().toUtc());
       return Right<Failure, SyncReport>(
-        SyncReport(pulled: pulled, conflicts: conflicts),
+        SyncReport(pulled: pulled, conflicts: conflicts, deferred: deferred),
       );
     } on Object catch (e, st) {
       return Left<Failure, SyncReport>(SupabaseErrorMapper.map(e, st));
@@ -656,6 +687,36 @@ class SupabaseSyncServiceImpl implements SyncService {
       operation: SyncOperation.update,
       success: false,
       errorMessage: error.toString(),
+    );
+  }
+
+  /// Holds a pulled row whose parent has not reached this device yet.
+  ///
+  /// The parent lookup fails before any `apply*FromRemote` runs, so unlike a
+  /// conflict there is no DAO decision point to hang this on — the pull loop
+  /// has to record it itself. Both the row and the identity of the parent it
+  /// is waiting for are kept, so 1.4.0 can replay it once the parent lands.
+  Future<void> _deferRow({
+    required String table,
+    required Map<String, dynamic> row,
+    required String missingParentTable,
+    String? missingParentRemoteId,
+  }) async {
+    final String recordId = row['id'] as String;
+    await database.syncDao.recordDeferredRow(
+      tableName: table,
+      remoteId: recordId,
+      remotePayload: row,
+      remoteUpdatedAt: DateTime.parse(row['updated_at'] as String),
+      missingParentTable: missingParentTable,
+      missingParentRemoteId: missingParentRemoteId,
+      userId: row['user_id'] as String?,
+    );
+    await database.syncLogDao.log(
+      tableName: table,
+      recordId: recordId,
+      operation: SyncOperation.deferredMissingParent,
+      success: true,
     );
   }
 

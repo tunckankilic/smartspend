@@ -40,6 +40,7 @@ part 'app_database.g.dart';
     SyncLog,
     UserCorrections,
     SyncConflictPayloads,
+    SyncDeferredRows,
   ],
   daos: <Type>[
     ReceiptDao,
@@ -70,11 +71,13 @@ class AppDatabase extends _$AppDatabase {
   ///   v4 — Sprint 9 adds covering indexes on the list-screen hot paths:
   ///        `expenses.date`, `expenses.category_id`, and `receipts.date`.
   ///        No data change; pure read-performance migration.
-  ///   v5 — 1.3.0 adds `sync_conflict_payloads`, the quarantine for remote
-  ///        rows that last-write-wins discards. Until now the losing version
-  ///        was dropped on the floor and only its existence was recorded in
-  ///        `sync_log`; a two-device user could lose an edit with no trace.
-  ///        Additive table only, so v4 data upgrades untouched.
+  ///   v5 — 1.3.0 adds the two tables that stop `pull()` from dropping
+  ///        remote rows on the floor. `sync_conflict_payloads` keeps the
+  ///        version last-write-wins discards; `sync_deferred_rows` keeps the
+  ///        ones skipped because a parent had not arrived, which the pull
+  ///        loop used to `continue` past before advancing the watermark past
+  ///        them for good. Additive tables only, so v4 data upgrades
+  ///        untouched.
   ///
   /// Every published version (1.0.0 through 1.2.1) ships schema v4 — the
   /// v1→v4 steps all landed pre-release — so `from == 4` is the only upgrade
@@ -120,6 +123,7 @@ class AppDatabase extends _$AppDatabase {
           // cannot corrupt user data.
           if (from < 5) {
             await m.createTable(syncConflictPayloads);
+            await m.createTable(syncDeferredRows);
           }
         },
       );
@@ -140,9 +144,11 @@ class AppDatabase extends _$AppDatabase {
       await delete(receipts).go();
       await delete(tags).go();
       await delete(syncLog).go();
-      // Quarantined conflict payloads hold the user's own financial rows as
-      // raw JSON, so they leave with the rest of the account's data.
+      // Quarantined conflict payloads and deferred rows hold the user's own
+      // financial rows as raw JSON, so they leave with the rest of the
+      // account's data.
       await delete(syncConflictPayloads).go();
+      await delete(syncDeferredRows).go();
       // Reset the pull watermark so the next sign-in performs a full pull.
       // lastSyncAt lives in userSettings, not the data tables wiped above; if
       // it survived, the next session's incremental pull

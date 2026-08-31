@@ -680,7 +680,118 @@ void main() {
       );
     });
 
-    test('should skip an expense whose category is absent locally', () async {
+    test('should defer, not drop, an expense whose category is absent locally',
+        () async {
+      // The row is not applied — its category is not here, so there is no
+      // valid local FK to write. But `pull()` advances `last_sync_at` to now
+      // regardless, and the next `fetchSince` asks for `updated_at > now`, so
+      // a bare skip meant this device never asked for the row again. It stayed
+      // safe on the server and invisible on the phone. Now it is held.
+      when(() => remote.fetchSince('categories', any()))
+          .thenAnswer((_) async => <Map<String, dynamic>>[]);
+      when(() => remote.fetchSince('expenses', any())).thenAnswer(
+        (_) async => <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'exp-orphan',
+            'amount': 100,
+            'category_id': 'cat-missing',
+            'receipt_id': null,
+            'note': 'oglen yemegi',
+            'date': nowIso(),
+            'is_manual': true,
+            'is_recurring': false,
+            'recurring_period': null,
+            'created_at': nowIso(),
+            'updated_at': nowIso(),
+            'user_id': 'user-1',
+          },
+        ],
+      );
+
+      final SyncReport report = (await service.pull())
+          .getOrElse(() => throw StateError('expected Right'));
+
+      expect(report.pulled, 0);
+      expect(report.deferred, 1);
+      expect(await db.syncDao.findExpenseByRemoteId('exp-orphan'), isNull);
+
+      final List<SyncDeferredRow> held = await db.syncDao.getDeferredRows();
+      expect(held, hasLength(1));
+      expect(held.single.deferredTableName, 'expenses');
+      expect(held.single.remoteId, 'exp-orphan');
+      expect(held.single.userId, 'user-1');
+      // What it is waiting for, so 1.4.0 knows when to retry.
+      expect(held.single.missingParentTable, 'categories');
+      expect(held.single.missingParentRemoteId, 'cat-missing');
+
+      final Map<String, dynamic> payload =
+          jsonDecode(held.single.remotePayload) as Map<String, dynamic>;
+      expect(payload['amount'], 100);
+      expect(payload['note'], 'oglen yemegi');
+      expect(payload['category_id'], 'cat-missing');
+    });
+
+    test('should defer a receipt item whose receipt is absent locally',
+        () async {
+      when(() => remote.fetchSince('receipts', any()))
+          .thenAnswer((_) async => <Map<String, dynamic>>[]);
+      when(() => remote.fetchSince('receipt_items', any())).thenAnswer(
+        (_) async => <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'item-orphan',
+            'receipt_id': 'rcpt-missing',
+            'name': 'Ekmek',
+            'quantity': 1,
+            'unit_price': 500,
+            'total_price': 500,
+            'category_id': null,
+            'updated_at': nowIso(),
+            'user_id': 'user-1',
+          },
+        ],
+      );
+
+      final SyncReport report = (await service.pull())
+          .getOrElse(() => throw StateError('expected Right'));
+
+      expect(report.deferred, 1);
+      final List<SyncDeferredRow> held = await db.syncDao.getDeferredRows();
+      expect(held.single.deferredTableName, 'receipt_items');
+      expect(held.single.missingParentTable, 'receipts');
+      expect(held.single.missingParentRemoteId, 'rcpt-missing');
+    });
+
+    test('should defer a user correction whose category is absent locally',
+        () async {
+      when(() => remote.fetchSince('categories', any()))
+          .thenAnswer((_) async => <Map<String, dynamic>>[]);
+      when(() => remote.fetchSince('user_corrections', any())).thenAnswer(
+        (_) async => <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'corr-orphan',
+            'store_name': 'Migros',
+            'old_category_id': null,
+            'new_category_id': 'cat-missing',
+            'count': 3,
+            'occurred_at': nowIso(),
+            'updated_at': nowIso(),
+            'user_id': 'user-1',
+          },
+        ],
+      );
+
+      final SyncReport report = (await service.pull())
+          .getOrElse(() => throw StateError('expected Right'));
+
+      expect(report.deferred, 1);
+      final List<SyncDeferredRow> held = await db.syncDao.getDeferredRows();
+      expect(held.single.deferredTableName, 'user_corrections');
+      expect(held.single.missingParentTable, 'categories');
+      expect(held.single.missingParentRemoteId, 'cat-missing');
+    });
+
+    test('a deferred row is written to sync_log too, so it is visible',
+        () async {
       when(() => remote.fetchSince('categories', any()))
           .thenAnswer((_) async => <Map<String, dynamic>>[]);
       when(() => remote.fetchSince('expenses', any())).thenAnswer(
@@ -702,11 +813,49 @@ void main() {
         ],
       );
 
-      final SyncReport report = (await service.pull())
-          .getOrElse(() => throw StateError('expected Right'));
+      await service.pull();
 
-      expect(report.pulled, 0);
-      expect(await db.syncDao.findExpenseByRemoteId('exp-orphan'), isNull);
+      final List<SyncLogData> entries = await db.syncLogDao.recent();
+      expect(
+        entries.where(
+          (SyncLogData e) =>
+              e.operation == SyncOperation.deferredMissingParent &&
+              e.recordId == 'exp-orphan',
+        ),
+        hasLength(1),
+      );
+    });
+
+    test('re-pulling the same orphan replaces it instead of piling up',
+        () async {
+      // A watermark reset (sign-out, fresh install) re-pulls the whole
+      // history. The same orphan must not accumulate a row per full pull.
+      when(() => remote.fetchSince('categories', any()))
+          .thenAnswer((_) async => <Map<String, dynamic>>[]);
+      when(() => remote.fetchSince('expenses', any())).thenAnswer(
+        (_) async => <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 'exp-orphan',
+            'amount': 100,
+            'category_id': 'cat-missing',
+            'receipt_id': null,
+            'note': null,
+            'date': nowIso(),
+            'is_manual': true,
+            'is_recurring': false,
+            'recurring_period': null,
+            'created_at': nowIso(),
+            'updated_at': nowIso(),
+            'user_id': 'user-1',
+          },
+        ],
+      );
+
+      await service.pull();
+      await service.pull();
+      await service.pull();
+
+      expect(await db.syncDao.getDeferredRows(), hasLength(1));
     });
   });
 

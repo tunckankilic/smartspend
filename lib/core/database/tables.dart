@@ -15,7 +15,8 @@ import 'package:smartspend/core/database/sync_status.dart';
 //   user's locale.
 // * Every syncable table carries: `remoteId`, `userId`, `syncStatus`,
 //   `updatedAt`. Local-only tables (`UserSettings`, `SyncLog`,
-//   `SyncConflictPayloads`) skip the sync columns by design.
+//   `SyncConflictPayloads`, `SyncDeferredRows`) skip the sync columns by
+//   design.
 // * Drift's code generator inspects this file via `app_database.dart`'s
 //   `@DriftDatabase` annotation. Keep ordering stable to minimize diff churn
 //   in generated code.
@@ -239,5 +240,55 @@ class SyncConflictPayloads extends Table {
   DateTimeColumn get remoteUpdatedAt => dateTime()();
 
   /// When this device noticed the conflict (UTC).
+  DateTimeColumn get detectedAt => dateTime()();
+}
+
+/// Remote rows this device pulled but could not apply yet, because a parent
+/// row they reference is not here.
+///
+/// Distinct from [SyncConflictPayloads] on purpose. A conflict is two devices
+/// disagreeing about the same row, and a human eventually has to pick. This
+/// is not a disagreement: the row is perfectly good, it simply arrived before
+/// its parent. Filing the two together would put rows in 1.4.0's resolution
+/// screen that the user cannot resolve — the only fix is for the parent to
+/// show up.
+///
+/// Why it has to be recorded at all: `pull()` used to `continue` past these,
+/// and then advanced `last_sync_at` to now. The next `fetchSince` asks for
+/// `updated_at > now`, so the skipped row was never offered again unless
+/// something touched it remotely. It is still safe on the server, but this
+/// device had stopped asking for it. That is a quieter loss than the conflict
+/// one — a conflict at least leaves the newer local row in place, while an
+/// orphan leaves nothing.
+///
+/// 1.3.0 only records them. Replaying a deferred row once its parent lands is
+/// 1.4.0's job, which is why [missingParentTable] and
+/// [missingParentRemoteId] are stored: the retry needs to know what it is
+/// waiting for.
+///
+/// Local-only, no sync columns. Same `table_name` naming dance as [SyncLog].
+class SyncDeferredRows extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get userId => text().nullable()();
+  TextColumn get deferredTableName => text().named('table_name')();
+
+  /// The unapplied row's Supabase UUID.
+  TextColumn get remoteId => text()();
+
+  /// The row as raw JSON, exactly as `fetchSince` returned it.
+  TextColumn get remotePayload => text()();
+
+  /// `updated_at` of the row we could not apply.
+  DateTimeColumn get remoteUpdatedAt => dateTime()();
+
+  /// Which table the missing parent lives in (`receipts`, `categories`).
+  TextColumn get missingParentTable => text()();
+
+  /// The missing parent's remote UUID. Null when the payload carried no
+  /// parent reference at all, which should not happen for a NOT NULL remote
+  /// column but is recorded rather than assumed away.
+  TextColumn get missingParentRemoteId => text().nullable()();
+
+  /// When this device noticed (UTC).
   DateTimeColumn get detectedAt => dateTime()();
 }

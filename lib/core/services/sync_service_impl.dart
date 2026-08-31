@@ -18,6 +18,12 @@ import 'package:smartspend/core/supabase/supabase_error_mapper.dart';
 /// `updated_at`. Per-row push failures are isolated: they are logged to
 /// `sync_log` and the row stays `pending_*` for the next run rather than
 /// aborting the whole batch.
+///
+/// Last-write-wins still picks a winner, but as of 1.3.0 it no longer throws
+/// the loser away: each discarded remote row is quarantined verbatim in
+/// `sync_conflict_payloads` (see [SyncDao.recordConflictPayload]). Which is
+/// why every `apply*FromRemote` call below hands the raw `row` down — the
+/// unmapped wire JSON is what 1.4.0's resolution screen will replay.
 class SupabaseSyncServiceImpl implements SyncService {
   SupabaseSyncServiceImpl({
     required this.database,
@@ -439,6 +445,7 @@ class SupabaseSyncServiceImpl implements SyncService {
       )) {
         final bool written = await database.syncDao.applyCategoryFromRemote(
           remoteId: row['id'] as String,
+          remotePayload: row,
           name: row['name'] as String,
           icon: row['icon'] as String,
           color: (row['color'] as num).toInt(),
@@ -463,6 +470,7 @@ class SupabaseSyncServiceImpl implements SyncService {
         final Object? warranty = row['warranty_end_date'];
         final bool written = await database.syncDao.applyReceiptFromRemote(
           remoteId: row['id'] as String,
+          remotePayload: row,
           date: _parseRemoteDate(row['date'] as String),
           total: (row['total'] as num).toInt(),
           currency: row['currency'] as String,
@@ -499,6 +507,7 @@ class SupabaseSyncServiceImpl implements SyncService {
         );
         final bool written = await database.syncDao.applyReceiptItemFromRemote(
           remoteId: row['id'] as String,
+          remotePayload: row,
           receiptId: localReceipt,
           name: row['name'] as String,
           quantity: (row['quantity'] as num).toDouble(),
@@ -523,6 +532,7 @@ class SupabaseSyncServiceImpl implements SyncService {
       )) {
         final bool written = await database.syncDao.applyTagFromRemote(
           remoteId: row['id'] as String,
+          remotePayload: row,
           name: row['name'] as String,
           updatedAt: DateTime.parse(row['updated_at'] as String),
           userId: row['user_id'] as String?,
@@ -548,6 +558,7 @@ class SupabaseSyncServiceImpl implements SyncService {
             .localReceiptIdForRemote(row['receipt_id'] as String?);
         final bool written = await database.syncDao.applyExpenseFromRemote(
           remoteId: row['id'] as String,
+          remotePayload: row,
           amount: (row['amount'] as num).toInt(),
           categoryId: localCat,
           date: DateTime.parse(row['date'] as String),
@@ -578,6 +589,7 @@ class SupabaseSyncServiceImpl implements SyncService {
         );
         final bool written = await database.syncDao.applyBudgetFromRemote(
           remoteId: row['id'] as String,
+          remotePayload: row,
           amount: (row['amount'] as num).toInt(),
           period: row['period'] as String,
           startDate: _parseRemoteDate(row['start_date'] as String),
@@ -607,6 +619,7 @@ class SupabaseSyncServiceImpl implements SyncService {
         final bool written = await database.syncDao
             .applyUserCorrectionFromRemote(
               remoteId: row['id'] as String,
+              remotePayload: row,
               storeName: row['store_name'] as String,
               newCategoryId: localNewCat,
               count: (row['count'] as num).toInt(),
@@ -646,6 +659,9 @@ class SupabaseSyncServiceImpl implements SyncService {
     );
   }
 
+  /// Records *that* a conflict happened. *What* was discarded is written by
+  /// the DAO itself, at the point of the decision — see
+  /// [SyncDao.recordConflictPayload].
   Future<void> _logConflict(String table, String recordId) {
     return database.syncLogDao.log(
       tableName: table,

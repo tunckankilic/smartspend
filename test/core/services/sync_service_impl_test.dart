@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dartz/dartz.dart';
@@ -441,6 +442,7 @@ void main() {
   group('push — deletes', () {
     Future<void> seedSyncedReceipt() => db.syncDao.applyReceiptFromRemote(
           remoteId: 'rcpt-r',
+          remotePayload: <String, dynamic>{'id': 'rcpt-r'},
           date: DateTime.utc(2026, 5, 1),
           total: 100,
           currency: 'TRY',
@@ -605,6 +607,7 @@ void main() {
       // is older, so last-write-wins keeps local and logs a conflict.
       await db.syncDao.applyCategoryFromRemote(
         remoteId: 'cat-r',
+        remotePayload: <String, dynamic>{'id': 'cat-r'},
         name: 'Local',
         icon: 'star',
         color: 1,
@@ -621,6 +624,59 @@ void main() {
       expect(
         (await db.syncDao.findCategoryByRemoteId('cat-r'))!.name,
         'Local',
+      );
+    });
+
+    test('should keep the remote version it discarded — two devices, one user',
+        () async {
+      // The scenario 1.3.0 exists for. Phone edits a category at a moment the
+      // tablet has not seen; the tablet's older edit arrives on the next pull
+      // and loses. Before this release the tablet's version was gone at that
+      // instant, with `sync_log` recording only that *something* had been
+      // discarded. Now the losing row survives in full, so 1.4.0 can show it
+      // to the user and offer to replay it.
+      await db.syncDao.applyCategoryFromRemote(
+        remoteId: 'cat-r',
+        remotePayload: <String, dynamic>{'id': 'cat-r'},
+        name: 'Phone edit',
+        icon: 'star',
+        color: 1,
+        isCustom: true,
+        sortOrder: 1,
+        updatedAt: DateTime.utc(2999),
+        userId: 'user-1',
+      );
+
+      final SyncReport report = (await service.pull())
+          .getOrElse(() => throw StateError('expected Right'));
+      expect(report.conflicts, greaterThanOrEqualTo(1));
+
+      final List<SyncConflictPayload> quarantined =
+          await db.syncDao.getConflictPayloads();
+      expect(quarantined, hasLength(1));
+
+      final SyncConflictPayload row = quarantined.single;
+      expect(row.conflictTableName, 'categories');
+      expect(row.remoteId, 'cat-r');
+      expect(row.userId, 'user-1');
+      expect(row.localUpdatedAt.toUtc(), DateTime.utc(2999));
+      expect(row.remoteUpdatedAt.isBefore(row.localUpdatedAt), isTrue);
+
+      // The discarded row is recoverable field by field, not just countable.
+      final Map<String, dynamic> lost =
+          jsonDecode(row.remotePayload) as Map<String, dynamic>;
+      expect(lost['id'], 'cat-r');
+      expect(lost['name'], 'Seyahat');
+      expect(lost['icon'], 'flight');
+      expect(lost['color'], 0xFF112233);
+      expect(lost['sort_order'], 50);
+      expect(lost['is_custom'], isTrue);
+
+      // And the winner is still the winner — this release stops the loss, it
+      // does not resolve the conflict.
+      expect(
+        (await db.syncDao.findCategoryByRemoteId('cat-r'))!.name,
+        'Phone edit',
       );
     });
 

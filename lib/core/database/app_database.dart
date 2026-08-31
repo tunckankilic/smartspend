@@ -39,6 +39,7 @@ part 'app_database.g.dart';
     UserSettings,
     SyncLog,
     UserCorrections,
+    SyncConflictPayloads,
   ],
   daos: <Type>[
     ReceiptDao,
@@ -69,8 +70,18 @@ class AppDatabase extends _$AppDatabase {
   ///   v4 — Sprint 9 adds covering indexes on the list-screen hot paths:
   ///        `expenses.date`, `expenses.category_id`, and `receipts.date`.
   ///        No data change; pure read-performance migration.
+  ///   v5 — 1.3.0 adds `sync_conflict_payloads`, the quarantine for remote
+  ///        rows that last-write-wins discards. Until now the losing version
+  ///        was dropped on the floor and only its existence was recorded in
+  ///        `sync_log`; a two-device user could lose an edit with no trace.
+  ///        Additive table only, so v4 data upgrades untouched.
+  ///
+  /// Every published version (1.0.0 through 1.2.1) ships schema v4 — the
+  /// v1→v4 steps all landed pre-release — so `from == 4` is the only upgrade
+  /// path a real device can take into 1.3.0. `migration_v4_to_v5_test.dart`
+  /// exercises it against a snapshot of the real v4 schema.
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   /// Store `DateTime` columns as ISO-8601 text so timezone information
   /// survives a write/read round-trip. CLAUDE.md mandates UTC storage; the
@@ -104,6 +115,12 @@ class AppDatabase extends _$AppDatabase {
             await m.create(idxExpensesCategory);
             await m.create(idxReceiptsDate);
           }
+          // v4 → v5: add sync_conflict_payloads (1.3.0). Purely additive —
+          // no existing row is read or rewritten, so an interrupted upgrade
+          // cannot corrupt user data.
+          if (from < 5) {
+            await m.createTable(syncConflictPayloads);
+          }
         },
       );
 
@@ -123,6 +140,9 @@ class AppDatabase extends _$AppDatabase {
       await delete(receipts).go();
       await delete(tags).go();
       await delete(syncLog).go();
+      // Quarantined conflict payloads hold the user's own financial rows as
+      // raw JSON, so they leave with the rest of the account's data.
+      await delete(syncConflictPayloads).go();
       // Reset the pull watermark so the next sign-in performs a full pull.
       // lastSyncAt lives in userSettings, not the data tables wiped above; if
       // it survived, the next session's incremental pull

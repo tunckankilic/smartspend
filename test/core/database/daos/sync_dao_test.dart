@@ -47,6 +47,7 @@ void main() {
     }) {
       return db.syncDao.applyCategoryFromRemote(
         remoteId: remoteId,
+        remotePayload: <String, dynamic>{'id': remoteId},
         name: name,
         icon: 'flight',
         color: 1,
@@ -115,6 +116,7 @@ void main() {
     Future<bool> apply({DateTime? updatedAt, int total = 5000}) {
       return db.syncDao.applyReceiptFromRemote(
         remoteId: 'rcpt-remote',
+        remotePayload: <String, dynamic>{'id': 'rcpt-remote'},
         date: base,
         total: total,
         currency: 'TRY',
@@ -172,6 +174,7 @@ void main() {
     Future<bool> apply({DateTime? updatedAt, int amount = 2500}) {
       return db.syncDao.applyExpenseFromRemote(
         remoteId: 'exp-remote',
+        remotePayload: <String, dynamic>{'id': 'exp-remote'},
         amount: amount,
         categoryId: categoryId,
         date: base,
@@ -208,6 +211,7 @@ void main() {
     Future<bool> apply({DateTime? updatedAt, int amount = 100000}) {
       return db.syncDao.applyBudgetFromRemote(
         remoteId: 'bud-remote',
+        remotePayload: <String, dynamic>{'id': 'bud-remote'},
         amount: amount,
         period: 'monthly',
         startDate: base,
@@ -245,6 +249,7 @@ void main() {
     test('applyReceiptItemFromRemote should insert and update', () async {
       await db.syncDao.applyReceiptFromRemote(
         remoteId: 'rcpt-x',
+        remotePayload: <String, dynamic>{'id': 'rcpt-x'},
         date: base,
         total: 5000,
         currency: 'TRY',
@@ -257,6 +262,7 @@ void main() {
       Future<bool> apply({DateTime? updatedAt, int totalPrice = 1000}) {
         return db.syncDao.applyReceiptItemFromRemote(
           remoteId: 'item-1',
+          remotePayload: <String, dynamic>{'id': 'item-1'},
           receiptId: receiptId,
           name: 'Milk',
           quantity: 2,
@@ -284,6 +290,7 @@ void main() {
     test('getPendingReceiptItems should return only pending rows', () async {
       await db.syncDao.applyReceiptFromRemote(
         remoteId: 'rcpt-y',
+        remotePayload: <String, dynamic>{'id': 'rcpt-y'},
         date: base,
         total: 100,
         currency: 'TRY',
@@ -312,6 +319,7 @@ void main() {
       expect(
         await db.syncDao.applyTagFromRemote(
           remoteId: 'tag-1',
+          remotePayload: <String, dynamic>{'id': 'tag-1'},
           name: 'work',
           updatedAt: base,
         ),
@@ -337,6 +345,7 @@ void main() {
       Future<bool> apply({DateTime? updatedAt, int count = 1}) {
         return db.syncDao.applyUserCorrectionFromRemote(
           remoteId: 'corr-1',
+          remotePayload: <String, dynamic>{'id': 'corr-1'},
           storeName: 'Migros',
           newCategoryId: categoryId,
           count: count,

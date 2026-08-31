@@ -14,8 +14,8 @@ import 'package:smartspend/core/database/sync_status.dart';
 // * Timestamps are stored as UTC `DateTime`; display layer converts to the
 //   user's locale.
 // * Every syncable table carries: `remoteId`, `userId`, `syncStatus`,
-//   `updatedAt`. Local-only tables (`UserSettings`, `SyncLog`) skip the sync
-//   columns by design.
+//   `updatedAt`. Local-only tables (`UserSettings`, `SyncLog`,
+//   `SyncConflictPayloads`) skip the sync columns by design.
 // * Drift's code generator inspects this file via `app_database.dart`'s
 //   `@DriftDatabase` annotation. Keep ordering stable to minimize diff churn
 //   in generated code.
@@ -195,4 +195,49 @@ class SyncLog extends Table {
   DateTimeColumn get attemptedAt => dateTime()();
   BoolColumn get success => boolean()();
   TextColumn get errorMessage => text().nullable()();
+}
+
+/// Quarantine for the remote version that last-write-wins threw away.
+///
+/// When a pulled row is not newer than the local copy, every
+/// `SyncDao.apply*FromRemote` keeps local and returns `false`. Before 1.3.0
+/// that decision was silent in the worst way: `sync_log` recorded *that* a
+/// conflict happened, but the losing data itself was never written anywhere.
+/// One user with two devices could lose an edit made on the other device and
+/// have no way to see it, let alone get it back.
+///
+/// This table is the receipt for that decision. It keeps the remote row
+/// exactly as it arrived ([remotePayload], raw JSON) together with both
+/// sides' `updated_at`, so 1.4.0's conflict screen can show what was
+/// discarded and offer to replay it. 1.3.0 only stops the loss — it does not
+/// resolve anything.
+///
+/// Local-only and never pushed: this is forensic state about *this device's*
+/// sync decisions, so it deliberately carries no sync columns. It does carry
+/// [userId], because the payload holds the user's own financial data and has
+/// to be wiped on sign-out with everything else (`AppDatabase.clearUserData`).
+///
+/// Like [SyncLog], the SQL column is `table_name` while the Dart getter is
+/// `conflictTableName`: Drift's [Table] base class already defines
+/// `tableName` and redeclaring it fails to compile.
+class SyncConflictPayloads extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get userId => text().nullable()();
+  TextColumn get conflictTableName => text().named('table_name')();
+
+  /// The losing row's Supabase UUID.
+  TextColumn get remoteId => text()();
+
+  /// The remote row as raw JSON, exactly as `fetchSince` returned it —
+  /// unmapped, so foreign keys are still remote UUIDs rather than local ids.
+  TextColumn get remotePayload => text()();
+
+  /// `updated_at` of the local row that won.
+  DateTimeColumn get localUpdatedAt => dateTime()();
+
+  /// `updated_at` of the remote row that lost.
+  DateTimeColumn get remoteUpdatedAt => dateTime()();
+
+  /// When this device noticed the conflict (UTC).
+  DateTimeColumn get detectedAt => dateTime()();
 }

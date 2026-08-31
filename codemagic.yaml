@@ -76,7 +76,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
-      flutter: 3.44.0
+      # Keep in lockstep with .fvmrc — `toolchain_pin_test.dart` fails the
+      # suite when they drift. The test suite is measured on this version.
+      flutter: 3.44.8
       xcode: latest
       groups:
         - supabase   # SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_ACCESS_TOKEN,
@@ -139,7 +141,8 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 90
     environment:
-      flutter: 3.44.0
+      # Keep in lockstep with .fvmrc — see the note in `pr-check`.
+      flutter: 3.44.8
       xcode: latest
       groups:
         - supabase

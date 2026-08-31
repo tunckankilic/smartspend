@@ -50,6 +50,22 @@ chore(supabase): add receipts table migration
 docs(readme): add architecture diagram
 ```
 
+## Toolchain
+
+The Flutter version is pinned in **`.fvmrc`** and that pin is the only one —
+`codemagic.yaml` must request the same version, and
+`test/repo/toolchain_pin_test.dart` fails the suite if they ever drift apart or
+if you are running a different Dart SDK locally.
+
+```bash
+fvm use                         # if you use fvm: installs and selects the pin
+flutter --version               # otherwise: confirm it matches .fvmrc
+```
+
+Bumping Flutter is a three-file change: `.fvmrc`, the `expectedDartSdk`
+constant in `test/repo/toolchain_pin_test.dart`, and both `flutter:` keys in
+`codemagic.yaml`.
+
 ## Setup & codegen
 
 Generated files (`*.g.dart`, `lib/l10n/generated/`) are **not committed** — run

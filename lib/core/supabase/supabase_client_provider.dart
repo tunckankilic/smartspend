@@ -36,7 +36,11 @@ class SupabaseClientProvider {
 
     await Supabase.initialize(
       url: _supabaseUrl,
-      anonKey: _supabaseAnonKey,
+      // `publishableKey` supersedes the deprecated `anonKey`; the SDK folds
+      // them into one value (`publishableKey ?? anonKey`), so a legacy anon
+      // JWT is still what belongs here. The dart-define stays
+      // SUPABASE_ANON_KEY — renaming it would only break the CI env groups.
+      publishableKey: _supabaseAnonKey,
       authOptions: const FlutterAuthClientOptions(
         authFlowType: AuthFlowType.pkce,
       ),

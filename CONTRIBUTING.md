@@ -50,6 +50,22 @@ chore(supabase): add receipts table migration
 docs(readme): add architecture diagram
 ```
 
+## Toolchain
+
+The Flutter version is pinned in **`.fvmrc`** and that pin is the only one —
+`codemagic.yaml` must request the same version, and
+`test/repo/toolchain_pin_test.dart` fails the suite if they ever drift apart or
+if you are running a different Dart SDK locally.
+
+```bash
+fvm use                         # if you use fvm: installs and selects the pin
+flutter --version               # otherwise: confirm it matches .fvmrc
+```
+
+Bumping Flutter is a three-file change: `.fvmrc`, the `expectedDartSdk`
+constant in `test/repo/toolchain_pin_test.dart`, and both `flutter:` keys in
+`codemagic.yaml`.
+
 ## Setup & codegen
 
 Generated files (`*.g.dart`, `lib/l10n/generated/`) are **not committed** — run
@@ -79,6 +95,51 @@ deno test --allow-env supabase/functions/__tests__/   # Edge Function tests
 Use `mocktail` for mocking (not `mockito`) and `bloc_test` for BLoCs. Test
 descriptions are in English and start with "should …". Target ≥ 80% line
 coverage (current baseline: 79.3%, generated sources excluded).
+
+## Feature flags
+
+Work that is not shipping in the current release lives behind a
+`FeatureFlag`, and **every flag has a death date**. `shipsIn`, `removeBy` and
+`owner` are required constructor arguments, so a flag cannot be added without
+one, and `test/core/services/feature_flag_lifecycle_test.dart` fails the build
+when a flag outlives its `removeBy` — or when a flag whose release already
+shipped is still referenced nowhere in `lib/`.
+
+When that gate fires, the fix is to delete the flag and inline the branch it
+guarded. Pushing `removeBy` out is a decision worth making on purpose, in its
+own commit, with a reason.
+
+## Releasing
+
+`pubspec.yaml` is the **only** place the version is written. iOS reads it
+through `$(FLUTTER_BUILD_NAME)` / `$(FLUTTER_BUILD_NUMBER)`, Android through
+`flutter.versionName` / `flutter.versionCode`, and
+`test/repo/version_pin_test.dart` fails the suite if either platform starts
+keeping its own copy.
+
+One tag per release, in `vX.Y.Z` form:
+
+```bash
+git tag v1.3.0 <commit-that-shipped>     # annotated is fine too
+git push origin v1.3.0
+```
+
+The tag has to point at a commit whose `pubspec.yaml` says the same version —
+the `release` workflow refuses to build when they disagree, rather than
+shipping a build labelled with a version the source tree never carried.
+
+Order of operations:
+
+1. Bump `pubspec.yaml` in a PR and merge it.
+2. Merging to `main` builds a signed IPA and uploads it to TestFlight
+   automatically. App Store submission stays manual.
+3. Once the release is submitted, tag that commit and push the tag.
+
+Two things to know: pushing the tag triggers one **extra** TestFlight build
+(with a fresh build number — harmless, App Store Connect only rejects
+duplicates), and a published tag is never moved or deleted, since it is the
+record of what shipped. Releases before 1.2.1 predate this rule and carry no
+tags.
 
 ## PR checklist
 

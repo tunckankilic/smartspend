@@ -150,7 +150,7 @@ void main() {
 
   test('should throw RateLimitException on HTTP 429', () async {
     when(() => functions.invoke(any(), body: any(named: 'body'))).thenAnswer(
-      (_) async => FunctionResponse(
+      (_) async => const FunctionResponse(
         data: <String, Object?>{
           'data': null,
           'error': <String, Object?>{'code': 'RATE_LIMIT'},
@@ -167,7 +167,7 @@ void main() {
 
   test('should throw OCRException on HTTP 401 (auth)', () async {
     when(() => functions.invoke(any(), body: any(named: 'body'))).thenAnswer(
-      (_) async => FunctionResponse(data: null, status: 401),
+      (_) async => const FunctionResponse(data: null, status: 401),
     );
 
     await expectLater(

@@ -4,45 +4,154 @@ import 'package:smartspend/core/database/daos/user_settings_dao.dart';
 
 /// Feature toggles for the pre-accounting (ön muhasebe) transformation.
 ///
-/// Every business capability built during the 2.0.0 pivot ships behind one of
-/// these flags. Defaults are compile-time constants and all of them are
-/// **off**, so an in-flight sprint can land on `main` (and even reach the
-/// store as part of a hotfix) without changing what users see. They are
-/// flipped on together at launch (Faz 5.7); the mechanism stays afterwards as
-/// a kill switch.
+/// Every business capability built during the pivot ships behind one of these
+/// flags. Defaults are compile-time constants and all of them are **off**, so
+/// an in-flight sprint can land on `main` (and even reach the store as part of
+/// a hotfix) without changing what users see. The mechanism stays afterwards
+/// as a kill switch.
+///
+/// ## Every flag has a death date
+///
+/// A flag with no removal deadline stops being a release tool and becomes
+/// permanent dead weight: six of these sat here for months with zero
+/// references anywhere in `lib/`. So [FeatureFlag.shipsIn],
+/// [FeatureFlag.removeBy] and [FeatureFlag.owner] are **required** — a flag
+/// cannot be added without them — and
+/// `test/core/services/feature_flag_lifecycle_test.dart` fails the build once
+/// a flag outlives its [FeatureFlag.removeBy].
+///
+/// Read [FeatureFlag.removeBy] as a deadline, not a prediction: "by the time
+/// this version is being built, the flag and its branches are gone."
 enum FeatureFlag {
   /// Business (`type='business'`) spaces: the space switcher, business space
   /// creation, and every query scoped to a non-personal company.
-  businessSpaces('business_spaces'),
+  ///
+  /// The data layer lands earlier, in 1.4.0, behind its own flag; this one
+  /// only covers the UI that lets a user create and switch into one.
+  businessSpaces(
+    'business_spaces',
+    shipsIn: '1.5.0',
+    removeBy: '1.6.0',
+    owner: _kOwner,
+  ),
 
   /// Document archive: `documents` / `document_lines`, the review queue and
   /// manual document entry.
-  documents('documents'),
+  documents(
+    'documents',
+    shipsIn: '1.5.0',
+    removeBy: '1.6.0',
+    owner: _kOwner,
+  ),
 
   /// Contacts (cari): customer/supplier records, balances and statements.
-  contacts('contacts'),
+  contacts(
+    'contacts',
+    shipsIn: '1.6.0',
+    removeBy: '2.0.0',
+    owner: _kOwner,
+  ),
 
   /// Monthly VAT (KDV) report derived from approved document lines.
-  vatReport('vat_report'),
+  vatReport(
+    'vat_report',
+    shipsIn: '1.6.0',
+    removeBy: '2.0.0',
+    owner: _kOwner,
+  ),
 
   /// RevenueCat paywall and the Pro gating that redirects into it.
-  paywall('paywall'),
+  paywall(
+    'paywall',
+    shipsIn: '1.5.0',
+    removeBy: '1.6.0',
+    owner: _kOwner,
+  ),
 
   /// Staff invites and role-restricted UI.
-  multiUser('multi_user');
+  ///
+  /// 2.0.0 is itself conditional on proven demand, and its successor has no
+  /// name yet — 2.1.0 is the deadline, not a roadmap claim. If 2.0.0 slips or
+  /// never happens, the gate will say so out loud instead of letting this sit
+  /// here unexamined.
+  multiUser(
+    'multi_user',
+    shipsIn: '2.0.0',
+    removeBy: '2.1.0',
+    owner: _kOwner,
+  );
 
-  const FeatureFlag(this.key);
+  const FeatureFlag(
+    this.key, {
+    required this.shipsIn,
+    required this.removeBy,
+    required this.owner,
+  });
 
   /// Stable identifier used in storage and logs. Never rename — persisted
   /// overrides key off it.
   final String key;
 
+  /// Release this flag is expected to be turned on in, as `X.Y.Z`.
+  final String shipsIn;
+
+  /// Release by which this flag and every branch behind it must be **gone**,
+  /// as `X.Y.Z`. Once `pubspec.yaml` reaches this version the lifecycle test
+  /// fails, which is the whole point: the deadline is enforced, not noted.
+  final String removeBy;
+
+  /// Who answers for this flag's removal. One name today; the field exists so
+  /// the answer does not become "nobody" the moment there is a second person.
+  final String owner;
+
   /// Key under which a debug override is stored in the `user_settings` table.
   String get settingsKey => 'feature_flag.$key';
+
+  /// Whether this flag has outlived [removeBy] at [version].
+  ///
+  /// True when [removeBy] is at or below [version] — at that point the release
+  /// it was supposed to disappear in has arrived.
+  bool isOverdueAt(String version) => compareVersions(removeBy, version) <= 0;
 }
 
-/// Compile-time defaults. All flags ship disabled until the 2.0.0 launch
-/// sprint flips them (Faz 5.7).
+/// Sole maintainer today. Kept as a constant so the field is one edit away
+/// from being meaningful rather than six.
+const String _kOwner = 'tunckankilic';
+
+/// Orders two `X.Y.Z` version strings, returning a negative number when [a]
+/// precedes [b], zero when they match, and a positive number otherwise.
+///
+/// Deliberately strict: anything that is not three dotted integers throws
+/// rather than sorting to an arbitrary position, because a typo in a
+/// [FeatureFlag.removeBy] would otherwise disable the deadline silently.
+int compareVersions(String a, String b) {
+  final List<int> left = _parseVersion(a);
+  final List<int> right = _parseVersion(b);
+  for (int i = 0; i < 3; i++) {
+    final int diff = left[i] - right[i];
+    if (diff != 0) {
+      return diff;
+    }
+  }
+  return 0;
+}
+
+List<int> _parseVersion(String version) {
+  final RegExpMatch? match = RegExp(
+    r'^(\d+)\.(\d+)\.(\d+)$',
+  ).firstMatch(version);
+  if (match == null) {
+    throw FormatException('Not an X.Y.Z version', version);
+  }
+  return <int>[
+    int.parse(match.group(1)!),
+    int.parse(match.group(2)!),
+    int.parse(match.group(3)!),
+  ];
+}
+
+/// Compile-time defaults. Every flag ships disabled; each is flipped by the
+/// release named in its [FeatureFlag.shipsIn].
 const Map<FeatureFlag, bool> kFeatureFlagDefaults = <FeatureFlag, bool>{
   FeatureFlag.businessSpaces: false,
   FeatureFlag.documents: false,

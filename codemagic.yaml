@@ -76,7 +76,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
-      flutter: 3.44.0
+      # Keep in lockstep with .fvmrc — `toolchain_pin_test.dart` fails the
+      # suite when they drift. The test suite is measured on this version.
+      flutter: 3.44.8
       xcode: latest
       groups:
         - supabase   # SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_ACCESS_TOKEN,
@@ -139,7 +141,8 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 90
     environment:
-      flutter: 3.44.0
+      # Keep in lockstep with .fvmrc — see the note in `pr-check`.
+      flutter: 3.44.8
       xcode: latest
       groups:
         - supabase
@@ -157,8 +160,11 @@ workflows:
       app_store_connect: CodeMagic - SmartSpend  # p8 API key
     # CI shipping is now ADOPTED: every push to `main` (i.e. merging a PR)
     # builds a signed IPA and uploads it to TestFlight. Pushing a `v*` tag
-    # still works as an alternative trigger. App Store *release* submission
-    # stays manual (see publishing.submit_to_app_store: false below).
+    # still works as an alternative trigger — and the "Derive version" step
+    # below refuses to build when the tag and pubspec.yaml disagree. App Store
+    # *release* submission stays manual (see publishing.submit_to_app_store
+    # below). Tagging a commit that already shipped produces one extra
+    # TestFlight build with a fresh build number; harmless, see CONTRIBUTING.
     triggering:
       events:
         - push
@@ -179,16 +185,33 @@ workflows:
       - *gen_l10n
       - name: Derive version + build number
         script: |
-          # Tag build (v1.2.3) → VERSION from the tag.
-          # main-push build (PR merge) → VERSION from pubspec.yaml.
+          set -e
+          # pubspec.yaml is the single source of truth for the version; a tag
+          # may only confirm it, never override it.
+          VERSION=$(grep '^version:' pubspec.yaml \
+            | sed 's/version:[[:space:]]*//' | cut -d+ -f1)
+
+          # Tag discipline gate. A `v*` tag pointing at a commit whose pubspec
+          # says something else would ship a build labelled with a version the
+          # source tree never carried — silently, since the old code took the
+          # tag's word for it. Fail loudly instead.
+          if [ -n "${CM_TAG:-}" ]; then
+            case "$CM_TAG" in
+              v[0-9]*.[0-9]*.[0-9]*) ;;
+              *)
+                echo "ERROR: tag '$CM_TAG' is not in vX.Y.Z form."
+                exit 1
+                ;;
+            esac
+            if [ "${CM_TAG#v}" != "$VERSION" ]; then
+              echo "ERROR: tag '$CM_TAG' disagrees with pubspec.yaml ($VERSION)."
+              echo "Tag the commit that carries the version, or fix pubspec."
+              exit 1
+            fi
+          fi
+
           # BUILD is always the Codemagic project build counter (unique,
           # monotonic — ASC rejects duplicate build numbers per version).
-          if [ -n "${CM_TAG:-}" ]; then
-            VERSION="${CM_TAG#v}"
-          else
-            VERSION=$(grep '^version:' pubspec.yaml \
-              | sed 's/version:[[:space:]]*//' | cut -d+ -f1)
-          fi
           BUILD="$PROJECT_BUILD_NUMBER"
           echo "VERSION=$VERSION" >> "$CM_ENV"
           echo "BUILD=$BUILD" >> "$CM_ENV"

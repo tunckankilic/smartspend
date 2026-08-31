@@ -1,7 +1,7 @@
 name: smartspend
 description: "SmartSpend — AI-powered expense tracker with OCR receipt scanning."
 publish_to: 'none'
-version: 1.2.0+1
+version: 1.2.1+2
 
 environment:
   sdk: ^3.12.0
@@ -31,7 +31,7 @@ dependencies:
   injectable: ^3.0.0
 
   # Routing
-  go_router: ^17.2.3
+  go_router: ^18.0.0
 
   # Local database (Drift / SQLite)
   drift: ^2.21.0
@@ -48,7 +48,9 @@ dependencies:
   # Observability — pinned to 9.x because 8.14.x ships a Swift plugin
   # that references `SentryBinaryImageCache.image`, removed in the
   # latest native Sentry-Cocoa SDK that ships with 9.x.
-  sentry_flutter: ^9.0.0
+  # Pinned to the 9.x stable line on purpose: 10.x is alpha-only on pub.dev.
+  # A live crash-reporting pipeline does not ride a prerelease.
+  sentry_flutter: ^9.28.0
 
   # Utilities
   logger: ^2.5.0
@@ -87,7 +89,7 @@ dependencies:
   receipt_ocr:
     git:
       url: https://github.com/tunckankilic/receipt_ocr.git
-      ref: v0.1.0
+      ref: v0.2.0
 
 dev_dependencies:
   flutter_test:

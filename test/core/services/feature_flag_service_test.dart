@@ -34,7 +34,7 @@ void main() {
         expect(
           service.isEnabled(flag),
           isFalse,
-          reason: '${flag.key} must default to off until the 2.0.0 launch',
+          reason: '${flag.key} must default to off until ${flag.shipsIn}',
         );
       }
     });

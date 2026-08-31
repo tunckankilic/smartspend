@@ -96,6 +96,19 @@ Use `mocktail` for mocking (not `mockito`) and `bloc_test` for BLoCs. Test
 descriptions are in English and start with "should …". Target ≥ 80% line
 coverage (current baseline: 79.3%, generated sources excluded).
 
+## Feature flags
+
+Work that is not shipping in the current release lives behind a
+`FeatureFlag`, and **every flag has a death date**. `shipsIn`, `removeBy` and
+`owner` are required constructor arguments, so a flag cannot be added without
+one, and `test/core/services/feature_flag_lifecycle_test.dart` fails the build
+when a flag outlives its `removeBy` — or when a flag whose release already
+shipped is still referenced nowhere in `lib/`.
+
+When that gate fires, the fix is to delete the flag and inline the branch it
+guarded. Pushing `removeBy` out is a decision worth making on purpose, in its
+own commit, with a reason.
+
 ## Releasing
 
 `pubspec.yaml` is the **only** place the version is written. iOS reads it

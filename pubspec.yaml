@@ -64,7 +64,7 @@ dependencies:
   fl_chart: ^1.1.0
 
   # Local notifications (budget alerts, recurring reminders) — Sprint 6
-  flutter_local_notifications: ^22.3.0
+  flutter_local_notifications: ^22.2.0
   timezone: ^0.11.0
 
   # System share sheet (Sprint 7: split-summary share — WhatsApp/SMS/etc.).
@@ -79,7 +79,7 @@ dependencies:
   camera: ^0.12.0+2
   image: ^4.5.4
   # OCR (on-device, free)
-  google_mlkit_text_recognition: ^0.17.1
+  google_mlkit_text_recognition: ^0.16.0
   # OCR intelligence layer (models, parser, debug JSON, geometry
   # reconstruction) — pure Dart, private repo: it's the app's core IP while
   # this repo stays public. Local dev can point it at a clone via the

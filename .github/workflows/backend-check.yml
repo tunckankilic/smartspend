@@ -5,6 +5,11 @@
 # not included in the current Codemagic billing plan. Ubuntu runners ship
 # with Docker preinstalled and are free for public repos.
 #
+# Two jobs:
+#   • edge-function-tests — Deno unit tests for supabase/functions. Pure
+#     functions, no stack needed, so it runs in seconds and always.
+#   • backend-check       — db lint + pgTAP, which do need the Docker stack.
+#
 # Runs only on PRs that touch supabase/ — Flutter-only PRs skip it.
 name: Backend Check (Supabase)
 
@@ -14,6 +19,25 @@ on:
       - 'supabase/**'
 
 jobs:
+  # The Edge Function tests existed for a while without anything running them,
+  # so a regression in export-csv (money formatting, CSV escaping) could reach
+  # an accountant's spreadsheet with CI still green. They are a gate now.
+  edge-function-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Lint Edge Functions
+        run: deno lint supabase/functions/
+
+      - name: Deno tests
+        run: deno test --allow-env supabase/functions/__tests__/
+
   backend-check:
     runs-on: ubuntu-latest
     timeout-minutes: 30

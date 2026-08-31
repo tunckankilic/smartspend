@@ -216,8 +216,8 @@ function isoDate(d: Date): string {
 
 /// Transform raw rows into a display-ready, summed report model.
 /// Money stays in minor units (kuruş/cents) — never floats.
-// deno-lint-ignore no-explicit-any
 export function buildReportModel(
+  // deno-lint-ignore no-explicit-any
   rows: any[],
   fromDate: string,
   toDate: string,

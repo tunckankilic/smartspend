@@ -127,7 +127,6 @@ export async function handle(req: Request): Promise<Response> {
 /// Recursively collect every object path under `prefix` in `bucket`.
 /// Supabase Storage `list` returns folder entries with a null `id`; we
 /// recurse into those (bounded by the natural {uid}/{receipt_id}/file depth).
-// deno-lint-ignore no-explicit-any
 async function listAllUnder(
   admin: AdminClient,
   bucket: string,

@@ -96,6 +96,38 @@ Use `mocktail` for mocking (not `mockito`) and `bloc_test` for BLoCs. Test
 descriptions are in English and start with "should …". Target ≥ 80% line
 coverage (current baseline: 79.3%, generated sources excluded).
 
+## Releasing
+
+`pubspec.yaml` is the **only** place the version is written. iOS reads it
+through `$(FLUTTER_BUILD_NAME)` / `$(FLUTTER_BUILD_NUMBER)`, Android through
+`flutter.versionName` / `flutter.versionCode`, and
+`test/repo/version_pin_test.dart` fails the suite if either platform starts
+keeping its own copy.
+
+One tag per release, in `vX.Y.Z` form:
+
+```bash
+git tag v1.3.0 <commit-that-shipped>     # annotated is fine too
+git push origin v1.3.0
+```
+
+The tag has to point at a commit whose `pubspec.yaml` says the same version —
+the `release` workflow refuses to build when they disagree, rather than
+shipping a build labelled with a version the source tree never carried.
+
+Order of operations:
+
+1. Bump `pubspec.yaml` in a PR and merge it.
+2. Merging to `main` builds a signed IPA and uploads it to TestFlight
+   automatically. App Store submission stays manual.
+3. Once the release is submitted, tag that commit and push the tag.
+
+Two things to know: pushing the tag triggers one **extra** TestFlight build
+(with a fresh build number — harmless, App Store Connect only rejects
+duplicates), and a published tag is never moved or deleted, since it is the
+record of what shipped. Releases before 1.2.1 predate this rule and carry no
+tags.
+
 ## PR checklist
 
 Before opening a PR, confirm:

@@ -116,6 +116,7 @@ class SupabaseSyncServiceImpl implements SyncService {
     n += (await database.budgetDao.getPendingSync()).length;
     n += (await database.userCorrectionDao.getPendingSync()).length;
     n += (await database.taxProfileDao.getPendingSync()).length;
+    n += (await database.taxObligationDao.getPendingSync()).length;
     return n;
   }
 
@@ -434,6 +435,54 @@ class SupabaseSyncServiceImpl implements SyncService {
         }
       }
 
+      // 9. Tax obligations (no parent — the profile they came from is not a
+      // foreign key; regenerating from a changed profile rewrites the items).
+      //
+      // Same conflict-target reasoning as the profile: generation is
+      // deterministic, so a second device holds its own copy of August's
+      // return with no server id. UNIQUE (user_id, generation_key) is what
+      // makes those two rows one deadline instead of two.
+      for (final TaxObligation to
+          in await database.taxObligationDao.getPendingSync()) {
+        try {
+          final String id = await remote.upsert(
+            'tax_obligations',
+            <String, dynamic>{
+              if (to.remoteId != null) 'id': to.remoteId,
+              'user_id': userId,
+              'generation_key': to.generationKey,
+              'kind': to.kind,
+              'period_kind': to.periodKind,
+              'period_start': _dateOnly(to.periodStart),
+              'period_end': _dateOnly(to.periodEnd),
+              'installment_index': to.installmentIndex,
+              'declaration_due_date': to.declarationDueDate == null
+                  ? null
+                  : _dateOnly(to.declarationDueDate!),
+              'payment_due_date': to.paymentDueDate == null
+                  ? null
+                  : _dateOnly(to.paymentDueDate!),
+              'due_date_source': to.dueDateSource,
+              'amount_minor': to.amountMinor,
+              'amount_source': to.amountSource,
+              'declared_at': to.declaredAt?.toUtc().toIso8601String(),
+              'paid_at': to.paidAt?.toUtc().toIso8601String(),
+              'dismissed_at': to.dismissedAt?.toUtc().toIso8601String(),
+              'note': to.note,
+              'title': to.title,
+              'is_user_defined': to.isUserDefined,
+              'created_at': to.createdAt.toUtc().toIso8601String(),
+            },
+            onConflict: 'user_id,generation_key',
+          );
+          await database.syncDao.markTaxObligationSynced(to.id, remoteId: id);
+          pushed++;
+        } on Object catch (e) {
+          failed++;
+          await _logFailure('tax_obligations', to.remoteId ?? '${to.id}', e);
+        }
+      }
+
       return Right<Failure, SyncReport>(
         SyncReport(pushed: pushed, failed: failed),
       );
@@ -728,6 +777,54 @@ class SupabaseSyncServiceImpl implements SyncService {
         } else {
           conflicts++;
           await _logConflict('tax_profiles', row['id'] as String);
+        }
+      }
+
+      // Tax obligations (no parent).
+      for (final Map<String, dynamic> row in await remote.fetchSince(
+        'tax_obligations',
+        since,
+      )) {
+        final String? declarationDue = row['declaration_due_date'] as String?;
+        final String? paymentDue = row['payment_due_date'] as String?;
+        final String? declaredAt = row['declared_at'] as String?;
+        final String? paidAt = row['paid_at'] as String?;
+        final String? dismissedAt = row['dismissed_at'] as String?;
+        final bool written =
+            await database.syncDao.applyTaxObligationFromRemote(
+          remoteId: row['id'] as String,
+          remotePayload: row,
+          generationKey: row['generation_key'] as String,
+          kind: row['kind'] as String,
+          periodKind: row['period_kind'] as String,
+          periodStart: _parseRemoteDate(row['period_start'] as String),
+          periodEnd: _parseRemoteDate(row['period_end'] as String),
+          installmentIndex: (row['installment_index'] as num).toInt(),
+          dueDateSource: row['due_date_source'] as String,
+          amountSource: row['amount_source'] as String,
+          isUserDefined: row['is_user_defined'] as bool,
+          createdAt: DateTime.parse(row['created_at'] as String),
+          updatedAt: DateTime.parse(row['updated_at'] as String),
+          declarationDueDate: declarationDue == null
+              ? null
+              : _parseRemoteDate(declarationDue),
+          paymentDueDate:
+              paymentDue == null ? null : _parseRemoteDate(paymentDue),
+          amountMinor: (row['amount_minor'] as num?)?.toInt(),
+          declaredAt:
+              declaredAt == null ? null : DateTime.parse(declaredAt).toUtc(),
+          paidAt: paidAt == null ? null : DateTime.parse(paidAt).toUtc(),
+          dismissedAt:
+              dismissedAt == null ? null : DateTime.parse(dismissedAt).toUtc(),
+          note: row['note'] as String?,
+          title: row['title'] as String?,
+          userId: row['user_id'] as String?,
+        );
+        if (written) {
+          pulled++;
+        } else {
+          conflicts++;
+          await _logConflict('tax_obligations', row['id'] as String);
         }
       }
 

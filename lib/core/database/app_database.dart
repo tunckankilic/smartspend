@@ -13,6 +13,7 @@ import 'package:smartspend/core/database/daos/receipt_dao.dart';
 import 'package:smartspend/core/database/daos/sync_dao.dart';
 import 'package:smartspend/core/database/daos/sync_log_dao.dart';
 import 'package:smartspend/core/database/daos/tag_dao.dart';
+import 'package:smartspend/core/database/daos/tax_obligation_dao.dart';
 import 'package:smartspend/core/database/daos/tax_profile_dao.dart';
 import 'package:smartspend/core/database/daos/user_correction_dao.dart';
 import 'package:smartspend/core/database/daos/user_settings_dao.dart';
@@ -46,6 +47,7 @@ part 'app_database.g.dart';
     SyncDeferredRows,
     ProductEventCounters,
     TaxProfiles,
+    TaxObligations,
   ],
   daos: <Type>[
     ReceiptDao,
@@ -59,6 +61,7 @@ part 'app_database.g.dart';
     UserSettingsDao,
     ProductEventDao,
     TaxProfileDao,
+    TaxObligationDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -156,6 +159,7 @@ class AppDatabase extends _$AppDatabase {
           // passed before the feature existed.
           if (from < 7) {
             await m.createTable(taxProfiles);
+            await m.createTable(taxObligations);
           }
         },
       );
@@ -186,9 +190,11 @@ class AppDatabase extends _$AppDatabase {
       await delete(productEventCounters).go();
       // The taxpayer profile is the most identifying row the app holds: legal
       // form, whether they employ anyone, what they own. It leaves with the
-      // account, and it leaves for the same reason the financial rows do —
-      // the next person to sign in on this phone must not inherit a calendar
-      // generated from someone else's business.
+      // account together with the calendar generated from it, and for the same
+      // reason the financial rows do — the next person to sign in on this
+      // phone must not inherit someone else's deadlines, or the notes and
+      // amounts they wrote against them.
+      await delete(taxObligations).go();
       await delete(taxProfiles).go();
       // Reset the pull watermark so the next sign-in performs a full pull.
       // lastSyncAt lives in userSettings, not the data tables wiped above; if

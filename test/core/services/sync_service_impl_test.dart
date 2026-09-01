@@ -1044,4 +1044,159 @@ void main() {
     });
   });
 
+
+  group('tax obligation sync', () {
+    Future<int> generateAugustVat({DateTime? now}) =>
+        db.taxObligationDao.upsertGenerated(
+          generationKey: 'kdv1|2026-08-01|0',
+          kind: 'kdv1',
+          periodKind: 'monthly',
+          periodStart: DateTime.utc(2026, 8),
+          periodEnd: DateTime.utc(2026, 8, 31),
+          declarationDueDate: DateTime.utc(2026, 9, 28),
+          now: now,
+        );
+
+    Map<String, dynamic> remoteObligation({
+      String id = 'obl-remote-1',
+      String? note,
+      String? updatedAt,
+    }) =>
+        <String, dynamic>{
+          'id': id,
+          'user_id': 'user-test-1',
+          'generation_key': 'kdv1|2026-08-01|0',
+          'kind': 'kdv1',
+          'period_kind': 'monthly',
+          'period_start': '2026-08-01',
+          'period_end': '2026-08-31',
+          'installment_index': 0,
+          'declaration_due_date': '2026-09-28',
+          'payment_due_date': null,
+          'due_date_source': 'catalog',
+          'amount_minor': null,
+          'amount_source': 'unknown',
+          'declared_at': null,
+          'paid_at': null,
+          'dismissed_at': null,
+          'note': note,
+          'title': null,
+          'is_user_defined': false,
+          'created_at': DateTime.utc(2026, 9).toIso8601String(),
+          'updated_at':
+              updatedAt ?? DateTime.now().toUtc().toIso8601String(),
+        };
+
+    test('should push a generated item as a date, not a timestamp', () async {
+      // The server column is `date`. Sending a timestamp would let the
+      // device's timezone shift a filing deadline by a day.
+      await generateAugustVat();
+      when(
+        () => remote.upsert(
+          'tax_obligations',
+          any(),
+          onConflict: any(named: 'onConflict'),
+        ),
+      ).thenAnswer((_) async => 'obl-remote-1');
+
+      await service.push();
+
+      final List<dynamic> captured = verify(
+        () => remote.upsert(
+          'tax_obligations',
+          captureAny(),
+          onConflict: captureAny(named: 'onConflict'),
+        ),
+      ).captured;
+      final Map<String, dynamic> payload =
+          captured.first as Map<String, dynamic>;
+      expect(captured.last, 'user_id,generation_key');
+      expect(payload['period_start'], '2026-08-01');
+      expect(payload['declaration_due_date'], '2026-09-28');
+      expect(payload['payment_due_date'], isNull);
+      expect(payload['amount_source'], 'unknown');
+    });
+
+    test('should merge a pulled item onto the one generated locally',
+        () async {
+      // Both devices generated August's return; neither has the other's id.
+      // Without the generation-key match the user would see the same deadline
+      // twice.
+      await generateAugustVat(now: DateTime.utc(2026, 9, 1, 8));
+      when(() => remote.fetchSince('tax_obligations', any())).thenAnswer(
+        (_) async => <Map<String, dynamic>>[
+          remoteObligation(
+            note: 'muhasebeci: 28i',
+            updatedAt: DateTime.utc(2026, 9, 1, 12).toIso8601String(),
+          ),
+        ],
+      );
+
+      await service.pull();
+
+      final List<TaxObligation> all = await db.taxObligationDao.getAll();
+      expect(all, hasLength(1));
+      expect(all.single.remoteId, 'obl-remote-1');
+      expect(all.single.note, 'muhasebeci: 28i');
+    });
+
+    test('should keep the item version last-write-wins discards', () async {
+      await generateAugustVat(now: DateTime.utc(2026, 9, 1, 12));
+      when(() => remote.fetchSince('tax_obligations', any())).thenAnswer(
+        (_) async => <Map<String, dynamic>>[
+          remoteObligation(
+            note: 'ödendi diye işaretledim',
+            updatedAt: DateTime.utc(2026, 9, 1, 8).toIso8601String(),
+          ),
+        ],
+      );
+
+      final Either<Failure, SyncReport> result = await service.pull();
+
+      expect(
+        result.getOrElse(() => throw StateError('expected Right')).conflicts,
+        1,
+      );
+      final List<SyncConflictPayload> quarantined =
+          await db.syncDao.getConflictPayloads();
+      expect(quarantined.single.conflictTableName, 'tax_obligations');
+      expect(
+        quarantined.single.remotePayload,
+        contains('ödendi diye işaretledim'),
+      );
+    });
+
+    test('should pull an item that has no deadline yet', () async {
+      // The normal state while the catalog is unverified: a null due date has
+      // to survive the round trip rather than becoming a date.
+      final Map<String, dynamic> row = remoteObligation()
+        ..['declaration_due_date'] = null;
+      when(() => remote.fetchSince('tax_obligations', any()))
+          .thenAnswer((_) async => <Map<String, dynamic>>[row]);
+
+      await service.pull();
+
+      final TaxObligation stored = (await db.taxObligationDao.getAll()).single;
+      expect(stored.declarationDueDate, isNull);
+      expect(stored.paymentDueDate, isNull);
+    });
+
+    test('should pin a pulled date to UTC midnight', () async {
+      when(() => remote.fetchSince('tax_obligations', any()))
+          .thenAnswer((_) async => <Map<String, dynamic>>[remoteObligation()]);
+
+      await service.pull();
+
+      final TaxObligation stored = (await db.taxObligationDao.getAll()).single;
+      expect(stored.declarationDueDate, DateTime.utc(2026, 9, 28));
+      expect(stored.declarationDueDate!.isUtc, isTrue);
+    });
+
+    test('should count a pending item as work still to do', () async {
+      await generateAugustVat();
+
+      expect(await service.pendingCount(), 1);
+    });
+  });
+
 }

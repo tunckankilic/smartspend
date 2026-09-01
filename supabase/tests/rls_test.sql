@@ -50,6 +50,8 @@ select has_table('public', 'product_events',
   'product_events table exists');
 select has_table('public', 'tax_profiles',
   'tax_profiles table exists');
+select has_table('public', 'tax_obligations',
+  'tax_obligations table exists');
 
 -- -----------------------------------------------------------------------------
 -- 2. RLS is enabled on every public table (and forced for table owners)
@@ -68,7 +70,8 @@ select ok(
 from unnest(array[
   'categories','receipts','receipt_items','expenses','budgets',
   'budget_alerts','tags','expense_tags','user_settings','receipt_shares',
-  'rate_limits','sync_log','user_corrections','product_events','tax_profiles'
+  'rate_limits','sync_log','user_corrections','product_events','tax_profiles',
+  'tax_obligations'
 ]) as t;
 
 select ok(
@@ -80,7 +83,8 @@ select ok(
 from unnest(array[
   'categories','receipts','receipt_items','expenses','budgets',
   'budget_alerts','tags','expense_tags','user_settings','receipt_shares',
-  'rate_limits','sync_log','user_corrections','product_events','tax_profiles'
+  'rate_limits','sync_log','user_corrections','product_events','tax_profiles',
+  'tax_obligations'
 ]) as t;
 
 -- -----------------------------------------------------------------------------
@@ -774,6 +778,166 @@ select is(
     where user_id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
   'anonim',
   'user B''s profile survived user A''s update attempt'
+);
+
+
+-- -----------------------------------------------------------------------------
+-- 12. tax_obligations (1.3.0, Block 4)
+--
+--     Three properties are pinned here because losing any of them makes the
+--     app say something false to someone about a tax deadline:
+--       * filing and payment are separate, and either may be absent;
+--       * `overdue` is not stored, so no device's clock can broadcast a
+--         verdict about whether a deadline was missed;
+--       * no amount in this table was calculated by the app.
+-- -----------------------------------------------------------------------------
+
+select policies_are(
+  'public', 'tax_obligations',
+  array[
+    'tax_obligations_select_own',
+    'tax_obligations_insert_own',
+    'tax_obligations_update_own',
+    'tax_obligations_delete_own'
+  ],
+  'tax_obligations has exactly the 4 owner-only policies'
+);
+
+select hasnt_column(
+  'public', 'tax_obligations', 'overdue',
+  'no overdue column — it is derived, never stored and never synced'
+);
+select hasnt_column(
+  'public', 'tax_obligations', 'is_overdue',
+  'nor under the other obvious name'
+);
+
+select has_column('public', 'tax_obligations', 'declaration_due_date',
+  'the filing deadline has its own column');
+select has_column('public', 'tax_obligations', 'payment_due_date',
+  'and the payment deadline has its own, because they differ');
+select has_column('public', 'tax_obligations', 'declared_at',
+  'filing is marked separately');
+select has_column('public', 'tax_obligations', 'paid_at',
+  'and paying is marked separately — "I filed it" is not "I paid it"');
+
+select col_is_null('public', 'tax_obligations', 'declaration_due_date',
+  'an unconfirmed or non-existent filing deadline is storable as NULL');
+select col_is_null('public', 'tax_obligations', 'payment_due_date',
+  'and so is a payment deadline the catalog cannot state yet');
+
+-- The amount vocabulary is closed, and 'computed' is not in it.
+select throws_ok(
+  $$ insert into public.tax_obligations
+       (user_id, generation_key, kind, period_kind, period_start, period_end,
+        amount_minor, amount_source)
+     values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'kdv1|2026-08-01|0',
+             'kdv1', 'monthly', date '2026-08-01', date '2026-08-31',
+             125000, 'computed') $$,
+  '23514',
+  null,
+  'amount_source rejects "computed" — the app does not calculate tax'
+);
+
+select throws_ok(
+  $$ insert into public.tax_obligations
+       (user_id, generation_key, kind, period_kind, period_start, period_end)
+     values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'x|2026-08-01|0',
+             'gelir_stopaj', 'monthly', date '2026-08-01', date '2026-08-31') $$,
+  '23514',
+  null,
+  'kind rejects an obligation the catalog does not define'
+);
+
+select throws_ok(
+  $$ insert into public.tax_obligations
+       (user_id, generation_key, kind, period_kind, period_start, period_end)
+     values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'kdv1|2026-08-01|0',
+             'kdv1', 'monthly', date '2026-08-31', date '2026-08-01') $$,
+  '23514',
+  null,
+  'a period that ends before it starts is refused'
+);
+
+-- An item with no confirmed deadline is a legal row, not an error state.
+insert into public.tax_obligations
+  (user_id, generation_key, kind, period_kind, period_start, period_end)
+values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'kdv1|2026-08-01|0',
+        'kdv1', 'monthly', date '2026-08-01', date '2026-08-31');
+
+select is(
+  (select count(*)::int from public.tax_obligations
+    where generation_key = 'kdv1|2026-08-01|0'
+      and declaration_due_date is null
+      and payment_due_date is null
+      and amount_source = 'unknown'),
+  1,
+  'an obligation with no verified rule stores no dates and no amount'
+);
+
+-- Two devices generating the same calendar converge on one row.
+insert into public.tax_obligations
+  (user_id, generation_key, kind, period_kind, period_start, period_end,
+   declaration_due_date)
+values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'kdv1|2026-08-01|0',
+        'kdv1', 'monthly', date '2026-08-01', date '2026-08-31',
+        date '2026-09-28')
+on conflict (user_id, generation_key) do update
+  set declaration_due_date = excluded.declaration_due_date;
+
+select is(
+  (select count(*)::int from public.tax_obligations
+    where user_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  1,
+  'the second device updated the item rather than duplicating the deadline'
+);
+
+-- The same key belongs to a different user's calendar, not to a collision.
+insert into public.tax_obligations
+  (user_id, generation_key, kind, period_kind, period_start, period_end)
+values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'kdv1|2026-08-01|0',
+        'kdv1', 'monthly', date '2026-08-01', date '2026-08-31');
+
+select is(
+  (select count(*)::int from public.tax_obligations
+    where generation_key = 'kdv1|2026-08-01|0'),
+  2,
+  'the identity key is scoped per user — two taxpayers share the same period'
+);
+
+-- Cross-tenant isolation.
+set local role authenticated;
+set local request.jwt.claims to
+  '{"sub":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","role":"authenticated"}';
+
+select is(
+  (select count(*)::int from public.tax_obligations),
+  1,
+  'user A sees only their own calendar'
+);
+
+select throws_ok(
+  $$ insert into public.tax_obligations
+       (user_id, generation_key, kind, period_kind, period_start, period_end)
+     values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'forged|2026-08-01|0',
+             'kdv1', 'monthly', date '2026-08-01', date '2026-08-31') $$,
+  '42501',
+  null,
+  'user A cannot INSERT a calendar item forged with user B''s user_id'
+);
+
+select lives_ok(
+  $$ update public.tax_obligations set paid_at = timezone('utc', now())
+      where user_id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' $$,
+  'user A UPDATE matches zero of user B''s rows (no error, no effect)'
+);
+
+reset role;
+select is(
+  (select paid_at from public.tax_obligations
+    where user_id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+  null,
+  'user B''s item was not marked paid by user A'
 );
 
 select * from finish();

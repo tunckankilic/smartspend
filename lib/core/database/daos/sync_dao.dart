@@ -31,6 +31,7 @@ part 'sync_dao.g.dart';
     SyncConflictPayloads,
     SyncDeferredRows,
     TaxProfiles,
+    TaxObligations,
   ],
 )
 class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
@@ -366,6 +367,116 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
     }
     await (update(taxProfiles)
           ..where(($TaxProfilesTable t) => t.id.equals(existing.id)))
+        .write(values);
+    return true;
+  }
+
+  // ---------------------------------------------------------------------
+  // Tax obligations (1.3.0, Block 4)
+  // ---------------------------------------------------------------------
+
+  Future<TaxObligation?> findTaxObligationByRemoteId(String remoteId) {
+    return (select(taxObligations)
+          ..where(($TaxObligationsTable t) => t.remoteId.equals(remoteId))
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  Future<void> markTaxObligationSynced(int id, {String? remoteId}) {
+    return (update(taxObligations)
+          ..where(($TaxObligationsTable t) => t.id.equals(id)))
+        .write(
+      TaxObligationsCompanion(
+        remoteId: remoteId == null
+            ? const Value<String?>.absent()
+            : Value<String?>(remoteId),
+        syncStatus: const Value<String>(SyncStatus.synced),
+      ),
+    );
+  }
+
+  /// Applies a pulled calendar item.
+  ///
+  /// Falls back to `generation_key` when no local row carries [remoteId].
+  /// Generation is deterministic, so a phone and a tablet that both built
+  /// August's return each hold a local row with no server id; matching on the
+  /// key is what makes them the same item instead of two deadlines the user
+  /// has to reconcile by hand.
+  Future<bool> applyTaxObligationFromRemote({
+    required String remoteId,
+    required Map<String, dynamic> remotePayload,
+    required String generationKey,
+    required String kind,
+    required String periodKind,
+    required DateTime periodStart,
+    required DateTime periodEnd,
+    required int installmentIndex,
+    required String dueDateSource,
+    required String amountSource,
+    required bool isUserDefined,
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    DateTime? declarationDueDate,
+    DateTime? paymentDueDate,
+    int? amountMinor,
+    DateTime? declaredAt,
+    DateTime? paidAt,
+    DateTime? dismissedAt,
+    String? note,
+    String? title,
+    String? userId,
+  }) async {
+    final TaxObligationsCompanion values = TaxObligationsCompanion(
+      remoteId: Value<String?>(remoteId),
+      userId: Value<String?>(userId),
+      generationKey: Value<String>(generationKey),
+      kind: Value<String>(kind),
+      periodKind: Value<String>(periodKind),
+      periodStart: Value<DateTime>(periodStart.toUtc()),
+      periodEnd: Value<DateTime>(periodEnd.toUtc()),
+      installmentIndex: Value<int>(installmentIndex),
+      declarationDueDate: Value<DateTime?>(declarationDueDate?.toUtc()),
+      paymentDueDate: Value<DateTime?>(paymentDueDate?.toUtc()),
+      dueDateSource: Value<String>(dueDateSource),
+      amountMinor: Value<int?>(amountMinor),
+      amountSource: Value<String>(amountSource),
+      declaredAt: Value<DateTime?>(declaredAt?.toUtc()),
+      paidAt: Value<DateTime?>(paidAt?.toUtc()),
+      dismissedAt: Value<DateTime?>(dismissedAt?.toUtc()),
+      note: Value<String?>(note),
+      title: Value<String?>(title),
+      isUserDefined: Value<bool>(isUserDefined),
+      createdAt: Value<DateTime>(createdAt.toUtc()),
+      updatedAt: Value<DateTime>(updatedAt.toUtc()),
+      syncStatus: const Value<String>(SyncStatus.synced),
+    );
+
+    final TaxObligation? existing =
+        await findTaxObligationByRemoteId(remoteId) ??
+            await (select(taxObligations)
+                  ..where(
+                    ($TaxObligationsTable t) =>
+                        t.generationKey.equals(generationKey),
+                  )
+                  ..limit(1))
+                .getSingleOrNull();
+    if (existing == null) {
+      await into(taxObligations).insert(values);
+      return true;
+    }
+    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) {
+      await recordConflictPayload(
+        tableName: 'tax_obligations',
+        remoteId: remoteId,
+        remotePayload: remotePayload,
+        localUpdatedAt: existing.updatedAt,
+        remoteUpdatedAt: updatedAt,
+        userId: userId,
+      );
+      return false;
+    }
+    await (update(taxObligations)
+          ..where(($TaxObligationsTable t) => t.id.equals(existing.id)))
         .write(values);
     return true;
   }

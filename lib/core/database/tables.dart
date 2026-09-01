@@ -433,3 +433,119 @@ class TaxProfiles extends Table {
   TextColumn get syncStatus =>
       text().withDefault(const Constant(SyncStatus.pendingCreate))();
 }
+
+/// One instance of one obligation — "the KDV return for August 2026".
+///
+/// Generated from [TaxProfiles] × the market catalog, then annotated by the
+/// user. The generation is deterministic and repeatable, which is why
+/// [generationKey] exists: two devices generating the same calendar must
+/// produce the same identity for the same item, or the user ends up with the
+/// August return twice.
+///
+/// WHY TWO DUE DATES — filing and payment are separate deadlines and for much
+/// of the Turkish catalog they differ. Some obligations have only one of them:
+/// Bağ-Kur is assessed and never declared; Ba/Bs listings and the e-ledger
+/// berat are declared and never paid. A single "due date" column would make
+/// roughly a third of the calendar lie. Both are nullable — an obligation
+/// whose rule is not confirmed yet has no date at all, and showing nothing
+/// beats showing a guess.
+///
+/// WHY TWO TIMESTAMPS — filing and paying are separate acts that happen days
+/// apart, and "I filed it" must not mark it paid.
+///
+/// 🚨 WHY THERE IS NO `overdue` COLUMN — because it is a function of the due
+/// date and the current time, and both are already here. Storing it would
+/// mean a device with a wrong clock, or one that has not synced for a week,
+/// computes "overdue" and then *propagates* it: last-write-wins would hand
+/// that verdict to every other device, and the user would be told they missed
+/// a deadline they did not miss. Derived state stays derived. A test pins the
+/// column's absence.
+///
+/// 🚨 WHY [amountSource] HAS NO `computed` — SmartSpend does not calculate
+/// tax. Every amount here was typed by a person; see [TaxAmountSource].
+class TaxObligations extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get remoteId => text().nullable()();
+  TextColumn get userId => text().nullable()();
+
+  /// NULL for the whole of 1.3.0 — see [TaxProfiles.companyId].
+  TextColumn get companyId => text().nullable()();
+
+  /// Stable identity of this item within the user's calendar:
+  /// `kind|periodStart|installment` for generated rows, a random id for
+  /// user-created ones.
+  ///
+  /// Regeneration matches on this rather than on the row id, so re-running
+  /// the generator updates the August return instead of adding a second one —
+  /// and so does a pull from a device that generated it independently.
+  TextColumn get generationKey => text()();
+
+  /// A `TaxObligationKind.wireValue`.
+  TextColumn get kind => text()();
+
+  /// A `TaxPeriodKind.wireValue`.
+  TextColumn get periodKind => text()();
+
+  /// First and last day of the period this item covers, UTC.
+  DateTimeColumn get periodStart => dateTime()();
+  DateTimeColumn get periodEnd => dateTime()();
+
+  /// 0 for a single payment; 1, 2, … for an obligation paid in installments.
+  IntColumn get installmentIndex => integer().withDefault(const Constant(0))();
+
+  /// Filing deadline. NULL where the obligation has no filing step, and also
+  /// where the catalog rule is not confirmed yet — the UI distinguishes the
+  /// two from [kind], and says so rather than inventing a date.
+  DateTimeColumn get declarationDueDate => dateTime().nullable()();
+
+  /// Payment deadline. NULL under the same two conditions.
+  DateTimeColumn get paymentDueDate => dateTime().nullable()();
+
+  /// A `TaxDueDateSource.wireValue` — shown to the user as a badge.
+  TextColumn get dueDateSource =>
+      text().withDefault(const Constant('catalog'))();
+
+  /// Amount in the smallest currency unit (kuruş), or NULL when nobody has
+  /// said. Nullable is the normal state: the app never fills this in.
+  IntColumn get amountMinor => integer().nullable()();
+
+  /// A `TaxAmountSource.wireValue`. Never `computed` — the value does not
+  /// exist.
+  TextColumn get amountSource =>
+      text().withDefault(const Constant('unknown'))();
+
+  /// When the user marked it filed. Separate from [paidAt] on purpose.
+  DateTimeColumn get declaredAt => dateTime().nullable()();
+
+  /// When the user marked it paid.
+  DateTimeColumn get paidAt => dateTime().nullable()();
+
+  /// When the user said this item does not apply to them.
+  ///
+  /// A timestamp rather than a boolean: it is also the strongest signal that
+  /// the generated calendar is wrong for this taxpayer, and knowing *when*
+  /// they dismissed it is what makes that signal readable later.
+  DateTimeColumn get dismissedAt => dateTime().nullable()();
+
+  /// The user's own note.
+  TextColumn get note => text().nullable()();
+
+  /// Display name for a user-created item; NULL for generated ones, which are
+  /// named from the catalog's l10n key so the name follows the app language.
+  TextColumn get title => text().nullable()();
+
+  /// True for items the user added themselves; the generator never touches
+  /// these.
+  BoolColumn get isUserDefined =>
+      boolean().withDefault(const Constant(false))();
+
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+  TextColumn get syncStatus =>
+      text().withDefault(const Constant(SyncStatus.pendingCreate))();
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => <Set<Column<Object>>>[
+        <Column<Object>>{generationKey},
+      ];
+}

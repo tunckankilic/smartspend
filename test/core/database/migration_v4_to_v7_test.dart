@@ -139,6 +139,7 @@ void main() {
         'sync_deferred_rows',
         'product_event_counters',
         'tax_profiles',
+        'tax_obligations',
       ]),
     );
     expect(await userVersion(db), 7);

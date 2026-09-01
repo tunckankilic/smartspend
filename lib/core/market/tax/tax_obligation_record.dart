@@ -75,3 +75,90 @@ enum TaxAmountSource {
     return TaxAmountSource.unknown;
   }
 }
+
+/// What a calendar item currently is, as far as this device can tell.
+///
+/// 🚨 Derived, never stored. It is a function of the deadlines and today's
+/// date, and both are already on the row. Written down, it would be computed
+/// by whichever device wrote last — including one with a wrong clock, or one
+/// that had not synced in a week — and last-write-wins would then hand that
+/// verdict to every other device. A wrong clock here costs one device a wrong
+/// badge until it is corrected; stored, it would cost the user a false "you
+/// missed this".
+enum TaxObligationState {
+  /// The user said this does not apply to them.
+  dismissed,
+
+  /// Every step that exists has been marked.
+  completed,
+
+  /// No deadline is known — the catalog rule is not confirmed. The item is
+  /// real, the date is not, and the UI says exactly that.
+  undated,
+
+  /// A step that has not been marked was due before today.
+  overdue,
+
+  /// A step that has not been marked is due today.
+  dueToday,
+
+  /// Still ahead.
+  upcoming,
+}
+
+/// Derives the state of one item.
+///
+/// [today] is a UTC calendar date, passed in rather than read from a clock:
+/// the whole function is then testable by moving a variable, which is how the
+/// "device clock is wrong" cases get covered at all.
+///
+/// [hasDeclarationStep] and [hasPaymentStep] come from the catalog. They are
+/// needed because "not filed yet" and "there is nothing to file" look
+/// identical on the row — Bağ-Kur's declaredAt is null forever, and without
+/// this it could never reach [TaxObligationState.completed].
+TaxObligationState deriveTaxObligationState({
+  required DateTime today,
+  required bool hasDeclarationStep,
+  required bool hasPaymentStep,
+  DateTime? declarationDueDate,
+  DateTime? paymentDueDate,
+  DateTime? declaredAt,
+  DateTime? paidAt,
+  DateTime? dismissedAt,
+}) {
+  if (dismissedAt != null) {
+    return TaxObligationState.dismissed;
+  }
+
+  final bool declarationOutstanding = hasDeclarationStep && declaredAt == null;
+  final bool paymentOutstanding = hasPaymentStep && paidAt == null;
+  if (!declarationOutstanding && !paymentOutstanding) {
+    return TaxObligationState.completed;
+  }
+
+  final DateTime day = DateTime.utc(today.year, today.month, today.day);
+  final List<DateTime> outstanding = <DateTime>[
+    if (declarationOutstanding && declarationDueDate != null)
+      declarationDueDate,
+    if (paymentOutstanding && paymentDueDate != null) paymentDueDate,
+  ];
+  if (outstanding.isEmpty) {
+    // Something is still to do and nothing says by when. Saying "upcoming"
+    // would imply we know it has not passed.
+    return TaxObligationState.undated;
+  }
+
+  outstanding.sort();
+  final DateTime earliest = DateTime.utc(
+    outstanding.first.year,
+    outstanding.first.month,
+    outstanding.first.day,
+  );
+  if (earliest.isBefore(day)) {
+    return TaxObligationState.overdue;
+  }
+  if (earliest.isAtSameMomentAs(day)) {
+    return TaxObligationState.dueToday;
+  }
+  return TaxObligationState.upcoming;
+}

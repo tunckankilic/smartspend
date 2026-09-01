@@ -15,6 +15,7 @@
 /// deadlines in front of someone who never said they had them.
 library;
 
+import 'package:smartspend/core/market/tax/due_date_shift.dart';
 import 'package:smartspend/core/market/tax/due_rule.dart';
 import 'package:smartspend/core/market/tax/tax_obligation_kind.dart';
 import 'package:smartspend/core/market/tax/tax_obligation_spec.dart';
@@ -35,6 +36,7 @@ final class GeneratedObligation {
     required this.paymentDueDate,
     required this.isConditional,
     required this.hasUnverifiedRule,
+    this.dueDateConfidence,
   });
 
   /// Which obligation this is.
@@ -72,6 +74,21 @@ final class GeneratedObligation {
   /// True where at least one of this item's deadlines is missing because the
   /// catalog rule has not been verified — as opposed to not existing.
   final bool hasUnverifiedRule;
+
+  /// How much the deferral applied to these dates can be trusted, or null when
+  /// there is no date to defer.
+  ///
+  /// Carried through rather than collapsed into the date, because a deadline
+  /// that could not be moved off a weekend — no holiday list for that year —
+  /// has to reach the screen with its warning attached. A date alone cannot
+  /// say "this may not be the day you can actually file".
+  final TaxDueDateConfidence? dueDateConfidence;
+
+  /// Whether the UI has to hedge this item's dates rather than state them.
+  bool get needsDateWarning =>
+      hasUnverifiedRule ||
+      (dueDateConfidence != null &&
+          dueDateConfidence != TaxDueDateConfidence.complete);
 }
 
 /// Why something the user might have expected is not in their calendar.
@@ -123,16 +140,21 @@ final class TaxCalendar {
 /// the same items — and leaves the widening to the caller that knows which
 /// question it is answering.
 ///
-/// [shiftDueDate] is the deferral hook: weekends, public holidays and the mali
-/// tatil move a deadline to the next working day, and the calendar that knows
-/// about those is not this function's business. When it is null, resolved
-/// dates come out unshifted.
+/// [shift] is the deferral hook: weekends, public holidays and the mali tatil
+/// move a deadline to the next working day, and the calendar that knows about
+/// those is not this function's business. It returns a [TaxDueDateShift]
+/// rather than a bare date so the confidence travels with the result — a date
+/// that could not be deferred, because no holiday list exists for that year,
+/// must arrive on screen carrying its warning.
+///
+/// When it is null, resolved dates come out unshifted and with no confidence
+/// attached.
 TaxCalendar generateTaxCalendar({
   required TaxpayerProfile profile,
   required List<TaxObligationSpec> catalog,
   required DateTime rangeStart,
   required DateTime rangeEnd,
-  DateTime Function(DateTime)? shiftDueDate,
+  TaxDueDateShift Function(DateTime)? shift,
 }) {
   final List<GeneratedObligation> obligations = <GeneratedObligation>[];
   final List<TaxCalendarGap> gaps = <TaxCalendarGap>[];
@@ -173,7 +195,7 @@ TaxCalendar generateTaxCalendar({
           periodKind: periodKind,
           period: period,
           applicability: applicability,
-          shiftDueDate: shiftDueDate,
+          shift: shift,
         ),
       );
     }
@@ -204,7 +226,7 @@ List<GeneratedObligation> _itemsForPeriod({
   required TaxPeriodKind periodKind,
   required _Period period,
   required TaxObligationApplicability applicability,
-  required DateTime Function(DateTime)? shiftDueDate,
+  required TaxDueDateShift Function(DateTime)? shift,
 }) {
   final DueSchedule declaration = spec.declaration;
   final DueSchedule payment = spec.payment;
@@ -213,10 +235,33 @@ List<GeneratedObligation> _itemsForPeriod({
       ? payment.installments
       : <DueRule?>[null];
 
-  final DateTime? declarationDate = declaration is ConfirmedDueDates &&
+  final _Resolved? declarationDate = declaration is ConfirmedDueDates &&
           declaration.installments.isNotEmpty
-      ? _resolve(declaration.installments.first, period, shiftDueDate)
+      ? _resolve(declaration.installments.first, period, shift)
       : null;
+
+  final List<_Resolved?> paymentDates = <_Resolved?>[
+    for (final DueRule? rule in paymentRules)
+      rule == null ? null : _resolve(rule, period, shift),
+  ];
+
+  // The weakest confidence across this item's dates: one date we could not
+  // defer makes the whole row hedged, because the user reads them together.
+  final List<TaxDueDateConfidence> confidences = <_Resolved?>[
+    declarationDate,
+    ...paymentDates,
+  ]
+      .whereType<_Resolved>()
+      .map((_Resolved r) => r.confidence)
+      .whereType<TaxDueDateConfidence>()
+      .toList();
+  // The enum is ordered best to worst, so the highest index is the weakest.
+  final TaxDueDateConfidence? confidence = confidences.isEmpty
+      ? null
+      : confidences.reduce(
+          (TaxDueDateConfidence a, TaxDueDateConfidence b) =>
+              a.index >= b.index ? a : b,
+        );
 
   final bool unverified =
       declaration is UnverifiedDueDate || payment is UnverifiedDueDate;
@@ -236,23 +281,34 @@ List<GeneratedObligation> _itemsForPeriod({
         installmentIndex: paymentRules.length == 1 ? 0 : i + 1,
         applicability: applicability,
         // One filing, however many payments: it belongs to the first row.
-        declarationDueDate: i == 0 ? declarationDate : null,
-        paymentDueDate: paymentRules[i] == null
-            ? null
-            : _resolve(paymentRules[i]!, period, shiftDueDate),
+        declarationDueDate: i == 0 ? declarationDate?.date : null,
+        paymentDueDate: paymentDates[i]?.date,
         isConditional: spec.occursOnlyWhenTransactionsExist,
         hasUnverifiedRule: unverified,
+        dueDateConfidence: confidence,
       ),
   ];
 }
 
-DateTime _resolve(
+/// A resolved deadline and how much its deferral can be trusted.
+final class _Resolved {
+  const _Resolved(this.date, this.confidence);
+
+  final DateTime date;
+  final TaxDueDateConfidence? confidence;
+}
+
+_Resolved _resolve(
   DueRule rule,
   _Period period,
-  DateTime Function(DateTime)? shiftDueDate,
+  TaxDueDateShift Function(DateTime)? shift,
 ) {
   final DateTime raw = rule.resolveFrom(period.end.year, period.end.month);
-  return shiftDueDate == null ? raw : shiftDueDate(raw);
+  if (shift == null) {
+    return _Resolved(raw, null);
+  }
+  final TaxDueDateShift shifted = shift(raw);
+  return _Resolved(shifted.effective, shifted.confidence);
 }
 
 /// The identity of a generated item, shared by every device that generates it.

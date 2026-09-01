@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:smartspend/core/market/tax/due_date_shift.dart';
 import 'package:smartspend/core/market/tax/due_rule.dart';
 import 'package:smartspend/core/market/tax/tax_calendar_generator.dart';
 import 'package:smartspend/core/market/tax/tax_obligation_kind.dart';
@@ -198,12 +199,62 @@ void main() {
         catalog: <TaxObligationSpec>[_confirmedMonthly()],
         rangeStart: DateTime.utc(2026, 8),
         rangeEnd: DateTime.utc(2026, 8, 31),
-        shiftDueDate: (DateTime d) => d.add(const Duration(days: 2)),
+        shift: (DateTime d) => TaxDueDateShift(
+          original: d,
+          effective: d.add(const Duration(days: 2)),
+          confidence: TaxDueDateConfidence.complete,
+          reasons: const <TaxDueDateShiftReason>[
+            TaxDueDateShiftReason.weekend,
+          ],
+        ),
+      );
+
+      final GeneratedObligation item = calendar.obligations.single;
+      expect(item.declarationDueDate, DateTime.utc(2026, 9, 30));
+      expect(item.dueDateConfidence, TaxDueDateConfidence.complete);
+      expect(item.needsDateWarning, isFalse);
+    });
+
+    test('should carry the warning when a date could not be deferred', () {
+      // The real state today: no year has a verified holiday list, so the
+      // shifter hands back the raw legal date. That date must not arrive on
+      // screen looking like a confirmed working day.
+      final TaxCalendar calendar = generateTaxCalendar(
+        profile: TaxpayerProfile.empty,
+        catalog: <TaxObligationSpec>[_confirmedMonthly()],
+        rangeStart: DateTime.utc(2026, 8),
+        rangeEnd: DateTime.utc(2026, 8, 31),
+        shift: shiftDueDate,
+      );
+
+      final GeneratedObligation item = calendar.obligations.single;
+      expect(item.declarationDueDate, DateTime.utc(2026, 9, 28));
+      expect(item.dueDateConfidence, TaxDueDateConfidence.unavailable);
+      expect(item.needsDateWarning, isTrue);
+    });
+
+    test('should hedge the whole row when one of its dates is hedged', () {
+      // The user reads filing and payment together; one undeferrable date
+      // makes the pair untrustworthy, not just itself.
+      int call = 0;
+      final TaxCalendar calendar = generateTaxCalendar(
+        profile: TaxpayerProfile.empty,
+        catalog: <TaxObligationSpec>[_confirmedMonthly()],
+        rangeStart: DateTime.utc(2026, 8),
+        rangeEnd: DateTime.utc(2026, 8, 31),
+        shift: (DateTime d) => TaxDueDateShift(
+          original: d,
+          effective: d,
+          confidence: call++ == 0
+              ? TaxDueDateConfidence.complete
+              : TaxDueDateConfidence.partial,
+          reasons: const <TaxDueDateShiftReason>[],
+        ),
       );
 
       expect(
-        calendar.obligations.single.declarationDueDate,
-        DateTime.utc(2026, 9, 30),
+        calendar.obligations.single.dueDateConfidence,
+        TaxDueDateConfidence.partial,
       );
     });
 

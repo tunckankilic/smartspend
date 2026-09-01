@@ -527,5 +527,20 @@
   "categorySports": "Sports",
   "categoryPets": "Pets",
   "categoryGifts": "Gifts",
-  "categoryOther": "Other"
+  "categoryOther": "Other",
+  "taxObligationKdv1": "VAT return (KDV-1)",
+  "taxObligationKdv2": "Withheld VAT return (KDV-2)",
+  "taxObligationMphb": "Withholding and premium declaration (MPHB)",
+  "taxObligationSgk4a": "SGK 4/a employer premium",
+  "taxObligationBagkur": "Bağ-Kur premium (4/b)",
+  "taxObligationGecici": "Advance tax (geçici vergi)",
+  "taxObligationYillikGv": "Annual income tax return",
+  "taxObligationKurumlar": "Corporate tax return",
+  "taxObligationDamga": "Stamp duty return (damga vergisi)",
+  "taxObligationBasitUsul": "Simplified-regime annual return",
+  "taxObligationEdefterBerat": "e-Ledger seal (e-Defter beratı)",
+  "taxObligationBabs": "Form Ba/Bs",
+  "taxObligationMtv": "Motor vehicle tax (MTV)",
+  "taxObligationEmlak": "Property tax",
+  "taxObligationCustom": "Custom item"
 }

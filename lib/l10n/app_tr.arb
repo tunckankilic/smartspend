@@ -530,5 +530,20 @@
   "categorySports": "Spor",
   "categoryPets": "Evcil Hayvan",
   "categoryGifts": "Hediye",
-  "categoryOther": "Diğer"
+  "categoryOther": "Diğer",
+  "taxObligationKdv1": "KDV beyannamesi (KDV-1)",
+  "taxObligationKdv2": "KDV-2 tevkifat beyannamesi",
+  "taxObligationMphb": "Muhtasar ve prim hizmet beyannamesi",
+  "taxObligationSgk4a": "SGK 4/a işveren primi",
+  "taxObligationBagkur": "Bağ-Kur primi (4/b)",
+  "taxObligationGecici": "Geçici vergi",
+  "taxObligationYillikGv": "Yıllık gelir vergisi beyannamesi",
+  "taxObligationKurumlar": "Kurumlar vergisi beyannamesi",
+  "taxObligationDamga": "Damga vergisi beyannamesi",
+  "taxObligationBasitUsul": "Basit usul yıllık beyannamesi",
+  "taxObligationEdefterBerat": "e-Defter beratı",
+  "taxObligationBabs": "Form Ba/Bs",
+  "taxObligationMtv": "Motorlu taşıtlar vergisi (MTV)",
+  "taxObligationEmlak": "Emlak vergisi",
+  "taxObligationCustom": "Özel kalem"
 }

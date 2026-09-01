@@ -518,5 +518,20 @@
   "categorySports": "Sport",
   "categoryPets": "Haustiere",
   "categoryGifts": "Geschenke",
-  "categoryOther": "Sonstiges"
+  "categoryOther": "Sonstiges",
+  "taxObligationKdv1": "Umsatzsteuererklärung (KDV-1)",
+  "taxObligationKdv2": "Umsatzsteuererklärung bei Steuerabzug (KDV-2)",
+  "taxObligationMphb": "Lohnsteuer- und Beitragsmeldung (MPHB)",
+  "taxObligationSgk4a": "SGK-Arbeitgeberbeitrag (4/a)",
+  "taxObligationBagkur": "Bağ-Kur-Beitrag (4/b)",
+  "taxObligationGecici": "Steuervorauszahlung (geçici vergi)",
+  "taxObligationYillikGv": "Jährliche Einkommensteuererklärung",
+  "taxObligationKurumlar": "Körperschaftsteuererklärung",
+  "taxObligationDamga": "Stempelsteuererklärung (damga vergisi)",
+  "taxObligationBasitUsul": "Jahreserklärung der Pauschalbesteuerung",
+  "taxObligationEdefterBerat": "e-Defter-Berat",
+  "taxObligationBabs": "Formular Ba/Bs",
+  "taxObligationMtv": "Kraftfahrzeugsteuer (MTV)",
+  "taxObligationEmlak": "Grundsteuer",
+  "taxObligationCustom": "Eigener Eintrag"
 }

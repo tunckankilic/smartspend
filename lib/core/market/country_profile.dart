@@ -1,4 +1,5 @@
 import 'package:smartspend/core/market/document_type.dart';
+import 'package:smartspend/core/market/tax/tax_obligation_spec.dart';
 
 /// Everything that varies by market (country) in one place.
 ///
@@ -35,6 +36,15 @@ abstract class CountryProfile {
   /// Language code this market's users get when the device language is not
   /// one we ship. Ties into `AppLocalizations.supportedLocales`.
   String get defaultLanguageCode;
+
+  /// The tax and payment obligations that exist in this market.
+  ///
+  /// Empty by default: a market gets a calendar when someone has verified its
+  /// deadlines, not when the feature ships. An empty catalog generates an
+  /// empty calendar, which is the correct behaviour for a market we have not
+  /// researched — not a degraded one.
+  List<TaxObligationSpec> get taxObligations =>
+      const <TaxObligationSpec>[];
 
   /// Whether [rateBp] is a legal rate in this market.
   bool isVatRateSupported(int rateBp) => vatRatesBp.contains(rateBp);

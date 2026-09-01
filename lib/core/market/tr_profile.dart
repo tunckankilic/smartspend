@@ -1,5 +1,7 @@
 import 'package:smartspend/core/market/country_profile.dart';
 import 'package:smartspend/core/market/document_type.dart';
+import 'package:smartspend/core/market/tax/tax_obligation_spec.dart';
+import 'package:smartspend/core/market/tax/tr_tax_catalog.dart';
 
 /// Türkiye — the only market enabled in 2.0.0.
 ///
@@ -31,4 +33,9 @@ class TrProfile extends CountryProfile {
 
   @override
   String get defaultLanguageCode => 'tr';
+
+  /// ⚠️ Every deadline in this catalog is unverified — see
+  /// `tr_tax_catalog.dart`. The structure is settled; the dates are not.
+  @override
+  List<TaxObligationSpec> get taxObligations => trTaxObligations;
 }

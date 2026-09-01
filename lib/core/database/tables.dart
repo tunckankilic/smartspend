@@ -366,3 +366,70 @@ class ProductEventCounters extends Table {
         <Column<Object>>{eventKey, dimension, day},
       ];
 }
+
+/// The taxpayer's answers to the eight profile questions (1.3.0, Block 4).
+///
+/// One row per user — and, from 1.4.0, one per company. The calendar is
+/// generated from this row plus the market catalog, so this table is the whole
+/// input to the tax feature: no other user data reaches the generator.
+///
+/// WHY EVERY ANSWER IS NULLABLE TEXT — the wizard is skippable by design. It
+/// is also the instrument that answers D-2, and a form that refuses to advance
+/// without an answer measures nothing except who tolerates forms. Every column
+/// therefore has an "unknown" wire value rather than a NOT NULL constraint,
+/// and an unanswered question produces a partial calendar rather than an
+/// error. The values are the `wireValue`s of the enums in
+/// `lib/core/market/tax/taxpayer_profile.dart`; unrecognised text read back
+/// (a row written by a newer client) degrades to "unknown" rather than
+/// throwing, which keeps a downgraded install usable.
+///
+/// WHY THERE IS NO "IS COMPLETE" COLUMN — completeness is a property of the
+/// eight answers and is derived on read. Storing it would let it disagree with
+/// them, and under last-write-wins the disagreement would sync.
+class TaxProfiles extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get remoteId => text().nullable()();
+  TextColumn get userId => text().nullable()();
+
+  /// NULL for the whole of 1.3.0 — the company (space) model lands in 1.4.0.
+  /// Carried now under CLAUDE.md's stated exception so the 1.4.0 backfill has
+  /// a column to write into.
+  TextColumn get companyId => text().nullable()();
+
+  /// `TaxpayerLegalForm.wireValue`.
+  TextColumn get legalForm =>
+      text().withDefault(const Constant('belirtilmedi'))();
+
+  /// `VatLiability.wireValue`.
+  TextColumn get vatLiability =>
+      text().withDefault(const Constant('unknown'))();
+
+  /// `WithholdingLiability.wireValue`.
+  TextColumn get withholdingLiability =>
+      text().withDefault(const Constant('unknown'))();
+
+  /// `TaxpayerAnswer.wireValue` — employs staff (SGK 4/a employer).
+  TextColumn get employsStaff =>
+      text().withDefault(const Constant('unknown'))();
+
+  /// `TaxpayerAnswer.wireValue` — pays Bağ-Kur (4/b) personally.
+  TextColumn get bagkurInsured =>
+      text().withDefault(const Constant('unknown'))();
+
+  /// `TaxpayerAnswer.wireValue` — keeps books as e-Defter.
+  TextColumn get usesELedger =>
+      text().withDefault(const Constant('unknown'))();
+
+  /// `TaxpayerAnswer.wireValue` — owns a vehicle.
+  TextColumn get ownsVehicle =>
+      text().withDefault(const Constant('unknown'))();
+
+  /// `TaxpayerAnswer.wireValue` — owns real estate.
+  TextColumn get ownsRealEstate =>
+      text().withDefault(const Constant('unknown'))();
+
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+  TextColumn get syncStatus =>
+      text().withDefault(const Constant(SyncStatus.pendingCreate))();
+}

@@ -5,8 +5,9 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:smartspend/core/database/app_database.dart';
+import 'package:smartspend/core/market/tax/taxpayer_profile.dart';
 
-/// Migration coverage for schema v4 → v6 — the whole of 1.3.0's schema work.
+/// Migration coverage for schema v4 → v7 — the whole of 1.3.0's schema work.
 ///
 /// v4 is not an arbitrary starting point: every published SmartSpend (1.0.0,
 /// 1.0.1, 1.1.0, 1.2.0, 1.2.1) ships schema v4, because the v1→v4 steps all
@@ -15,12 +16,14 @@ import 'package:smartspend/core/database/app_database.dart';
 /// exact same upgrade path as one coming from 1.2.1 — the one this file
 /// exercises.
 ///
-/// There is deliberately no v5 snapshot and no v4 → v5 test. v5 existed only
-/// between two commits on this branch and was never published, so no device
-/// can ever upgrade *from* it; CLAUDE.md's rule is that snapshots are taken
-/// per **published** schema version, not per version. Writing one would create
-/// a fixture for a path that cannot occur and imply that v5 is frozen when it
-/// is still free to change until 1.3.0 ships.
+/// There is deliberately no snapshot for v5, v6 or v7, and no test starting
+/// from any of them. Those versions exist only between commits on this branch
+/// and were never published, so no device can ever upgrade *from* one;
+/// CLAUDE.md's rule is that snapshots are taken per **published** schema
+/// version, not per version. Writing one would create a fixture for a path
+/// that cannot occur and imply the version is frozen when it is still free to
+/// change until 1.3.0 ships — which is exactly what Block 4 did to v7, adding
+/// its tables to a version Block 3 had already introduced.
 ///
 /// The v4 database is built from `schemas/v4.sql`, a captured snapshot of the
 /// real shipped schema, rather than from "current code minus the new table".
@@ -120,24 +123,25 @@ void main() {
     }
   });
 
-  test('upgrading a v4 database creates all three 1.3.0 tables', () async {
+  test('upgrading a v4 database creates every 1.3.0 table', () async {
     await buildV4Database();
 
     final AppDatabase db = AppDatabase.forTesting(NativeDatabase(dbFile));
     addTearDown(db.close);
 
-    // One open, two migration steps (4 → 5 → 6). A device coming from any
-    // published release runs both in a single upgrade, which is exactly the
-    // path a user who skipped 1.2.x takes.
+    // One open, three migration steps (4 → 5 → 6 → 7). A device coming from
+    // any published release runs all of them in a single upgrade, which is
+    // exactly the path a user who skipped 1.2.x takes.
     expect(
       await tableNames(db),
       containsAll(<String>[
         'sync_conflict_payloads',
         'sync_deferred_rows',
         'product_event_counters',
+        'tax_profiles',
       ]),
     );
-    expect(await userVersion(db), 6);
+    expect(await userVersion(db), 7);
   });
 
   test('upgrading a v4 database preserves the rows already in it', () async {
@@ -225,6 +229,30 @@ void main() {
     expect(row, isA<ProductEventCounter>());
     expect(row!.count, 2);
     expect(await db.productEventDao.getAll(), hasLength(1));
+  });
+
+  test('the migrated profile table stores answers, not merely exists',
+      () async {
+    await buildV4Database();
+
+    final AppDatabase db = AppDatabase.forTesting(NativeDatabase(dbFile));
+    addTearDown(db.close);
+
+    // A migrated table with the wrong defaults would hand the generator a
+    // profile full of "no" instead of "not asked" — which drops obligations
+    // the user never declined.
+    await db.taxProfileDao.save(
+      const TaxpayerProfile(
+        legalForm: TaxpayerLegalForm.limited,
+        employsStaff: TaxpayerAnswer.yes,
+      ),
+    );
+
+    final TaxpayerProfile stored = await db.taxProfileDao.getProfile();
+    expect(stored.legalForm, TaxpayerLegalForm.limited);
+    expect(stored.employsStaff, TaxpayerAnswer.yes);
+    expect(stored.ownsVehicle, TaxpayerAnswer.unknown);
+    expect(stored.bagkurInsured, TaxpayerAnswer.unknown);
   });
 
   test('the upgrade path and a fresh install agree on the whole schema',

@@ -115,6 +115,7 @@ class SupabaseSyncServiceImpl implements SyncService {
     n += (await database.expenseDao.getPendingSync()).length;
     n += (await database.budgetDao.getPendingSync()).length;
     n += (await database.userCorrectionDao.getPendingSync()).length;
+    n += (await database.taxProfileDao.getPendingSync()).length;
     return n;
   }
 
@@ -398,6 +399,41 @@ class SupabaseSyncServiceImpl implements SyncService {
         }
       }
 
+      // 8. Taxpayer profile (no parent).
+      //
+      // Pushed with an explicit conflict target rather than on `id`. The row
+      // is one-per-user and a second device can create its own copy offline —
+      // wizard filled on the tablet before the phone's profile ever reached
+      // it — so there is no shared `id` to conflict on. Without the target
+      // that insert would trip the table's UNIQUE (user_id) forever.
+      for (final TaxProfile tp
+          in await database.taxProfileDao.getPendingSync()) {
+        try {
+          final String id = await remote.upsert(
+            'tax_profiles',
+            <String, dynamic>{
+              if (tp.remoteId != null) 'id': tp.remoteId,
+              'user_id': userId,
+              'legal_form': tp.legalForm,
+              'vat_liability': tp.vatLiability,
+              'withholding_liability': tp.withholdingLiability,
+              'employs_staff': tp.employsStaff,
+              'bagkur_insured': tp.bagkurInsured,
+              'uses_e_ledger': tp.usesELedger,
+              'owns_vehicle': tp.ownsVehicle,
+              'owns_real_estate': tp.ownsRealEstate,
+              'created_at': tp.createdAt.toUtc().toIso8601String(),
+            },
+            onConflict: 'user_id',
+          );
+          await database.syncDao.markTaxProfileSynced(tp.id, remoteId: id);
+          pushed++;
+        } on Object catch (e) {
+          failed++;
+          await _logFailure('tax_profiles', tp.remoteId ?? '${tp.id}', e);
+        }
+      }
+
       return Right<Failure, SyncReport>(
         SyncReport(pushed: pushed, failed: failed),
       );
@@ -664,6 +700,34 @@ class SupabaseSyncServiceImpl implements SyncService {
         } else {
           conflicts++;
           await _logConflict('user_corrections', row['id'] as String);
+        }
+      }
+
+      // Taxpayer profile (no parent).
+      for (final Map<String, dynamic> row in await remote.fetchSince(
+        'tax_profiles',
+        since,
+      )) {
+        final bool written = await database.syncDao.applyTaxProfileFromRemote(
+          remoteId: row['id'] as String,
+          remotePayload: row,
+          legalForm: row['legal_form'] as String,
+          vatLiability: row['vat_liability'] as String,
+          withholdingLiability: row['withholding_liability'] as String,
+          employsStaff: row['employs_staff'] as String,
+          bagkurInsured: row['bagkur_insured'] as String,
+          usesELedger: row['uses_e_ledger'] as String,
+          ownsVehicle: row['owns_vehicle'] as String,
+          ownsRealEstate: row['owns_real_estate'] as String,
+          createdAt: DateTime.parse(row['created_at'] as String),
+          updatedAt: DateTime.parse(row['updated_at'] as String),
+          userId: row['user_id'] as String?,
+        );
+        if (written) {
+          pulled++;
+        } else {
+          conflicts++;
+          await _logConflict('tax_profiles', row['id'] as String);
         }
       }
 

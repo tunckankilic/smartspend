@@ -48,6 +48,8 @@ select has_table('public', 'user_corrections',
   'user_corrections table exists');
 select has_table('public', 'product_events',
   'product_events table exists');
+select has_table('public', 'tax_profiles',
+  'tax_profiles table exists');
 
 -- -----------------------------------------------------------------------------
 -- 2. RLS is enabled on every public table (and forced for table owners)
@@ -66,7 +68,7 @@ select ok(
 from unnest(array[
   'categories','receipts','receipt_items','expenses','budgets',
   'budget_alerts','tags','expense_tags','user_settings','receipt_shares',
-  'rate_limits','sync_log','user_corrections','product_events'
+  'rate_limits','sync_log','user_corrections','product_events','tax_profiles'
 ]) as t;
 
 select ok(
@@ -78,7 +80,7 @@ select ok(
 from unnest(array[
   'categories','receipts','receipt_items','expenses','budgets',
   'budget_alerts','tags','expense_tags','user_settings','receipt_shares',
-  'rate_limits','sync_log','user_corrections','product_events'
+  'rate_limits','sync_log','user_corrections','product_events','tax_profiles'
 ]) as t;
 
 -- -----------------------------------------------------------------------------
@@ -626,6 +628,152 @@ select throws_ok(
   null,
   null,
   'a retention window below one day is refused'
+);
+
+-- -----------------------------------------------------------------------------
+-- 11. tax_profiles (1.3.0, Block 4)
+--
+--     The calendar is generated from this one row, so two properties carry
+--     the feature: the answer vocabulary cannot drift into free text, and a
+--     user cannot end up with two profiles. The second is not cosmetic — the
+--     client's push has no `id` to conflict on when a second device filled
+--     the wizard offline, so it upserts against UNIQUE (user_id). If that
+--     constraint went away, the push would duplicate the profile instead of
+--     updating it, and nothing would decide which one generates the calendar.
+-- -----------------------------------------------------------------------------
+
+select policies_are(
+  'public', 'tax_profiles',
+  array[
+    'tax_profiles_select_own',
+    'tax_profiles_insert_own',
+    'tax_profiles_update_own',
+    'tax_profiles_delete_own'
+  ],
+  'tax_profiles has exactly the 4 owner-only policies'
+);
+
+select col_is_unique(
+  'public', 'tax_profiles', array['user_id'],
+  'tax_profiles is unique on user_id — the client upserts against it'
+);
+
+-- The answer vocabularies are closed.
+select throws_ok(
+  $$ insert into public.tax_profiles (user_id, legal_form)
+     values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'kooperatif') $$,
+  '23514',
+  null,
+  'legal_form rejects a value the app has no bucket for'
+);
+
+select throws_ok(
+  $$ insert into public.tax_profiles (user_id, employs_staff)
+     values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'belki') $$,
+  '23514',
+  null,
+  'a yes/no/unknown answer rejects anything else'
+);
+
+select throws_ok(
+  $$ insert into public.tax_profiles (user_id, vat_liability)
+     values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+             'Ayda bir, muhasebeci yapiyor') $$,
+  '23514',
+  null,
+  'vat_liability rejects free text — the column is a vocabulary, not a note'
+);
+
+-- Every question defaults to "unanswered", and unanswered is storable.
+insert into public.tax_profiles (user_id)
+values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
+
+select is(
+  (select legal_form from public.tax_profiles
+    where user_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  'belirtilmedi',
+  'an untouched profile stores "not stated" rather than a guessed default'
+);
+
+select is(
+  (select count(*)::int from public.tax_profiles
+    where user_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+      and vat_liability = 'unknown'
+      and withholding_liability = 'unknown'
+      and employs_staff = 'unknown'
+      and bagkur_insured = 'unknown'
+      and uses_e_ledger = 'unknown'
+      and owns_vehicle = 'unknown'
+      and owns_real_estate = 'unknown'),
+  1,
+  'every skippable question defaults to unknown, not to no'
+);
+
+-- One profile per user.
+select throws_ok(
+  $$ insert into public.tax_profiles (user_id, legal_form)
+     values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'limited') $$,
+  '23505',
+  null,
+  'a second profile for the same user is refused'
+);
+
+-- The client's own write path: upsert against the named constraint. This is
+-- the statement a second device runs when it has answers but no server id.
+insert into public.tax_profiles (user_id, legal_form, employs_staff)
+values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'limited', 'yes')
+on conflict (user_id) do update
+  set legal_form    = excluded.legal_form,
+      employs_staff = excluded.employs_staff;
+
+select is(
+  (select legal_form || '/' || employs_staff from public.tax_profiles
+    where user_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  'limited/yes',
+  'the offline device''s answers update the existing profile'
+);
+
+select is(
+  (select count(*)::int from public.tax_profiles
+    where user_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+  1,
+  'and it updated the row rather than creating a second profile'
+);
+
+-- Cross-tenant isolation.
+insert into public.tax_profiles (user_id, legal_form)
+values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'anonim');
+
+set local role authenticated;
+set local request.jwt.claims to
+  '{"sub":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","role":"authenticated"}';
+
+select is(
+  (select count(*)::int from public.tax_profiles where legal_form = 'anonim'),
+  0,
+  'user A cannot SELECT user B''s taxpayer profile'
+);
+
+select throws_ok(
+  $$ insert into public.tax_profiles (user_id, legal_form)
+     values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'limited') $$,
+  '42501',
+  null,
+  'user A cannot INSERT a profile forged with user B''s user_id'
+);
+
+select lives_ok(
+  $$ update public.tax_profiles set legal_form = 'basit_usul'
+      where legal_form = 'anonim' $$,
+  'user A UPDATE matches zero of user B''s rows (no error, no effect)'
+);
+
+reset role;
+select is(
+  (select legal_form from public.tax_profiles
+    where user_id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+  'anonim',
+  'user B''s profile survived user A''s update attempt'
 );
 
 select * from finish();

@@ -13,6 +13,7 @@ import 'package:smartspend/core/database/daos/receipt_dao.dart';
 import 'package:smartspend/core/database/daos/sync_dao.dart';
 import 'package:smartspend/core/database/daos/sync_log_dao.dart';
 import 'package:smartspend/core/database/daos/tag_dao.dart';
+import 'package:smartspend/core/database/daos/tax_profile_dao.dart';
 import 'package:smartspend/core/database/daos/user_correction_dao.dart';
 import 'package:smartspend/core/database/daos/user_settings_dao.dart';
 import 'package:smartspend/core/database/default_categories.dart';
@@ -44,6 +45,7 @@ part 'app_database.g.dart';
     SyncConflictPayloads,
     SyncDeferredRows,
     ProductEventCounters,
+    TaxProfiles,
   ],
   daos: <Type>[
     ReceiptDao,
@@ -56,6 +58,7 @@ part 'app_database.g.dart';
     UserCorrectionDao,
     UserSettingsDao,
     ProductEventDao,
+    TaxProfileDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -88,13 +91,18 @@ class AppDatabase extends _$AppDatabase {
   ///        these tables, so no device can ever upgrade *from* v5 and there is
   ///        no v5 snapshot to test against — `v4.sql` remains the only real
   ///        starting point, and the v4 → v6 chain is what a real device runs.
+  ///   v7 — 1.3.0 Block 4 adds the tax calendar's own tables. Additive only.
+  ///        v5, v6 and v7 are all unpublished, so the same reasoning applies:
+  ///        `v4.sql` is still the only snapshot that describes a schema a real
+  ///        device can be sitting on, and v4 → v7 is the one upgrade path that
+  ///        has to work.
   ///
   /// Every published version (1.0.0 through 1.2.1) ships schema v4 — the
   /// v1→v4 steps all landed pre-release — so `from == 4` is the only upgrade
-  /// path a real device can take into 1.3.0. `migration_v4_to_v5_test.dart`
+  /// path a real device can take into 1.3.0. `migration_v4_to_v7_test.dart`
   /// exercises it against a snapshot of the real v4 schema.
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   /// Store `DateTime` columns as ISO-8601 text so timezone information
   /// survives a write/read round-trip. CLAUDE.md mandates UTC storage; the
@@ -142,6 +150,13 @@ class AppDatabase extends _$AppDatabase {
           if (from < 6) {
             await m.createTable(productEventCounters);
           }
+          // v6 → v7: add the tax calendar tables (1.3.0, Block 4). Additive,
+          // and both start empty: the calendar is generated from the user's
+          // profile after the upgrade, never backfilled for periods that
+          // passed before the feature existed.
+          if (from < 7) {
+            await m.createTable(taxProfiles);
+          }
         },
       );
 
@@ -169,6 +184,12 @@ class AppDatabase extends _$AppDatabase {
       // Telemetry counters describe the departing account's behaviour and
       // must not travel into the next one signed in on this device.
       await delete(productEventCounters).go();
+      // The taxpayer profile is the most identifying row the app holds: legal
+      // form, whether they employ anyone, what they own. It leaves with the
+      // account, and it leaves for the same reason the financial rows do —
+      // the next person to sign in on this phone must not inherit a calendar
+      // generated from someone else's business.
+      await delete(taxProfiles).go();
       // Reset the pull watermark so the next sign-in performs a full pull.
       // lastSyncAt lives in userSettings, not the data tables wiped above; if
       // it survived, the next session's incremental pull

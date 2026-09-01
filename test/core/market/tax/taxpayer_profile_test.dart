@@ -47,6 +47,20 @@ void main() {
       expect(TaxpayerProfile.questionCount, 8);
     });
 
+    test('should compare by its eight answers', () {
+      // Same answers means same calendar, so a caller can skip regenerating
+      // when a wizard round trip changed nothing.
+      expect(
+        const TaxpayerProfile(legalForm: TaxpayerLegalForm.limited),
+        const TaxpayerProfile(legalForm: TaxpayerLegalForm.limited),
+      );
+      expect(
+        const TaxpayerProfile(legalForm: TaxpayerLegalForm.limited),
+        isNot(const TaxpayerProfile(legalForm: TaxpayerLegalForm.anonim)),
+      );
+      expect(TaxpayerProfile.empty.copyWith(), TaxpayerProfile.empty);
+    });
+
     test('should replace only the answers copyWith is given', () {
       const TaxpayerProfile profile = TaxpayerProfile(
         legalForm: TaxpayerLegalForm.anonim,

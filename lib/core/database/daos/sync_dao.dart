@@ -30,6 +30,7 @@ part 'sync_dao.g.dart';
     UserSettings,
     SyncConflictPayloads,
     SyncDeferredRows,
+    TaxProfiles,
   ],
 )
 class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
@@ -276,6 +277,98 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
 
   Future<void> hardDeleteBudget(int id) =>
       (delete(budgets)..where(($BudgetsTable t) => t.id.equals(id))).go();
+
+  // ---------------------------------------------------------------------
+  // Tax profile (1.3.0, Block 4)
+  // ---------------------------------------------------------------------
+
+  Future<TaxProfile?> findTaxProfileByRemoteId(String remoteId) {
+    return (select(taxProfiles)
+          ..where(($TaxProfilesTable t) => t.remoteId.equals(remoteId))
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  Future<void> markTaxProfileSynced(int id, {String? remoteId}) {
+    return (update(taxProfiles)
+          ..where(($TaxProfilesTable t) => t.id.equals(id)))
+        .write(
+      TaxProfilesCompanion(
+        remoteId: remoteId == null
+            ? const Value<String?>.absent()
+            : Value<String?>(remoteId),
+        syncStatus: const Value<String>(SyncStatus.synced),
+      ),
+    );
+  }
+
+  /// Applies a pulled taxpayer profile.
+  ///
+  /// Differs from the other `apply*FromRemote` methods in one way that
+  /// matters: when no local row carries [remoteId], this does **not** insert
+  /// a second profile. The table holds one row per user, and a second device
+  /// that filled the wizard offline has a local row with no `remote_id` at
+  /// all. Inserting would leave the device with two profiles and no rule for
+  /// which one generates the calendar; adopting the existing row — writing
+  /// the server's id onto it — is the merge that keeps the invariant.
+  ///
+  /// The adoption path is still subject to last-write-wins, and it still
+  /// quarantines the version it discards. That is the case this guards: the
+  /// user answers the wizard on their phone, then again on their tablet, and
+  /// one of the two answer sets is about to lose. It is kept.
+  Future<bool> applyTaxProfileFromRemote({
+    required String remoteId,
+    required Map<String, dynamic> remotePayload,
+    required String legalForm,
+    required String vatLiability,
+    required String withholdingLiability,
+    required String employsStaff,
+    required String bagkurInsured,
+    required String usesELedger,
+    required String ownsVehicle,
+    required String ownsRealEstate,
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    String? userId,
+  }) async {
+    final TaxProfilesCompanion values = TaxProfilesCompanion(
+      remoteId: Value<String?>(remoteId),
+      userId: Value<String?>(userId),
+      legalForm: Value<String>(legalForm),
+      vatLiability: Value<String>(vatLiability),
+      withholdingLiability: Value<String>(withholdingLiability),
+      employsStaff: Value<String>(employsStaff),
+      bagkurInsured: Value<String>(bagkurInsured),
+      usesELedger: Value<String>(usesELedger),
+      ownsVehicle: Value<String>(ownsVehicle),
+      ownsRealEstate: Value<String>(ownsRealEstate),
+      createdAt: Value<DateTime>(createdAt.toUtc()),
+      updatedAt: Value<DateTime>(updatedAt.toUtc()),
+      syncStatus: const Value<String>(SyncStatus.synced),
+    );
+
+    final TaxProfile? existing = await findTaxProfileByRemoteId(remoteId) ??
+        await (select(taxProfiles)..limit(1)).getSingleOrNull();
+    if (existing == null) {
+      await into(taxProfiles).insert(values);
+      return true;
+    }
+    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) {
+      await recordConflictPayload(
+        tableName: 'tax_profiles',
+        remoteId: remoteId,
+        remotePayload: remotePayload,
+        localUpdatedAt: existing.updatedAt,
+        remoteUpdatedAt: updatedAt,
+        userId: userId,
+      );
+      return false;
+    }
+    await (update(taxProfiles)
+          ..where(($TaxProfilesTable t) => t.id.equals(existing.id)))
+        .write(values);
+    return true;
+  }
 
   // ---------------------------------------------------------------------
   // Conflict quarantine

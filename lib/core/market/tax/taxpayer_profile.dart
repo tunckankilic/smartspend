@@ -10,6 +10,8 @@
 /// this; the generator (T4) only ever sees this.
 library;
 
+import 'package:equatable/equatable.dart';
+
 import 'package:smartspend/core/services/telemetry_service.dart';
 
 /// A yes/no question the user is allowed not to answer.
@@ -152,7 +154,11 @@ enum WithholdingLiability {
 ///
 /// Defaults are all "unknown": [TaxpayerProfile.empty] is what a user who has
 /// never opened the wizard has, and it must be a legal input to the generator.
-final class TaxpayerProfile {
+///
+/// Compared by value. Two profiles with the same eight answers generate the
+/// same calendar, so they are the same profile — which is what lets a caller
+/// skip a regeneration when a wizard round trip changed nothing.
+final class TaxpayerProfile extends Equatable {
   const TaxpayerProfile({
     this.legalForm = TaxpayerLegalForm.unspecified,
     this.vatLiability = VatLiability.unknown,
@@ -221,6 +227,18 @@ final class TaxpayerProfile {
   /// The number of questions the wizard asks. Pinned by a test against the
   /// field count so adding a ninth dimension cannot silently skip the wizard.
   static const int questionCount = 8;
+
+  @override
+  List<Object?> get props => <Object?>[
+        legalForm,
+        vatLiability,
+        withholdingLiability,
+        employsStaff,
+        bagkurInsured,
+        usesELedger,
+        ownsVehicle,
+        ownsRealEstate,
+      ];
 
   /// Copy with individual answers replaced.
   TaxpayerProfile copyWith({

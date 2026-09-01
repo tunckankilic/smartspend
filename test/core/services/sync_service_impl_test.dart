@@ -10,6 +10,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:smartspend/core/database/app_database.dart';
 import 'package:smartspend/core/database/sync_status.dart';
 import 'package:smartspend/core/error/failures.dart';
+import 'package:smartspend/core/market/tax/taxpayer_profile.dart';
 import 'package:smartspend/core/services/sync_remote_data_source.dart';
 import 'package:smartspend/core/services/sync_service.dart';
 import 'package:smartspend/core/services/sync_service_impl.dart';
@@ -893,4 +894,154 @@ void main() {
       await conn.close();
     });
   });
+
+  group('tax profile sync', () {
+    Map<String, dynamic> remoteProfile({
+      String id = 'profile-remote-1',
+      String legalForm = 'limited',
+      String? updatedAt,
+    }) =>
+        <String, dynamic>{
+          'id': id,
+          'user_id': 'user-test-1',
+          'legal_form': legalForm,
+          'vat_liability': 'monthly',
+          'withholding_liability': 'unknown',
+          'employs_staff': 'yes',
+          'bagkur_insured': 'unknown',
+          'uses_e_ledger': 'no',
+          'owns_vehicle': 'unknown',
+          'owns_real_estate': 'unknown',
+          'created_at': DateTime.utc(2026, 9, 1).toIso8601String(),
+          'updated_at':
+              updatedAt ?? DateTime.now().toUtc().toIso8601String(),
+        };
+
+    test('should push a pending profile against the user_id constraint',
+        () async {
+      // Not the `id` primary key: a device that filled the wizard offline has
+      // no server id to conflict on, and the table is unique on user_id. With
+      // the wrong target that push fails forever or duplicates the profile.
+      await db.taxProfileDao.save(
+        const TaxpayerProfile(
+          legalForm: TaxpayerLegalForm.limited,
+          employsStaff: TaxpayerAnswer.yes,
+        ),
+      );
+      when(
+        () => remote.upsert(
+          'tax_profiles',
+          any(),
+          onConflict: any(named: 'onConflict'),
+        ),
+      ).thenAnswer((_) async => 'profile-remote-1');
+
+      final Either<Failure, SyncReport> result = await service.push();
+
+      expect(
+        result.getOrElse(() => throw StateError('expected Right')).failed,
+        0,
+      );
+      final List<dynamic> captured = verify(
+        () => remote.upsert(
+          'tax_profiles',
+          captureAny(),
+          onConflict: captureAny(named: 'onConflict'),
+        ),
+      ).captured;
+      final Map<String, dynamic> payload =
+          captured.first as Map<String, dynamic>;
+      expect(captured.last, 'user_id');
+      expect(payload['user_id'], 'user-test-1');
+      expect(payload['legal_form'], 'limited');
+      expect(payload['employs_staff'], 'yes');
+      expect(payload['owns_vehicle'], 'unknown');
+      expect((await db.taxProfileDao.getRow())!.remoteId, 'profile-remote-1');
+      expect(await db.taxProfileDao.getPendingSync(), isEmpty);
+    });
+
+    test('should apply a pulled profile on a device that has none', () async {
+      when(() => remote.fetchSince('tax_profiles', any()))
+          .thenAnswer((_) async => <Map<String, dynamic>>[remoteProfile()]);
+
+      final Either<Failure, SyncReport> result = await service.pull();
+
+      expect(
+        result.getOrElse(() => throw StateError('expected Right')).pulled,
+        greaterThan(0),
+      );
+      final TaxpayerProfile stored = await db.taxProfileDao.getProfile();
+      expect(stored.legalForm, TaxpayerLegalForm.limited);
+      expect(stored.employsStaff, TaxpayerAnswer.yes);
+    });
+
+    test('should adopt the local offline profile instead of adding a second',
+        () async {
+      // The tablet filled the wizard while offline, so its row has no
+      // remote_id. Inserting the server's copy alongside it would leave the
+      // device holding two profiles with no rule for which one generates the
+      // calendar.
+      await db.taxProfileDao.save(
+        const TaxpayerProfile(legalForm: TaxpayerLegalForm.sahisSirketi),
+        now: DateTime.utc(2026, 9, 1, 8),
+      );
+      when(() => remote.fetchSince('tax_profiles', any())).thenAnswer(
+        (_) async => <Map<String, dynamic>>[
+          remoteProfile(
+            updatedAt: DateTime.utc(2026, 9, 1, 12).toIso8601String(),
+          ),
+        ],
+      );
+
+      await service.pull();
+
+      final List<TaxProfile> rows = await db.select(db.taxProfiles).get();
+      expect(rows, hasLength(1));
+      expect(rows.single.remoteId, 'profile-remote-1');
+      expect(rows.single.legalForm, 'limited');
+    });
+
+    test('should keep the answers last-write-wins is about to discard',
+        () async {
+      // Wizard answered on the phone at 12:00 and on the tablet at 08:00.
+      // The older set loses — but it is the user's answer about their own
+      // business, and 1.3.0's whole point is that a losing version is kept
+      // rather than dropped on the floor.
+      await db.taxProfileDao.save(
+        const TaxpayerProfile(legalForm: TaxpayerLegalForm.anonim),
+        now: DateTime.utc(2026, 9, 1, 12),
+      );
+      when(() => remote.fetchSince('tax_profiles', any())).thenAnswer(
+        (_) async => <Map<String, dynamic>>[
+          remoteProfile(
+            updatedAt: DateTime.utc(2026, 9, 1, 8).toIso8601String(),
+          ),
+        ],
+      );
+
+      final Either<Failure, SyncReport> result = await service.pull();
+
+      expect(
+        result.getOrElse(() => throw StateError('expected Right')).conflicts,
+        1,
+      );
+      expect((await db.taxProfileDao.getRow())!.legalForm, 'anonim');
+      final List<SyncConflictPayload> quarantined =
+          await db.syncDao.getConflictPayloads();
+      expect(quarantined, hasLength(1));
+      expect(quarantined.single.conflictTableName, 'tax_profiles');
+      expect(quarantined.single.remotePayload, contains('limited'));
+    });
+
+    test('should count a pending profile as work still to do', () async {
+      expect(await service.pendingCount(), 0);
+
+      await db.taxProfileDao.save(
+        const TaxpayerProfile(usesELedger: TaxpayerAnswer.yes),
+      );
+
+      expect(await service.pendingCount(), 1);
+    });
+  });
+
 }

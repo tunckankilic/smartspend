@@ -21,6 +21,18 @@ abstract class TelemetryRemoteDataSource {
   /// server-side operation is an overwrite of that device's row only —
   /// idempotent under retry, and invisible to every other device's row.
   Future<void> upsertCounters(List<Map<String, dynamic>> rows);
+
+  /// Deletes every counter belonging to the authenticated user.
+  ///
+  /// Opting out is an objection to processing, not merely a request to stop
+  /// collecting more. Clearing only the device would leave everything already
+  /// uploaded sitting on the server indefinitely — "off" has to reach what was
+  /// already sent, or the switch is a promise about the future only.
+  ///
+  /// RLS already permits this: `product_events_delete_own` scopes DELETE to
+  /// `auth.uid() = user_id`, so no elevated privilege is involved and the
+  /// statement cannot touch anyone else's rows.
+  Future<void> deleteAllForCurrentUser();
 }
 
 /// [SupabaseClient]-backed implementation. RLS scopes every write to the
@@ -45,5 +57,15 @@ class SupabaseTelemetryRemoteDataSource implements TelemetryRemoteDataSource {
     await _client
         .from('product_events')
         .upsert(rows, onConflict: _conflictTarget);
+  }
+
+  @override
+  Future<void> deleteAllForCurrentUser() async {
+    final String? userId = currentUserId;
+    if (userId == null) return;
+    // The filter is redundant under RLS and written anyway: a DELETE with no
+    // WHERE is one policy misconfiguration away from being catastrophic, and
+    // nothing about this call needs that much trust in the policy.
+    await _client.from('product_events').delete().eq('user_id', userId);
   }
 }

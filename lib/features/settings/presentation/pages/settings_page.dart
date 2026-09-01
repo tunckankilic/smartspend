@@ -364,9 +364,10 @@ class _TelemetryTile extends StatefulWidget {
 }
 
 class _TelemetryTileState extends State<_TelemetryTile> {
-  /// Starts as `true` because telemetry is opt-out — showing the switch off
-  /// for one frame and then flicking it on would misrepresent the default.
-  bool _enabled = true;
+  /// Seeded from the service's own default so the first frame is right.
+  /// Painting `on` and then flicking to `off` would misrepresent the default
+  /// in exactly the jurisdictions where the default matters most (D-16).
+  late bool _enabled = sl<TelemetryService>().defaultEnabled;
 
   @override
   void initState() {

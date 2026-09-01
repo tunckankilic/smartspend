@@ -136,8 +136,16 @@ abstract class TelemetryService {
   /// server state instead of double-counting (D-14).
   Future<int> flush();
 
-  /// Whether telemetry is on. Defaults to `true` — this is opt-out (D-15).
+  /// Whether telemetry is on.
   Future<bool> isEnabled();
+
+  /// What [isEnabled] answers before the user has touched the switch.
+  ///
+  /// On (opt-out) under D-15, but off where a local rule requires consent for
+  /// device-side storage — see D-16. Exposed synchronously so the settings
+  /// switch can paint the right position on its first frame instead of showing
+  /// the wrong default and flicking.
+  bool get defaultEnabled;
 
   /// Turns telemetry on or off. Turning it off also clears the local backlog.
   Future<void> setEnabled({required bool enabled});

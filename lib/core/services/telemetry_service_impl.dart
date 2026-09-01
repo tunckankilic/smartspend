@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:ui';
 
 import 'package:smartspend/core/database/app_database.dart';
 import 'package:smartspend/core/services/sync_service.dart';
@@ -17,8 +18,10 @@ class TelemetryServiceImpl implements TelemetryService {
     required this.syncService,
     DateTime Function()? clock,
     Random? random,
+    String Function()? localeCode,
   })  : _clock = clock ?? DateTime.now,
-        _random = random ?? Random.secure();
+        _random = random ?? Random.secure(),
+        _localeCode = localeCode ?? _platformLocaleCode;
 
   final AppDatabase database;
   final TelemetryRemoteDataSource remote;
@@ -26,6 +29,10 @@ class TelemetryServiceImpl implements TelemetryService {
 
   final DateTime Function() _clock;
   final Random _random;
+  final String Function() _localeCode;
+
+  static String _platformLocaleCode() =>
+      PlatformDispatcher.instance.locale.languageCode;
 
   /// Opt-out flag. Absent means on (D-15).
   static const String kEnabledKey = 'telemetry.enabled';
@@ -33,6 +40,21 @@ class TelemetryServiceImpl implements TelemetryService {
   /// Random per-install id. Generated on first use, never derived from
   /// hardware — IDFV, Android ID and advertising ids are all out of bounds.
   static const String kDeviceIdKey = 'telemetry.deviceId';
+
+  /// Set when an opt-out could not reach the server. The wipe is retried on
+  /// the next flush, including while telemetry stays off.
+  static const String kPendingServerWipeKey = 'telemetry.pendingServerWipe';
+
+  /// Language codes whose default is OFF rather than on (D-16).
+  ///
+  /// Germany's TDDDG § 25 (and the ePrivacy rule behind it) requires consent
+  /// for non-essential storage on or access to the user's device, and a
+  /// legitimate-interest basis does not substitute for it — so the opt-out
+  /// model this product uses in Turkey is likely invalid there. Language is a
+  /// proxy for jurisdiction and an imperfect one, deliberately erring towards
+  /// collecting less: a German speaker outside Germany simply gets a default
+  /// they can switch on.
+  static const Set<String> kDefaultOffLanguages = <String>{'de'};
 
   /// Rows per upload. Counters are few (a handful of events per day), so this
   /// only ever bites after a long offline stretch; the remainder goes out on
@@ -98,10 +120,18 @@ class TelemetryServiceImpl implements TelemetryService {
   }) async {
     try {
       if (!await isEnabled()) return;
+      // No session means the activity cannot honestly be attributed to
+      // anyone. `flush` used to stamp whoever happened to be signed in when
+      // the upload ran, so on a shared device one person's scans could land on
+      // the next person's account. Not collecting is both more accurate and
+      // less data.
+      final String? userId = remote.currentUserId;
+      if (userId == null) return;
       await database.productEventDao.increment(
         eventKey: event.key,
         dimension: dimension?.value ?? '',
         day: _today(),
+        userId: userId,
         now: _clock().toUtc(),
       );
     } on Object catch (_) {
@@ -121,6 +151,10 @@ class TelemetryServiceImpl implements TelemetryService {
     if (_flushing) return 0;
     _flushing = true;
     try {
+      // Runs before the opt-out check on purpose: an objection that could not
+      // reach the server has to keep being retried precisely while telemetry
+      // is off.
+      await _drainPendingWipe();
       if (!await isEnabled()) return 0;
 
       final String? userId = remote.currentUserId;
@@ -128,8 +162,11 @@ class TelemetryServiceImpl implements TelemetryService {
       // out after sign-in rather than being logged as failures.
       if (userId == null) return 0;
 
-      final List<ProductEventCounter> pending =
-          await database.productEventDao.getPendingSync();
+      // Only this user's counters. Rows stamped with someone else's id are
+      // left alone rather than re-attributed; sign-out deletes them anyway,
+      // and re-stamping them would be the very bug this filter exists to stop.
+      final List<ProductEventCounter> pending = await database.productEventDao
+          .getPendingSync(userId: userId);
       if (pending.isEmpty) return 0;
 
       final List<ProductEventCounter> batch = pending.length > kMaxRowsPerFlush
@@ -189,9 +226,18 @@ class TelemetryServiceImpl implements TelemetryService {
   Future<bool> isEnabled() async {
     final String? raw =
         await database.userSettingsDao.getValue(kEnabledKey);
-    // Absent means on: this is opt-out (D-15).
+    if (raw == null) return defaultEnabled;
     return raw != 'false';
   }
+
+  /// What [isEnabled] answers before the user has touched the switch.
+  ///
+  /// On (opt-out) in Turkey per D-15, off in the jurisdictions listed in
+  /// [kDefaultOffLanguages] per D-16. Exposed so the settings screen and the
+  /// tests can state the default without duplicating the rule.
+  @override
+  bool get defaultEnabled =>
+      !kDefaultOffLanguages.contains(_localeCode().toLowerCase());
 
   @override
   Future<void> setEnabled({required bool enabled}) async {
@@ -201,6 +247,27 @@ class TelemetryServiceImpl implements TelemetryService {
       // still sends everything collected up to that moment on the next flush,
       // which is not what anyone reading the switch would expect.
       await clearLocalData();
+      // ...and it has to reach what was already uploaded, otherwise the switch
+      // only promises something about the future. Best-effort: if the network
+      // is down the request is remembered and retried by the next flush, and
+      // the failure is never surfaced — the user has made their choice and
+      // there is nothing for them to do about a failed DELETE.
+      await database.userSettingsDao.setValue(kPendingServerWipeKey, 'true');
+      await _drainPendingWipe();
+    }
+  }
+
+  /// Retries an opt-out wipe that has not reached the server yet.
+  Future<void> _drainPendingWipe() async {
+    final String? pendingWipe =
+        await database.userSettingsDao.getValue(kPendingServerWipeKey);
+    if (pendingWipe != 'true') return;
+    if (remote.currentUserId == null) return;
+    try {
+      await remote.deleteAllForCurrentUser();
+      await database.userSettingsDao.setValue(kPendingServerWipeKey, 'false');
+    } on Object catch (_) {
+      // Flag stays set; the next flush tries again.
     }
   }
 

@@ -478,5 +478,155 @@ select is(
   'user B''s counter survived user A''s update attempt'
 );
 
+
+-- -----------------------------------------------------------------------------
+-- 10. product_events retention + anonymisation (1.3.0, Block 3)
+--
+--     Aggregation alone does not make data anonymous. On a small user base a
+--     single-contributor aggregate points at one person, so the roll-up only
+--     carries a combination across when at least k distinct users are behind
+--     it. These assertions are that guarantee: they fail if someone loosens
+--     the threshold, and they fail if the identified rows stop being deleted.
+-- -----------------------------------------------------------------------------
+
+select has_table('public', 'product_event_daily',
+  'product_event_daily table exists');
+
+select hasnt_column('public', 'product_event_daily', 'user_id',
+  'the roll-up table carries no user_id — that is what makes it anonymous');
+select hasnt_column('public', 'product_event_daily', 'device_id',
+  'the roll-up table carries no device_id either');
+
+-- Same posture as rate_limits: RLS on, nothing granted to anyone.
+select ok(
+  (select relrowsecurity from pg_class
+    where oid = 'public.product_event_daily'::regclass),
+  'RLS is enabled on public.product_event_daily'
+);
+select policies_are(
+  'public', 'product_event_daily',
+  array[]::text[],
+  'product_event_daily has NO policies (clients have zero access)'
+);
+
+select has_function(
+  'public', 'roll_up_product_events', array['integer','integer'],
+  'roll_up_product_events(retention_days, min_users) exists'
+);
+select is(
+  (select prosecdef from pg_proc
+    where proname = 'roll_up_product_events'
+      and pronamespace = 'public'::regnamespace
+    limit 1),
+  true,
+  'roll_up_product_events() is SECURITY DEFINER'
+);
+
+-- Six users so one combination clears k=5 and another does not.
+insert into auth.users (id, instance_id, aud, role, email)
+select
+  ('cccccccc-cccc-cccc-cccc-00000000000' || n)::uuid,
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated', 'authenticated',
+  'retention-' || n || '@smartspend.test'
+from generate_series(1, 6) as n
+on conflict (id) do nothing;
+
+-- Well past the 90-day window: six users, two events each.
+insert into public.product_events
+  (user_id, device_id, event_key, day, count)
+select
+  ('cccccccc-cccc-cccc-cccc-00000000000' || n)::uuid,
+  'dddddddd-dddd-dddd-dddd-00000000000' || n,
+  'retention_probe_a',
+  current_date - 200,
+  2
+from generate_series(1, 6) as n;
+
+-- Only two users — must be dropped, not carried across.
+insert into public.product_events
+  (user_id, device_id, event_key, day, count)
+select
+  ('cccccccc-cccc-cccc-cccc-00000000000' || n)::uuid,
+  'dddddddd-dddd-dddd-dddd-00000000000' || n,
+  'retention_probe_b',
+  current_date - 200,
+  7
+from generate_series(1, 2) as n;
+
+-- Inside the window: must survive untouched.
+insert into public.product_events
+  (user_id, device_id, event_key, day, count)
+values
+  ('cccccccc-cccc-cccc-cccc-000000000001',
+   'dddddddd-dddd-dddd-dddd-000000000001',
+   'retention_probe_a', current_date - 3, 11);
+
+select lives_ok(
+  $$ select public.roll_up_product_events() $$,
+  'roll_up_product_events() runs'
+);
+
+select is(
+  (select total_count::int from public.product_event_daily
+    where event_key = 'retention_probe_a' and day = current_date - 200),
+  12,
+  'a combination above the threshold is rolled up with the summed count'
+);
+
+select is(
+  (select user_count from public.product_event_daily
+    where event_key = 'retention_probe_a' and day = current_date - 200),
+  6,
+  'the roll-up records how many distinct users were behind the total'
+);
+
+select is(
+  (select count(*)::int from public.product_event_daily
+    where event_key = 'retention_probe_b'),
+  0,
+  'a combination below k distinct users is dropped, not anonymised'
+);
+
+select is(
+  (select count(*)::int from public.product_events
+    where day < current_date - 90),
+  0,
+  'every identified row past the retention window is deleted'
+);
+
+select is(
+  (select count::int from public.product_events
+    where event_key = 'retention_probe_a' and day = current_date - 3),
+  11,
+  'a row inside the retention window is untouched'
+);
+
+-- A scheduled job that runs twice must not double the totals.
+select lives_ok(
+  $$ select public.roll_up_product_events() $$,
+  'roll_up_product_events() runs a second time'
+);
+select is(
+  (select total_count::int from public.product_event_daily
+    where event_key = 'retention_probe_a' and day = current_date - 200),
+  12,
+  're-running the roll-up recomputes rather than accumulates'
+);
+select is(
+  (select count(*)::int from public.product_event_daily
+    where event_key = 'retention_probe_a'),
+  1,
+  're-running the roll-up inserts no duplicate row'
+);
+
+-- A zero or negative window would delete everything ever collected.
+select throws_ok(
+  $$ select public.roll_up_product_events(0) $$,
+  null,
+  null,
+  'a retention window below one day is refused'
+);
+
 select * from finish();
 rollback;

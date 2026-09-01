@@ -38,6 +38,7 @@ class ProductEventDao extends DatabaseAccessor<AppDatabase>
     required String eventKey,
     required String day,
     String dimension = '',
+    String? userId,
     int by = 1,
     DateTime? now,
   }) {
@@ -48,6 +49,7 @@ class ProductEventDao extends DatabaseAccessor<AppDatabase>
         dimension: Value<String>(dimension),
         day: day,
         count: Value<int>(by),
+        userId: Value<String?>(userId),
         updatedAt: stamp,
       ),
       onConflict: DoUpdate(
@@ -67,10 +69,17 @@ class ProductEventDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Counters with unsent changes, oldest day first.
-  Future<List<ProductEventCounter>> getPendingSync() {
+  ///
+  /// Pass [userId] to get only that account's rows. Counters recorded under a
+  /// different account must not be re-stamped and uploaded as this one's — on
+  /// a shared device that would attribute one person's activity to another.
+  Future<List<ProductEventCounter>> getPendingSync({String? userId}) {
     return (select(productEventCounters)
           ..where(($ProductEventCountersTable t) =>
-              t.syncStatus.isIn(SyncStatus.pending))
+              t.syncStatus.isIn(SyncStatus.pending) &
+              (userId == null
+                  ? const Constant<bool>(true)
+                  : t.userId.equals(userId)))
           ..orderBy(<OrderClauseGenerator<$ProductEventCountersTable>>[
             ($ProductEventCountersTable t) => OrderingTerm(expression: t.day),
           ]))

@@ -32,6 +32,16 @@ class _FakeRemote implements TelemetryRemoteDataSource {
     if (shouldThrow) throw StateError('network down');
     uploaded.addAll(rows);
   }
+
+  int deleteCalls = 0;
+  bool deleteShouldThrow = false;
+
+  @override
+  Future<void> deleteAllForCurrentUser() async {
+    deleteCalls++;
+    if (deleteShouldThrow) throw StateError('network down');
+    uploaded.clear();
+  }
 }
 
 /// Sync engine stand-in whose phase stream the test drives by hand.
@@ -71,6 +81,7 @@ void main() {
   late _FakeRemote remote;
   late _FakeSyncService sync;
   late DateTime now;
+  late String locale;
   late TelemetryServiceImpl service;
 
   TelemetryServiceImpl build() => TelemetryServiceImpl(
@@ -80,6 +91,7 @@ void main() {
         clock: () => now,
         // Seeded so the generated install id is reproducible in assertions.
         random: Random(7),
+        localeCode: () => locale,
       );
 
   setUp(() {
@@ -87,6 +99,7 @@ void main() {
     remote = _FakeRemote();
     sync = _FakeSyncService();
     now = DateTime.utc(2026, 9, 1, 10, 30);
+    locale = 'tr';
     service = build();
   });
 
@@ -440,6 +453,7 @@ void main() {
       for (int i = 0; i < TelemetryServiceImpl.kMaxRowsPerFlush + 5; i++) {
         await db.productEventDao.increment(
           eventKey: 'scan_started',
+          userId: 'user-1',
           day: DateTime.utc(2025, 1, 1)
               .add(Duration(days: i))
               .toIso8601String()
@@ -471,6 +485,129 @@ void main() {
         day: '2026-09-01',
       ))!;
       expect(row.syncStatus, SyncStatus.synced);
+    });
+  });
+
+  group('session attribution (B11)', () {
+    // Before this, `flush` stamped whoever happened to be signed in when the
+    // upload ran. On a shared device that put one person's scans on the next
+    // person's account.
+    test('should record nothing while signed out', () async {
+      remote.userId = null;
+
+      await service.record(ProductEvent.scanStarted);
+
+      expect(await db.productEventDao.getAll(), isEmpty);
+    });
+
+    test("should not upload another account's counters", () async {
+      await service.record(ProductEvent.scanStarted);
+      remote.userId = 'user-2';
+
+      expect(await service.flush(), 0);
+      expect(remote.uploaded, isEmpty);
+      // Left pending and unmodified rather than re-stamped.
+      expect(await db.productEventDao.getPendingSync(), hasLength(1));
+    });
+
+    test('should stamp the recording account on the row', () async {
+      await service.record(ProductEvent.scanStarted);
+
+      final ProductEventCounter row = (await db.productEventDao.find(
+        eventKey: 'scan_started',
+        day: '2026-09-01',
+      ))!;
+      expect(row.userId, 'user-1');
+    });
+  });
+
+  group('opt-out reaches the server (B6.1)', () {
+    test('opting out should delete the uploaded rows too', () async {
+      await service.record(ProductEvent.scanStarted);
+      await service.flush();
+      expect(remote.uploaded, hasLength(1));
+
+      await service.setEnabled(enabled: false);
+
+      expect(remote.deleteCalls, 1);
+      expect(remote.uploaded, isEmpty);
+    });
+
+    // The user has made their choice and there is nothing they could do about
+    // a failed DELETE, so the failure is remembered rather than surfaced.
+    test('a failed wipe should be retried on the next flush', () async {
+      await service.record(ProductEvent.scanStarted);
+      await service.flush();
+      remote.deleteShouldThrow = true;
+
+      await service.setEnabled(enabled: false);
+      expect(remote.deleteCalls, 1);
+      expect(remote.uploaded, hasLength(1));
+
+      remote.deleteShouldThrow = false;
+      // Still opted out — the retry has to run anyway.
+      await service.flush();
+
+      expect(remote.deleteCalls, 2);
+      expect(remote.uploaded, isEmpty);
+    });
+
+    test('the retry should not repeat once it has succeeded', () async {
+      await service.setEnabled(enabled: false);
+      final int after = remote.deleteCalls;
+
+      await service.flush();
+      await service.flush();
+
+      expect(remote.deleteCalls, after);
+    });
+
+    test('a wipe requested while signed out should wait for a session',
+        () async {
+      await service.record(ProductEvent.scanStarted);
+      await service.flush();
+      remote.userId = null;
+
+      await service.setEnabled(enabled: false);
+      expect(remote.deleteCalls, 0);
+
+      remote.userId = 'user-1';
+      await service.flush();
+
+      expect(remote.deleteCalls, 1);
+    });
+  });
+
+  group('regional default (D-16)', () {
+    // Germany's TDDDG requires consent for non-essential device-side storage,
+    // and a legitimate-interest basis does not substitute for it — so the
+    // opt-out model cannot be the default there.
+    test('should default to off for German', () async {
+      locale = 'de';
+      service = build();
+
+      expect(service.defaultEnabled, isFalse);
+      expect(await service.isEnabled(), isFalse);
+
+      await service.record(ProductEvent.scanStarted);
+      expect(await db.productEventDao.getAll(), isEmpty);
+    });
+
+    test('should default to on for Turkish', () async {
+      expect(service.defaultEnabled, isTrue);
+      expect(await service.isEnabled(), isTrue);
+    });
+
+    // An explicit choice outranks the regional default in both directions.
+    test('an explicit opt-in should survive the German default', () async {
+      locale = 'de';
+      service = build();
+      await service.setEnabled(enabled: true);
+
+      expect(await service.isEnabled(), isTrue);
+
+      await service.record(ProductEvent.scanStarted);
+      expect(await db.productEventDao.getAll(), hasLength(1));
     });
   });
 }

@@ -38,6 +38,9 @@ class RecordingTelemetryService implements TelemetryService {
   }
 
   @override
+  bool get defaultEnabled => true;
+
+  @override
   Future<bool> isEnabled() async => enabled;
 
   @override

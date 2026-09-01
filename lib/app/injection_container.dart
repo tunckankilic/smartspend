@@ -103,6 +103,15 @@ import 'package:smartspend/features/receipts/domain/usecases/get_receipt_detail.
 import 'package:smartspend/features/receipts/domain/usecases/get_receipt_image_url.dart';
 import 'package:smartspend/features/receipts/domain/usecases/watch_receipt_archive.dart';
 import 'package:smartspend/features/receipts/presentation/bloc/receipt_archive_bloc.dart';
+import 'package:smartspend/features/taxes/data/repositories/tax_repository_impl.dart';
+import 'package:smartspend/features/taxes/domain/repositories/tax_repository.dart';
+import 'package:smartspend/features/taxes/domain/usecases/add_custom_tax_item.dart';
+import 'package:smartspend/features/taxes/domain/usecases/annotate_tax_obligation.dart';
+import 'package:smartspend/features/taxes/domain/usecases/mark_tax_obligation.dart';
+import 'package:smartspend/features/taxes/domain/usecases/save_tax_profile.dart';
+import 'package:smartspend/features/taxes/presentation/cubit/tax_calendar_cubit.dart';
+import 'package:smartspend/features/taxes/presentation/cubit/tax_obligation_detail_cubit.dart';
+import 'package:smartspend/features/taxes/presentation/cubit/tax_profile_wizard_cubit.dart';
 import 'package:smartspend/features/receipts/presentation/bloc/receipt_detail_bloc.dart';
 import 'package:smartspend/features/split/data/repositories/split_repository_impl.dart';
 import 'package:smartspend/features/split/data/share_plus_split_sink.dart';
@@ -585,6 +594,54 @@ Future<void> configureDependencies() async {
         getDetail: sl<GetReceiptDetailUseCase>(),
         addWarranty: sl<AddWarrantyUseCase>(),
         getImageUrl: sl<GetReceiptImageUrlUseCase>(),
+      ),
+    )
+    // Taxes feature (1.3.0, Block 4) --------------------------------------
+    ..registerLazySingleton<TaxRepository>(
+      () => TaxRepositoryImpl(
+        profileDao: sl<AppDatabase>().taxProfileDao,
+        obligationDao: sl<AppDatabase>().taxObligationDao,
+        markets: sl<MarketRegistry>(),
+      ),
+    )
+    ..registerLazySingleton<SaveTaxProfileUseCase>(
+      () => SaveTaxProfileUseCase(
+        repository: sl<TaxRepository>(),
+        telemetry: sl<TelemetryService>(),
+      ),
+    )
+    ..registerLazySingleton<MarkTaxObligationUseCase>(
+      () => MarkTaxObligationUseCase(
+        repository: sl<TaxRepository>(),
+        telemetry: sl<TelemetryService>(),
+      ),
+    )
+    ..registerLazySingleton<AnnotateTaxObligationUseCase>(
+      () => AnnotateTaxObligationUseCase(
+        repository: sl<TaxRepository>(),
+        telemetry: sl<TelemetryService>(),
+      ),
+    )
+    ..registerLazySingleton<AddCustomTaxItemUseCase>(
+      () => AddCustomTaxItemUseCase(
+        repository: sl<TaxRepository>(),
+        telemetry: sl<TelemetryService>(),
+      ),
+    )
+    ..registerFactory<TaxCalendarCubit>(
+      () => TaxCalendarCubit(repository: sl<TaxRepository>()),
+    )
+    ..registerFactory<TaxProfileWizardCubit>(
+      () => TaxProfileWizardCubit(
+        repository: sl<TaxRepository>(),
+        saveProfile: sl<SaveTaxProfileUseCase>(),
+      ),
+    )
+    ..registerFactory<TaxObligationDetailCubit>(
+      () => TaxObligationDetailCubit(
+        repository: sl<TaxRepository>(),
+        mark: sl<MarkTaxObligationUseCase>(),
+        annotate: sl<AnnotateTaxObligationUseCase>(),
       ),
     );
 

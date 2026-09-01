@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -287,6 +288,16 @@ class _PreferencesSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         _SectionHeader(l.settingsPreferencesSection),
+        // The tax calendar's second entry point (the first is the end of
+        // onboarding). Reachable from here so a user who skipped the wizard
+        // — which every step invites them to do — can still find it later.
+        ListTile(
+          key: const Key('settings.taxCalendar'),
+          leading: const Icon(Icons.event_note_rounded),
+          title: Text(l.taxCalendarTitle),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/taxes'),
+        ),
         BlocBuilder<SettingsCubit, SettingsState>(
           buildWhen: (SettingsState p, SettingsState c) =>
               p.preferences != c.preferences,

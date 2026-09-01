@@ -5,6 +5,7 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:smartspend/core/services/telemetry_service.dart';
 import 'package:smartspend/core/error/failure_codes.dart';
 import 'package:smartspend/core/error/failures.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
@@ -13,6 +14,8 @@ import 'package:smartspend/features/scan/domain/usecases/pick_image.dart';
 import 'package:smartspend/features/scan/domain/usecases/scan_receipt.dart';
 import 'package:smartspend/features/scan/domain/usecases/usecase.dart';
 import 'package:smartspend/features/scan/presentation/bloc/scan_bloc.dart';
+
+import '../../helpers/recording_telemetry_service.dart';
 
 class _MockCapture extends Mock implements CaptureImageUseCase {}
 
@@ -35,13 +38,17 @@ void main() {
   late _MockScanReceipt scanReceipt;
   final File image = File('/tmp/captured.jpg');
 
+  late RecordingTelemetryService telemetry;
+
   ScanBloc build() => ScanBloc(
     captureImage: capture,
     pickImage: pick,
     scanReceipt: scanReceipt,
+    telemetry: telemetry,
   );
 
   setUp(() {
+    telemetry = RecordingTelemetryService();
     capture = _MockCapture();
     pick = _MockPick();
     scanReceipt = _MockScanReceipt();
@@ -282,6 +289,62 @@ void main() {
       seed: () => ImageReady(image: image),
       act: (ScanBloc b) => b.add(const ScanReset()),
       expect: () => <Matcher>[isA<ScanInitial>()],
+    );
+  });
+
+  group('telemetry (1.3.0, Block 3)', () {
+    setUp(() {
+      when(() => scanReceipt(any())).thenAnswer(
+        (_) async => Right<Failure, ScannedReceipt>(
+          ScannedReceipt.pending(image.path),
+        ),
+      );
+    });
+
+    blocTest<ScanBloc, ScanState>(
+      'ScanStarted should record scan_started — the conversion denominator',
+      build: build,
+      seed: () => ImageReady(image: image),
+      act: (ScanBloc b) => b.add(const ScanStarted()),
+      verify: (_) {
+        expect(telemetry.keys, <String>['scan_started']);
+      },
+    );
+
+    blocTest<ScanBloc, ScanState>(
+      'ScanStarted without an image should record nothing',
+      build: build,
+      act: (ScanBloc b) => b.add(const ScanStarted()),
+      verify: (_) {
+        expect(telemetry.keys, isEmpty);
+      },
+    );
+
+    // A retry is a second attempt at the same intent. Counting it would
+    // inflate the denominator and make the reading pipeline look worse than
+    // it is — the opposite of the honest measurement this release is for.
+    blocTest<ScanBloc, ScanState>(
+      'ScanRetried should NOT record a second scan_started',
+      build: build,
+      seed: () => ScanError(
+        failure: const OCRFailure(message: 'boom'),
+        image: image,
+      ),
+      act: (ScanBloc b) => b.add(const ScanRetried()),
+      verify: (_) {
+        expect(telemetry.keys, isEmpty);
+      },
+    );
+
+    blocTest<ScanBloc, ScanState>(
+      'the recorded event carries no dimension and no free text',
+      build: build,
+      seed: () => ImageReady(image: image),
+      act: (ScanBloc b) => b.add(const ScanStarted()),
+      verify: (_) {
+        expect(telemetry.recorded.single.dimension, isNull);
+        expect(telemetry.recorded.single.event, ProductEvent.scanStarted);
+      },
     );
   });
 }

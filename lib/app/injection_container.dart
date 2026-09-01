@@ -13,6 +13,7 @@ import 'package:smartspend/core/database/daos/budget_dao.dart';
 import 'package:smartspend/core/database/daos/category_dao.dart';
 import 'package:smartspend/core/database/daos/expense_dao.dart';
 import 'package:smartspend/core/database/daos/receipt_dao.dart';
+import 'package:smartspend/core/database/daos/product_event_dao.dart';
 import 'package:smartspend/core/database/daos/sync_dao.dart';
 import 'package:smartspend/core/database/daos/sync_log_dao.dart';
 import 'package:smartspend/core/database/daos/tag_dao.dart';
@@ -27,6 +28,9 @@ import 'package:smartspend/core/services/recurring_expense_scheduler.dart';
 import 'package:smartspend/core/services/sync_remote_data_source.dart';
 import 'package:smartspend/core/services/sync_service.dart';
 import 'package:smartspend/core/services/sync_service_impl.dart';
+import 'package:smartspend/core/services/telemetry_remote_data_source.dart';
+import 'package:smartspend/core/services/telemetry_service.dart';
+import 'package:smartspend/core/services/telemetry_service_impl.dart';
 import 'package:smartspend/core/supabase/supabase_client_provider.dart';
 import 'package:smartspend/core/supabase/supabase_storage_data_source.dart';
 import 'package:smartspend/features/auth/data/datasources/supabase_auth_data_source.dart';
@@ -158,6 +162,9 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton<BudgetDao>(() => sl<AppDatabase>().budgetDao)
     ..registerLazySingleton<CategoryDao>(() => sl<AppDatabase>().categoryDao)
     ..registerLazySingleton<SyncDao>(() => sl<AppDatabase>().syncDao)
+    ..registerLazySingleton<ProductEventDao>(
+      () => sl<AppDatabase>().productEventDao,
+    )
     ..registerLazySingleton<SyncLogDao>(() => sl<AppDatabase>().syncLogDao)
     ..registerLazySingleton<TagDao>(() => sl<AppDatabase>().tagDao)
     ..registerLazySingleton<UserCorrectionDao>(
@@ -294,6 +301,20 @@ Future<void> configureDependencies() async {
         connectivity: sl<Connectivity>(),
       ),
     )
+    // Product telemetry (1.3.0, Block 3). Registered after SyncService
+    // because it subscribes to that engine's phase stream for its upload
+    // trigger — the dependency runs telemetry → sync and never back, so the
+    // sync engine stays unaware that telemetry exists.
+    ..registerLazySingleton<TelemetryRemoteDataSource>(
+      () => SupabaseTelemetryRemoteDataSource(sl<SupabaseClient>()),
+    )
+    ..registerLazySingleton<TelemetryService>(
+      () => TelemetryServiceImpl(
+        database: sl<AppDatabase>(),
+        remote: sl<TelemetryRemoteDataSource>(),
+        syncService: sl<SyncService>(),
+      ),
+    )
     // SyncCubit is the presentation owner of the engine — singleton so the
     // AppBar chip, offline banner, and conflict listener share one
     // subscription. Started in `main` after wiring.
@@ -392,6 +413,7 @@ Future<void> configureDependencies() async {
         captureImage: sl<CaptureImageUseCase>(),
         pickImage: sl<PickImageUseCase>(),
         scanReceipt: sl<ScanReceiptUseCase>(),
+        telemetry: sl<TelemetryService>(),
       ),
     )
     // One-time third-party-AI consent ask on the Scan tab (5.1.2(i)).
@@ -408,6 +430,7 @@ Future<void> configureDependencies() async {
       () => ReceiptEditBloc(
         repository: sl<ScanRepository>(),
         suggestCategory: sl<SuggestCategoryForReceiptUseCase>(),
+        telemetry: sl<TelemetryService>(),
       ),
     )
     // Expenses feature (Sprint 3.1) -------------------------------------

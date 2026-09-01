@@ -292,3 +292,77 @@ class SyncDeferredRows extends Table {
   /// When this device noticed (UTC).
   DateTimeColumn get detectedAt => dateTime()();
 }
+
+/// Per-day, per-event product telemetry counters (1.3.0, Block 3).
+///
+/// 1.3.0's point is not the tax calendar, it is learning: D-2 (who the ICP
+/// actually is) is currently answered by two competing guesses, and this is
+/// the table that replaces them with evidence.
+///
+/// WHAT IT MAY NEVER HOLD — counters and closed-vocabulary categorical values
+/// only. No free text, no amounts, no document content. That is enforced by
+/// construction rather than by review:
+///   * [eventKey] is written only from the `ProductEvent` enum and
+///     [dimension] only from `TelemetryDimension`, so the compiler rejects a
+///     store name or an OCR line at the call site;
+///   * the server repeats the guarantee independently with regex CHECK
+///     constraints, so a bug on this side still cannot get a phrase through;
+///   * there is no amount column, so a lira value has nowhere to land.
+/// A scrubber would be the last line of defence. The design is that the event
+/// never carries the data in the first place.
+///
+/// WHY [count] IS ABSOLUTE, NOT A DELTA (D-14) — the sync engine is
+/// last-write-wins, and a counter under last-write-wins loses increments
+/// whenever two devices count the same day. The fix is that the device is part
+/// of the server's unique key `(user_id, device_id, event_key, dimension,
+/// day)`: this row holds the total THIS device has observed, the upload
+/// overwrites only this device's row, and readers `sum()` across devices.
+/// Overwrite is therefore correct, and re-sending the same value is a no-op —
+/// which is what makes upload retries, lost responses and duplicated batches
+/// harmless without any delta bookkeeping.
+///
+/// [day] is a `YYYY-MM-DD` string derived from UTC, not a `DateTime`. It is a
+/// bucket label, not a timestamp, and keeping it textual means the unique key
+/// cannot drift with date formatting or timezone conversion. Per-occurrence
+/// timestamps are deliberately absent: they would turn a counter into a
+/// timeline of what the user did and when.
+///
+/// `device_id` is not stored here. It is a property of the install, not of the
+/// row, so it lives once in [UserSettings] and is stamped at upload time.
+class ProductEventCounters extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get remoteId => text().nullable()();
+  TextColumn get userId => text().nullable()();
+
+  /// NULL for the whole of 1.3.0 — the company (space) model lands in 1.4.0.
+  /// Carried now under CLAUDE.md's stated exception so the 1.4.0 backfill has
+  /// a column to write into.
+  TextColumn get companyId => text().nullable()();
+
+  /// A `ProductEvent.key`. Never a caller-supplied string.
+  TextColumn get eventKey => text()();
+
+  /// A `TelemetryDimension.value`, or `''` for events without a breakdown.
+  ///
+  /// Empty string rather than NULL on purpose: the server's ON CONFLICT
+  /// target includes this column, and Postgres treats NULLs as distinct, so a
+  /// nullable dimension would let the same counter insert twice instead of
+  /// updating — quietly reintroducing the double-count this design exists to
+  /// prevent. The local unique key mirrors the server's for the same reason.
+  TextColumn get dimension => text().withDefault(const Constant(''))();
+
+  /// UTC calendar day, `YYYY-MM-DD`.
+  TextColumn get day => text()();
+
+  /// Absolute occurrences observed on this device for this key/day.
+  IntColumn get count => integer().withDefault(const Constant(0))();
+
+  DateTimeColumn get updatedAt => dateTime()();
+  TextColumn get syncStatus =>
+      text().withDefault(const Constant(SyncStatus.pendingCreate))();
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => <Set<Column<Object>>>[
+        <Column<Object>>{eventKey, dimension, day},
+      ];
+}

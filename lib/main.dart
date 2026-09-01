@@ -13,6 +13,7 @@ import 'package:smartspend/core/services/feature_flag_service.dart';
 import 'package:smartspend/core/services/notification_service.dart';
 import 'package:smartspend/core/services/recurring_expense_scheduler.dart';
 import 'package:smartspend/core/services/sync_service.dart';
+import 'package:smartspend/core/services/telemetry_service.dart';
 import 'package:smartspend/core/supabase/supabase_client_provider.dart';
 import 'package:smartspend/features/sync/presentation/bloc/sync_cubit.dart';
 
@@ -69,6 +70,10 @@ Future<void> main() async {
       // The initial `syncNow` is fire-and-forget so a slow network never
       // blocks paint.
       sl<SyncService>().start();
+      // Telemetry rides the sync engine's own triggers, so it must be started
+      // after it — `start` only installs a listener on the phase stream and
+      // does no I/O of its own.
+      sl<TelemetryService>().start();
       sl<SyncCubit>().start();
       unawaited(sl<SyncCubit>().syncNow());
       Bloc.observer = AppBlocObserver();

@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
+import 'package:smartspend/core/services/telemetry_service.dart';
 import 'package:smartspend/app/bloc/app_bloc.dart';
 import 'package:smartspend/app/injection_container.dart';
 import 'package:smartspend/core/error/failures.dart';
@@ -23,6 +24,8 @@ import 'package:smartspend/features/settings/presentation/bloc/settings_cubit.da
 import 'package:smartspend/features/settings/presentation/pages/settings_page.dart';
 import 'package:smartspend/features/sync/presentation/bloc/sync_cubit.dart';
 import 'package:smartspend/l10n/generated/app_localizations.dart';
+
+import '../../helpers/recording_telemetry_service.dart';
 
 class _MockGetPreferences extends Mock implements GetPreferencesUseCase {}
 
@@ -49,6 +52,7 @@ void main() {
   late _MockAuthBloc authBloc;
   late _MockSyncCubit syncCubit;
   late AppBloc appBloc;
+  late RecordingTelemetryService telemetry;
 
   const AppUser user = AppUser(
     id: 'u1',
@@ -71,6 +75,7 @@ void main() {
     authBloc = _MockAuthBloc();
     syncCubit = _MockSyncCubit();
     appBloc = AppBloc();
+    telemetry = RecordingTelemetryService();
 
     when(() => getPreferences(any())).thenAnswer(
       (_) async =>
@@ -90,7 +95,8 @@ void main() {
       )
       ..registerFactory<ExportCubit>(
         () => ExportCubit(exportData: exportData),
-      );
+      )
+      ..registerSingleton<TelemetryService>(telemetry);
   });
 
   tearDown(() async {
@@ -135,8 +141,8 @@ void main() {
     // Initial placeholder avatar (no avatar bucket).
     expect(find.text('J'), findsOneWidget);
     expect(find.byType(DropdownButton<String>), findsOneWidget);
-    // Notifications + AI consent + dark mode.
-    expect(find.byType(SwitchListTile), findsNWidgets(3));
+    // Notifications + AI consent + usage statistics + dark mode.
+    expect(find.byType(SwitchListTile), findsNWidgets(4));
   });
 
   testWidgets('toggles dark mode through AppBloc', (
@@ -216,5 +222,56 @@ void main() {
     final ExportParams captured =
         verify(() => exportData(captureAny())).captured.single as ExportParams;
     expect(captured.format, ExportFormat.pdf);
+  });
+
+  testWidgets('turning usage statistics off disables telemetry', (
+    WidgetTester tester,
+  ) async {
+    useTallViewport(tester);
+    await tester.pumpWidget(wrap());
+    await tester.pumpAndSettle();
+
+    final Finder tile = find.widgetWithText(
+      SwitchListTile,
+      'Usage statistics',
+    );
+    await tester.ensureVisible(tile);
+    await tester.pumpAndSettle();
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+
+    expect(telemetry.enabled, isFalse);
+    // Opting out must take the backlog with it, not just stop new collection.
+    expect(telemetry.cleared, isTrue);
+  });
+
+  // KVKK: a legitimate-interest basis only holds while the notice is actually
+  // reachable. A policy paragraph nobody can find is not disclosure.
+  testWidgets('the KVKK notice is reachable from settings', (
+    WidgetTester tester,
+  ) async {
+    useTallViewport(tester);
+    await tester.pumpWidget(wrap());
+    await tester.pumpAndSettle();
+
+    final Finder notice = find.widgetWithText(
+      ListTile,
+      'About usage statistics',
+    );
+    await tester.ensureVisible(notice);
+    await tester.pumpAndSettle();
+    await tester.tap(notice);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    // The two promises the notice is built on.
+    expect(
+      find.textContaining('never sent', findRichText: true),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('legitimate interest', findRichText: true),
+      findsOneWidget,
+    );
   });
 }

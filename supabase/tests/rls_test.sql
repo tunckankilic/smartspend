@@ -46,6 +46,8 @@ select has_table('public', 'rate_limits',    'rate_limits table exists');
 select has_table('public', 'sync_log',       'sync_log table exists');
 select has_table('public', 'user_corrections',
   'user_corrections table exists');
+select has_table('public', 'product_events',
+  'product_events table exists');
 
 -- -----------------------------------------------------------------------------
 -- 2. RLS is enabled on every public table (and forced for table owners)
@@ -64,7 +66,7 @@ select ok(
 from unnest(array[
   'categories','receipts','receipt_items','expenses','budgets',
   'budget_alerts','tags','expense_tags','user_settings','receipt_shares',
-  'rate_limits','sync_log','user_corrections'
+  'rate_limits','sync_log','user_corrections','product_events'
 ]) as t;
 
 select ok(
@@ -76,7 +78,7 @@ select ok(
 from unnest(array[
   'categories','receipts','receipt_items','expenses','budgets',
   'budget_alerts','tags','expense_tags','user_settings','receipt_shares',
-  'rate_limits','sync_log','user_corrections'
+  'rate_limits','sync_log','user_corrections','product_events'
 ]) as t;
 
 -- -----------------------------------------------------------------------------
@@ -264,6 +266,216 @@ select is(
       and store_name = 'Migros'),
   1,
   'user B''s user_correction row survived user A''s delete attempt'
+);
+
+
+-- product_events (1.3.0, Block 3) uses the standard owner-only 4-policy set.
+select policies_are(
+  'public', 'product_events',
+  array[
+    'product_events_select_own',
+    'product_events_insert_own',
+    'product_events_update_own',
+    'product_events_delete_own'
+  ],
+  'product_events has exactly the 4 owner-only policies'
+);
+
+-- -----------------------------------------------------------------------------
+-- 9. product_events (1.3.0, Block 3)
+--
+--    9a. The "no free text, no amounts, no document content" rule is a
+--        constraint, not a convention. These assertions are the proof: if a
+--        future change loosens the CHECKs, this file fails rather than
+--        letting a store name or an OCR line reach the server.
+--    9b. Counter semantics (D-14): each device owns its own row, writes are
+--        absolute, and readers sum() across devices. Re-sending the same
+--        value must be a no-op — that is what makes upload retries safe.
+--    9c. Cross-tenant isolation, same shape as section 8.
+-- -----------------------------------------------------------------------------
+
+-- 9a. Shape constraints reject everything that is not an identifier.
+select throws_ok(
+  $$ insert into public.product_events
+       (user_id, device_id, event_key, day, count)
+     values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+             '11111111-1111-1111-1111-111111111111',
+             'Migros Kadikoy subesi fisi', current_date, 1) $$,
+  '23514',
+  null,
+  'event_key rejects a free-text phrase (spaces + uppercase)'
+);
+
+select throws_ok(
+  $$ insert into public.product_events
+       (user_id, device_id, event_key, day, count)
+     values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+             '11111111-1111-1111-1111-111111111111',
+             repeat('a', 49), current_date, 1) $$,
+  '23514',
+  null,
+  'event_key rejects anything past the 48-char cap'
+);
+
+select throws_ok(
+  $$ insert into public.product_events
+       (user_id, device_id, event_key, dimension, day, count)
+     values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+             '11111111-1111-1111-1111-111111111111',
+             'scan_started', '1.249,90 TL', current_date, 1) $$,
+  '23514',
+  null,
+  'dimension rejects an amount (comma, period, space)'
+);
+
+select throws_ok(
+  $$ insert into public.product_events
+       (user_id, device_id, event_key, day, count)
+     values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+             'not-a-uuid-shape!', 'scan_started', current_date, 1) $$,
+  '23514',
+  null,
+  'device_id rejects anything that is not a hex/uuid-shaped install id'
+);
+
+select throws_ok(
+  $$ insert into public.product_events
+       (user_id, device_id, event_key, day, count)
+     values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+             '11111111-1111-1111-1111-111111111111',
+             'scan_started', current_date, -1) $$,
+  '23514',
+  null,
+  'count rejects a negative value'
+);
+
+select hasnt_column(
+  'public', 'product_events', 'amount',
+  'product_events has no amount column — a lira value has nowhere to land'
+);
+
+-- 9b. Counter semantics: two devices, one user, one event, one day.
+insert into public.product_events
+  (user_id, device_id, event_key, day, count)
+values
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+   '11111111-1111-1111-1111-111111111111', 'scan_started', date '2026-09-01', 4),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+   '22222222-2222-2222-2222-222222222222', 'scan_started', date '2026-09-01', 2);
+
+select is(
+  (select sum(count)::int from public.product_events
+    where event_key = 'scan_started' and day = date '2026-09-01'),
+  6,
+  'two devices on the same day aggregate to the sum, not to one survivor'
+);
+
+-- The client's upload, replayed. Absolute value, ON CONFLICT DO UPDATE.
+insert into public.product_events
+  (user_id, device_id, event_key, day, count)
+values
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+   '11111111-1111-1111-1111-111111111111', 'scan_started', date '2026-09-01', 4)
+on conflict (user_id, device_id, event_key, dimension, day)
+do update set count = excluded.count;
+
+select is(
+  (select sum(count)::int from public.product_events
+    where event_key = 'scan_started' and day = date '2026-09-01'),
+  6,
+  'replaying the same absolute count is a no-op — upload retries are safe'
+);
+
+select is(
+  (select count(*)::int from public.product_events
+    where event_key = 'scan_started' and day = date '2026-09-01'),
+  2,
+  'the replay updated a row rather than inserting a third'
+);
+
+-- Device 1 observes two more scans and sends its new absolute total.
+insert into public.product_events
+  (user_id, device_id, event_key, day, count)
+values
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+   '11111111-1111-1111-1111-111111111111', 'scan_started', date '2026-09-01', 6)
+on conflict (user_id, device_id, event_key, dimension, day)
+do update set count = excluded.count;
+
+select is(
+  (select sum(count)::int from public.product_events
+    where event_key = 'scan_started' and day = date '2026-09-01'),
+  8,
+  'device 1 advancing to 6 lifts the total to 8 without touching device 2'
+);
+
+-- The empty-string dimension sentinel is a real conflict target, so a second
+-- write for the same key does not slip past ON CONFLICT as a fresh row.
+select is(
+  (select count(*)::int from public.product_events
+    where device_id = '11111111-1111-1111-1111-111111111111'
+      and event_key = 'scan_started'
+      and dimension = ''),
+  1,
+  'the empty-string dimension sentinel matches ON CONFLICT (never NULL-skips)'
+);
+
+-- A different dimension is a different counter, not a collision.
+insert into public.product_events
+  (user_id, device_id, event_key, dimension, day, count)
+values
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+   '11111111-1111-1111-1111-111111111111',
+   'tax_profile_completed', 'limited', date '2026-09-01', 1);
+
+select is(
+  (select count(*)::int from public.product_events
+    where device_id = '11111111-1111-1111-1111-111111111111'),
+  2,
+  'a categorical dimension gets its own counter row'
+);
+
+-- 9c. Cross-tenant isolation.
+insert into public.product_events
+  (user_id, device_id, event_key, day, count)
+values
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+   '33333333-3333-3333-3333-333333333333', 'scan_approved', date '2026-09-01', 9);
+
+set local role authenticated;
+set local request.jwt.claims to
+  '{"sub":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","role":"authenticated"}';
+
+select is(
+  (select count(*)::int from public.product_events
+    where event_key = 'scan_approved'),
+  0,
+  'user A cannot SELECT user B''s product_events row'
+);
+
+select throws_ok(
+  $$ insert into public.product_events
+       (user_id, device_id, event_key, day, count)
+     values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+             '44444444-4444-4444-4444-444444444444',
+             'forged_event', current_date, 1) $$,
+  '42501',
+  null,
+  'user A cannot INSERT a product_events row forged with user B''s user_id'
+);
+
+select lives_ok(
+  $$ update public.product_events set count = 0 where event_key = 'scan_approved' $$,
+  'user A UPDATE matches zero of user B''s rows (no error, no effect)'
+);
+
+reset role;
+select is(
+  (select count from public.product_events
+    where user_id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+      and event_key = 'scan_approved'),
+  9,
+  'user B''s counter survived user A''s update attempt'
 );
 
 select * from finish();

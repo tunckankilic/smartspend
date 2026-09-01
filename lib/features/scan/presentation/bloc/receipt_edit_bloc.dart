@@ -8,6 +8,7 @@ import 'package:smartspend/core/error/failures.dart';
 import 'package:smartspend/features/categories/domain/entities/category.dart';
 import 'package:smartspend/features/categorization/domain/entities/categorization_suggestion.dart';
 import 'package:smartspend/features/categorization/domain/usecases/suggest_category_for_receipt.dart';
+import 'package:smartspend/core/services/telemetry_service.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_item.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
 import 'package:smartspend/features/scan/domain/repositories/scan_repository.dart';
@@ -46,8 +47,10 @@ class ReceiptEditBloc extends Bloc<ReceiptEditEvent, ReceiptEditState> {
   ReceiptEditBloc({
     required ScanRepository repository,
     required SuggestCategoryForReceiptUseCase suggestCategory,
+    required TelemetryService telemetry,
   }) : _repository = repository,
        _suggestCategory = suggestCategory,
+       _telemetry = telemetry,
        super(const ReceiptEditInitial()) {
     on<ReceiptEditStarted>(_onStarted);
     on<ReceiptStoreNameChanged>(_onStoreName);
@@ -64,6 +67,7 @@ class ReceiptEditBloc extends Bloc<ReceiptEditEvent, ReceiptEditState> {
 
   final ScanRepository _repository;
   final SuggestCategoryForReceiptUseCase _suggestCategory;
+  final TelemetryService _telemetry;
 
   // ---------------------------------------------------------------------
   // Bootstrap
@@ -291,12 +295,19 @@ class ReceiptEditBloc extends Bloc<ReceiptEditEvent, ReceiptEditState> {
       receipt: _withRecomputedTotal(current.receipt),
       defaultCategoryId: defaultCategoryId,
     );
-    result.fold(
-      (Failure f) {
+    // Numerator of the scan → save conversion rate. Recorded only on the
+    // success branch: a scan that failed validation or failed to persist is
+    // not an approved document, and counting it would quietly flatter the
+    // number this release exists to measure honestly.
+    await result.fold(
+      (Failure f) async {
         emit(ReceiptEditFailure(failure: f));
         emit(current);
       },
-      (int receiptId) => emit(ReceiptEditSaved(receiptId: receiptId)),
+      (int receiptId) async {
+        await _telemetry.record(ProductEvent.scanApproved);
+        emit(ReceiptEditSaved(receiptId: receiptId));
+      },
     );
   }
 

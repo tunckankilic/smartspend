@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:smartspend/core/database/daos/budget_dao.dart';
 import 'package:smartspend/core/database/daos/category_dao.dart';
 import 'package:smartspend/core/database/daos/expense_dao.dart';
+import 'package:smartspend/core/database/daos/product_event_dao.dart';
 import 'package:smartspend/core/database/daos/receipt_dao.dart';
 import 'package:smartspend/core/database/daos/sync_dao.dart';
 import 'package:smartspend/core/database/daos/sync_log_dao.dart';
@@ -17,6 +18,7 @@ import 'package:smartspend/core/database/daos/user_settings_dao.dart';
 import 'package:smartspend/core/database/default_categories.dart';
 import 'package:smartspend/core/database/sync_status.dart';
 import 'package:smartspend/core/database/tables.dart';
+import 'package:smartspend/core/services/telemetry_service_impl.dart';
 
 part 'app_database.g.dart';
 
@@ -41,6 +43,7 @@ part 'app_database.g.dart';
     UserCorrections,
     SyncConflictPayloads,
     SyncDeferredRows,
+    ProductEventCounters,
   ],
   daos: <Type>[
     ReceiptDao,
@@ -52,6 +55,7 @@ part 'app_database.g.dart';
     TagDao,
     UserCorrectionDao,
     UserSettingsDao,
+    ProductEventDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -78,13 +82,19 @@ class AppDatabase extends _$AppDatabase {
   ///        loop used to `continue` past before advancing the watermark past
   ///        them for good. Additive tables only, so v4 data upgrades
   ///        untouched.
+  ///   v6 — 1.3.0 Block 3 adds `product_event_counters`, the device-local
+  ///        half of product telemetry. Additive table only. Note that v5 was
+  ///        never published: 1.3.0 is the first release to carry either of
+  ///        these tables, so no device can ever upgrade *from* v5 and there is
+  ///        no v5 snapshot to test against — `v4.sql` remains the only real
+  ///        starting point, and the v4 → v6 chain is what a real device runs.
   ///
   /// Every published version (1.0.0 through 1.2.1) ships schema v4 — the
   /// v1→v4 steps all landed pre-release — so `from == 4` is the only upgrade
   /// path a real device can take into 1.3.0. `migration_v4_to_v5_test.dart`
   /// exercises it against a snapshot of the real v4 schema.
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   /// Store `DateTime` columns as ISO-8601 text so timezone information
   /// survives a write/read round-trip. CLAUDE.md mandates UTC storage; the
@@ -125,6 +135,13 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(syncConflictPayloads);
             await m.createTable(syncDeferredRows);
           }
+          // v5 → v6: add product_event_counters (1.3.0, Block 3). Additive,
+          // and the table starts empty on every device — telemetry counts
+          // forward from the upgrade, it does not backfill history it never
+          // observed.
+          if (from < 6) {
+            await m.createTable(productEventCounters);
+          }
         },
       );
 
@@ -149,6 +166,9 @@ class AppDatabase extends _$AppDatabase {
       // account's data.
       await delete(syncConflictPayloads).go();
       await delete(syncDeferredRows).go();
+      // Telemetry counters describe the departing account's behaviour and
+      // must not travel into the next one signed in on this device.
+      await delete(productEventCounters).go();
       // Reset the pull watermark so the next sign-in performs a full pull.
       // lastSyncAt lives in userSettings, not the data tables wiped above; if
       // it survived, the next session's incremental pull
@@ -157,6 +177,21 @@ class AppDatabase extends _$AppDatabase {
       // keys in userSettings are left untouched.
       await (delete(userSettings)
             ..where((UserSettings t) => t.key.equals(SyncDao.kLastSyncAtKey)))
+          .go();
+      // Rotate the telemetry install id. It is device-local, not account
+      // data, so it *could* survive — but then two accounts used on this
+      // phone would share a device_id on the server, and anyone reading that
+      // table could tell they were the same person's device. Rotating costs
+      // nothing: each account's rows already carry their own absolute counts,
+      // so a fresh id starts a fresh row and the server-side sum stays
+      // correct. The opt-out preference is deliberately NOT cleared — a user
+      // who switched telemetry off should not find it back on after signing
+      // out.
+      await (delete(userSettings)
+            ..where(
+              (UserSettings t) =>
+                  t.key.equals(TelemetryServiceImpl.kDeviceIdKey),
+            ))
           .go();
       await (delete(categories)
             ..where(

@@ -9,6 +9,7 @@ import 'package:equatable/equatable.dart';
 
 import 'package:smartspend/core/database/app_database.dart';
 import 'package:smartspend/core/error/failures.dart' show Failure;
+import 'package:smartspend/core/services/notification_service.dart';
 import 'package:smartspend/core/services/sync_service.dart';
 import 'package:smartspend/features/auth/domain/entities/app_user.dart';
 import 'package:smartspend/features/auth/domain/repositories/auth_repository.dart';
@@ -40,7 +41,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required ResetPasswordUseCase resetPassword,
     required AppDatabase database,
     required SyncService syncService,
+    NotificationService? notifications,
   })  : _authRepository = authRepository,
+        _notifications = notifications,
         _signIn = signIn,
         _signUp = signUp,
         _signOut = signOut,
@@ -78,6 +81,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final ResetPasswordUseCase _resetPassword;
   final AppDatabase _database;
   final SyncService _syncService;
+
+  /// Null in tests that do not care about notifications. Optional rather than
+  /// required because the wipe below must not become impossible to exercise.
+  final NotificationService? _notifications;
 
   late final StreamSubscription<AppUser?> _subscription;
 
@@ -174,10 +181,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     await result.fold(
       (Failure failure) async => emit(AuthFailure(failure)),
       (_) async {
-        await _database.clearUserData();
+        await _wipeDevice();
         emit(const Unauthenticated());
       },
     );
+  }
+
+  /// Everything this account leaves behind on the device.
+  ///
+  /// 🚨 Cancelling the scheduled notifications is not housekeeping. A pending
+  /// tax reminder carries the obligation's name and, when the accountant gave
+  /// one, the amount — and it fires on a lock screen days after the account is
+  /// gone, in front of whoever holds the phone next. The Drift wipe does not
+  /// reach it: a notification handed to the OS is out of the database's
+  /// custody entirely.
+  Future<void> _wipeDevice() async {
+    await _notifications?.cancelAll();
+    await _database.clearUserData();
   }
 
   Future<void> _onDeleteAccount(
@@ -189,7 +209,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     await result.fold(
       (Failure failure) async => emit(AuthFailure(failure)),
       (_) async {
-        await _database.clearUserData();
+        await _wipeDevice();
         emit(const Unauthenticated());
       },
     );

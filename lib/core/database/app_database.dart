@@ -21,6 +21,7 @@ import 'package:smartspend/core/database/daos/user_settings_dao.dart';
 import 'package:smartspend/core/database/default_categories.dart';
 import 'package:smartspend/core/database/sync_status.dart';
 import 'package:smartspend/core/database/tables.dart';
+import 'package:smartspend/core/services/tax_reminder_scheduler.dart';
 import 'package:smartspend/core/services/telemetry_service_impl.dart';
 
 part 'app_database.g.dart';
@@ -216,6 +217,17 @@ class AppDatabase extends _$AppDatabase {
       // data — a filing extension is published regulatory fact, the same for
       // everyone — and dropping it would leave the next account showing stale
       // catalog dates until its first successful pull, for no privacy gain.
+      //
+      // 🚨 The reminder fingerprint DOES go, and not for privacy: sign-out
+      // cancels the scheduled notifications, so a surviving fingerprint would
+      // tell the scheduler its work was already done and the same user signing
+      // back in would silently never get their reminders again.
+      await (delete(userSettings)
+            ..where(
+              ($UserSettingsTable t) =>
+                  t.key.equals(kTaxRemindersFingerprintKey),
+            ))
+          .go();
 
       // Reset the pull watermark so the next sign-in performs a full pull.
       // lastSyncAt lives in userSettings, not the data tables wiped above; if

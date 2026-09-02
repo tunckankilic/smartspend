@@ -251,6 +251,7 @@ Future<void> configureDependencies() async {
         resetPassword: sl<ResetPasswordUseCase>(),
         database: sl<AppDatabase>(),
         syncService: sl<SyncService>(),
+        notifications: sl<NotificationService>(),
       ),
     )
     // Categories feature (Sprint 4 hoist) ---------------------------------

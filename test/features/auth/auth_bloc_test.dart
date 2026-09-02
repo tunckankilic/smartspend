@@ -7,6 +7,7 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:smartspend/core/database/app_database.dart';
 import 'package:smartspend/core/error/failures.dart' as failures;
+import 'package:smartspend/core/services/notification_service.dart';
 import 'package:smartspend/core/services/sync_service.dart';
 import 'package:smartspend/features/auth/domain/entities/app_user.dart';
 import 'package:smartspend/features/auth/domain/repositories/auth_repository.dart';
@@ -37,6 +38,14 @@ class _MockResetPasswordUseCase extends Mock implements ResetPasswordUseCase {}
 
 class _MockSyncService extends Mock implements SyncService {}
 
+/// Records only what this suite asks about: whether the device was swept.
+class _RecordingNotifications extends Mock implements NotificationService {
+  int cancelAllCalls = 0;
+
+  @override
+  Future<void> cancelAll() async => cancelAllCalls++;
+}
+
 void main() {
   const AppUser tUser = AppUser(id: 'u1', email: 'me@real.com');
   const failures.AuthFailure tFailure = failures.AuthFailure(
@@ -52,6 +61,7 @@ void main() {
   late _MockAppleSignInUseCase appleSignIn;
   late _MockResetPasswordUseCase resetPassword;
   late _MockSyncService syncService;
+  late _RecordingNotifications notifications;
   late AppDatabase database;
   late StreamController<AppUser?> authStream;
 
@@ -73,6 +83,7 @@ void main() {
     appleSignIn = _MockAppleSignInUseCase();
     resetPassword = _MockResetPasswordUseCase();
     syncService = _MockSyncService();
+    notifications = _RecordingNotifications();
     database = createTestDatabase();
     authStream = StreamController<AppUser?>.broadcast();
 
@@ -104,6 +115,7 @@ void main() {
     resetPassword: resetPassword,
     database: database,
     syncService: syncService,
+    notifications: notifications,
   );
 
   group('AuthBloc', () {
@@ -272,5 +284,68 @@ void main() {
       act: (AuthBloc bloc) => authStream.add(null),
       expect: () => <Matcher>[isA<Unauthenticated>()],
     );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Leaving the device clean (1.3.0, T14)
+  //
+  // 🚨 A scheduled notification is out of the database's custody. Wiping Drift
+  // does not reach it, so a tax reminder — obligation name, and the amount
+  // when the accountant gave one — keeps firing on the lock screen days after
+  // the account is gone, in front of whoever holds the phone next.
+  // ---------------------------------------------------------------------------
+  group('what leaves the device with the account', () {
+    setUp(() {
+      when(() => signOut()).thenAnswer(
+        (_) async => const Right<failures.AuthFailure, Unit>(unit),
+      );
+      when(() => deleteAccount()).thenAnswer(
+        (_) async => const Right<failures.AuthFailure, Unit>(unit),
+      );
+    });
+
+    test('should cancel every scheduled notification on sign-out', () async {
+      final AuthBloc bloc = build();
+      addTearDown(bloc.close);
+
+      bloc.add(const AuthSignOutRequested());
+      await expectLater(
+        bloc.stream.firstWhere((AuthState s) => s is Unauthenticated),
+        completes,
+      );
+
+      expect(notifications.cancelAllCalls, 1);
+    });
+
+    test('should cancel them on account deletion too', () async {
+      final AuthBloc bloc = build();
+      addTearDown(bloc.close);
+
+      bloc.add(const AuthAccountDeletionRequested());
+      await expectLater(
+        bloc.stream.firstWhere((AuthState s) => s is Unauthenticated),
+        completes,
+      );
+
+      expect(notifications.cancelAllCalls, 1);
+    });
+
+    test('should not sweep the device when sign-out itself failed', () async {
+      // Still signed in, still their data. Cancelling here would take away
+      // reminders the user never asked to lose.
+      when(() => signOut()).thenAnswer(
+        (_) async => const Left<failures.AuthFailure, Unit>(tFailure),
+      );
+      final AuthBloc bloc = build();
+      addTearDown(bloc.close);
+
+      bloc.add(const AuthSignOutRequested());
+      await expectLater(
+        bloc.stream.firstWhere((AuthState s) => s is AuthFailure),
+        completes,
+      );
+
+      expect(notifications.cancelAllCalls, 0);
+    });
   });
 }

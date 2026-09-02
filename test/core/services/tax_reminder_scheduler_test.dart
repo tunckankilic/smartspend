@@ -231,6 +231,21 @@ void main() {
     );
   });
 
+  test('should schedule again after a sign-out cleared the device', () async {
+    await scheduler.tick(languageCode: 'tr');
+    notifications.scheduled.clear();
+
+    // Sign-out cancels the notifications and wipes the account's rows. If the
+    // fingerprint survived that, the scheduler would believe its work was
+    // already done and the same user signing back in would silently never get
+    // their reminders again.
+    await db.clearUserData();
+
+    await scheduler.tick(languageCode: 'tr');
+
+    expect(notifications.scheduled, hasLength(3));
+  });
+
   group('the wording', () {
     test('should never state a deadline as fact', () async {
       // Every date in the calendar comes from a rule nobody has verified

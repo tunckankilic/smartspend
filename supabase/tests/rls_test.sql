@@ -1046,5 +1046,82 @@ select hasnt_column('public', 'tax_calendar_overrides', 'user_id',
 select hasnt_column('public', 'tax_calendar_overrides', 'company_id',
   'tax_calendar_overrides has no company_id either');
 
+
+-- -----------------------------------------------------------------------------
+-- 14. Account deletion actually reaches everything (1.3.0, T14)
+--
+--     `delete-account` does two things: it purges the caller's storage objects
+--     bucket by bucket, then deletes the auth.users row and lets ON DELETE
+--     CASCADE take the tables. Both halves fail quietly if they drift — a
+--     table added without the cascade keeps its rows forever, and a bucket
+--     added without touching the function keeps its files forever. Neither
+--     raises; the caller is told the account was deleted either way, which is
+--     the worst possible way for an erasure request to go wrong.
+-- -----------------------------------------------------------------------------
+insert into auth.users (id, instance_id, aud, role, email)
+values ('cccccccc-cccc-cccc-cccc-cccccccccccc',
+        '00000000-0000-0000-0000-000000000000',
+        'authenticated', 'authenticated', 'user-c@smartspend.test')
+on conflict (id) do nothing;
+
+insert into public.tax_profiles (user_id, legal_form)
+values ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'limited');
+insert into public.tax_obligations
+  (user_id, generation_key, kind, period_kind, period_start, period_end)
+values ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'kdv1|2026-10-01|0',
+        'kdv1', 'monthly', date '2026-10-01', date '2026-10-31');
+insert into public.product_events
+  (user_id, device_id, event_key, day, count)
+values ('cccccccc-cccc-cccc-cccc-cccccccccccc',
+        'cccccccc-0000-4000-8000-cccccccccccc',
+        'scan_started', date '2026-09-01', 3);
+
+delete from auth.users where id = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+
+select is(
+  (select count(*)::int from public.tax_profiles
+    where user_id = 'cccccccc-cccc-cccc-cccc-cccccccccccc'),
+  0,
+  'deleting the auth user takes their taxpayer profile with it'
+);
+
+select is(
+  (select count(*)::int from public.tax_obligations
+    where user_id = 'cccccccc-cccc-cccc-cccc-cccccccccccc'),
+  0,
+  'and their whole tax calendar, including anything they annotated'
+);
+
+select is(
+  (select count(*)::int from public.product_events
+    where user_id = 'cccccccc-cccc-cccc-cccc-cccccccccccc'),
+  0,
+  'and their telemetry counters'
+);
+
+-- 🚨 A hand-maintained list in TypeScript against a list that grows by
+-- migration. This assertion is the join between them: adding a bucket without
+-- adding it to delete-account's BUCKETS fails here, which is the only place
+-- the omission is visible before someone's files outlive their account.
+select is(
+  (select array_agg(id order by id)::text[] from storage.buckets),
+  array['exports', 'receipts']::text[],
+  'the buckets that exist are exactly the two delete-account purges — add one '
+  'here and you must add it to supabase/functions/delete-account/index.ts'
+);
+
+-- The override table has no user_id, so there is nothing for a cascade to
+-- reach and nothing an erasure request could ask for. Pinned so that adding
+-- one later is a decision rather than an accident.
+select is(
+  (select count(*)::int
+     from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'tax_calendar_overrides'
+      and column_name = 'user_id'),
+  0,
+  'tax_calendar_overrides holds nothing that belongs to a deleted account'
+);
+
 select * from finish();
 rollback;

@@ -230,6 +230,9 @@ class _UnresearchedProfile extends CountryProfile {
   String get currencyCode => 'XXX';
 
   @override
+  String get timeZone => 'UTC';
+
+  @override
   List<int> get vatRatesBp => const <int>[0];
 
   @override

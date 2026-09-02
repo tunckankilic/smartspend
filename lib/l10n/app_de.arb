@@ -613,6 +613,27 @@
   "taxDetailEditDates": "Daten korrigieren",
   "taxDetailSaveFailed": "Konnte nicht gespeichert werden.",
   "taxDetailNotFound": "Eintrag nicht gefunden.",
+  "taxReminderTitleDeclaration": "{name} — Erklärung",
+  "@taxReminderTitleDeclaration": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "taxReminderTitlePayment": "{name} — Zahlung",
+  "@taxReminderTitlePayment": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "taxReminderBodyWeek": "Nach unserem Kalender ist die Frist in einer Woche: {date}. Bestätigen Sie das mit Ihrer Steuerberatung.",
+  "@taxReminderBodyWeek": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "taxReminderBodyTomorrow": "Nach unserem Kalender ist die Frist morgen: {date}. Bestätigen Sie das mit Ihrer Steuerberatung.",
+  "@taxReminderBodyTomorrow": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "taxReminderBodyToday": "Nach unserem Kalender ist die Frist heute. Bestätigen Sie das mit Ihrer Steuerberatung.",
+  "taxReminderAmountFromAccountant": " Von Ihrer Steuerberatung genannter Betrag: {amount}.",
+  "@taxReminderAmountFromAccountant": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
   "taxCustomTitle": "Eigener Eintrag",
   "taxCustomName": "Bezeichnung",
   "taxCustomNameRequired": "Bitte einen Namen eingeben.",

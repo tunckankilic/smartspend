@@ -17,6 +17,9 @@ class _FakeProfile extends CountryProfile {
   String get currencyCode => 'EUR';
 
   @override
+  String get timeZone => 'Europe/Berlin';
+
+  @override
   List<int> get vatRatesBp => const <int>[0, 700, 1900];
 
   @override

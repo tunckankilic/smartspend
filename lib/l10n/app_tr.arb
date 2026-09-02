@@ -637,6 +637,27 @@
   "taxDetailEditDates": "Tarihleri düzelt",
   "taxDetailSaveFailed": "Kaydedilemedi.",
   "taxDetailNotFound": "Kalem bulunamadı.",
+  "taxReminderTitleDeclaration": "{name} — beyan",
+  "@taxReminderTitleDeclaration": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "taxReminderTitlePayment": "{name} — ödeme",
+  "@taxReminderTitlePayment": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "taxReminderBodyWeek": "Takvimimize göre son gün bir hafta sonra: {date}. Muhasebecinle teyit et.",
+  "@taxReminderBodyWeek": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "taxReminderBodyTomorrow": "Takvimimize göre son gün yarın: {date}. Muhasebecinle teyit et.",
+  "@taxReminderBodyTomorrow": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "taxReminderBodyToday": "Takvimimize göre son gün bugün. Muhasebecinle teyit et.",
+  "taxReminderAmountFromAccountant": " Muhasebecinin verdiği tutar: {amount}.",
+  "@taxReminderAmountFromAccountant": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
   "taxCustomTitle": "Kendi kalemin",
   "taxCustomName": "Kalem adı",
   "taxCustomNameRequired": "Bir ad gir.",

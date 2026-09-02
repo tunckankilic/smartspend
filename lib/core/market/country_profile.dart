@@ -37,6 +37,17 @@ abstract class CountryProfile {
   /// one we ship. Ties into `AppLocalizations.supportedLocales`.
   String get defaultLanguageCode;
 
+  /// IANA timezone the market's statutory deadlines are expressed in
+  /// (`Europe/Istanbul`).
+  ///
+  /// 🚨 NOT the device's timezone, and the difference is the point. A filing
+  /// deadline is "the 26th in Turkey", not "the 26th wherever the phone
+  /// happens to be": a user in Berlin or Toronto has the same deadline as one
+  /// in Ankara, and a reminder computed against `tz.local` would fire on the
+  /// wrong day for them. Every reminder time is built in this zone and
+  /// converted to an absolute instant.
+  String get timeZone;
+
   /// The tax and payment obligations that exist in this market.
   ///
   /// Empty by default: a market gets a calendar when someone has verified its

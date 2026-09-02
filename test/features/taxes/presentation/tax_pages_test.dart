@@ -151,6 +151,11 @@ void main() {
       cubit = _MockCalendarCubit();
       when(cubit.subscribe).thenAnswer((_) async {});
       when(() => cubit.showRange(any())).thenReturn(null);
+      when(
+        () => cubit.refreshReminders(
+          languageCode: any(named: 'languageCode'),
+        ),
+      ).thenAnswer((_) async {});
       sl.registerFactory<TaxCalendarCubit>(() => cubit);
     });
 
@@ -182,6 +187,28 @@ void main() {
       await tester.pump();
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+
+    testWidgets('brings the scheduled reminders back in line on every snapshot',
+        (WidgetTester tester) async {
+      // Without this, marking a return filed leaves its reminder scheduled
+      // until the next cold start — and a notification telling someone to
+      // file what they have already filed is the one that gets notifications
+      // switched off for good.
+      whenListen(
+        cubit,
+        Stream<TaxCalendarState>.fromIterable(<TaxCalendarState>[loaded()]),
+        initialState: const TaxCalendarLoading(),
+      );
+
+      await tester.pumpWidget(wrap(const TaxCalendarPage()));
+      await tester.pump();
+
+      verify(
+        () => cubit.refreshReminders(
+          languageCode: any(named: 'languageCode'),
+        ),
+      ).called(1);
     });
 
     testWidgets('invites the user to fill the profile before anything else',

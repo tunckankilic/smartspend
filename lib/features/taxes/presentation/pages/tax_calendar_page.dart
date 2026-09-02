@@ -47,7 +47,18 @@ class _TaxCalendarView extends StatelessWidget {
         icon: const Icon(Icons.add),
         label: Text(l.taxCalendarAddCustom),
       ),
-      body: BlocBuilder<TaxCalendarCubit, TaxCalendarState>(
+      body: BlocConsumer<TaxCalendarCubit, TaxCalendarState>(
+        // The language lives in the widget tree and the notification text is
+        // built from it, so the reminder refresh is triggered here rather than
+        // inside the cubit's own subscribe. The scheduler no-ops when the plan
+        // has not changed, so firing on every emission is cheap.
+        listener: (BuildContext context, TaxCalendarState state) {
+          if (state is TaxCalendarLoaded) {
+            context.read<TaxCalendarCubit>().refreshReminders(
+                  languageCode: Localizations.localeOf(context).languageCode,
+                );
+          }
+        },
         builder: (BuildContext context, TaxCalendarState state) {
           return switch (state) {
             TaxCalendarLoading() => const Center(

@@ -60,7 +60,11 @@ enum ProductEvent {
   /// is fixed once, now.
   taxProfileCompleted('tax_profile_completed'),
 
-  /// User opened a tax/payment deadline notification. ⚠️ Block 4 call site.
+  /// User opened a tax/payment deadline notification.
+  ///
+  /// Recorded in `SmartSpendApp` when a tapped reminder's payload resolves to
+  /// an obligation. A bare count with no matching "scheduled" counter, so it
+  /// answers "does anyone open these" and not "what fraction".
   taxNotificationOpened('tax_notification_opened'),
 
   /// User edited a generated calendar item. ⚠️ Block 4 call site.

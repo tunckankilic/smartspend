@@ -34,6 +34,13 @@ class TrProfile extends CountryProfile {
   @override
   String get defaultLanguageCode => 'tr';
 
+  /// Turkey has had no DST since 2016 (permanent UTC+3), so in practice this
+  /// never shifts. Stated and used anyway: the calendar's correctness must
+  /// not rest on a legislative decision that could be reversed, and building
+  /// the time in a named zone costs nothing.
+  @override
+  String get timeZone => 'Europe/Istanbul';
+
   /// ⚠️ Every deadline in this catalog is unverified — see
   /// `tr_tax_catalog.dart`. The structure is settled; the dates are not.
   @override

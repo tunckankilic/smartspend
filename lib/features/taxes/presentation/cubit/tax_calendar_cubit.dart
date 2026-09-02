@@ -6,6 +6,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import 'package:smartspend/core/error/failures.dart';
+import 'package:smartspend/core/services/tax_reminder_scheduler.dart';
 import 'package:smartspend/core/market/tax/tax_obligation_record.dart';
 import 'package:smartspend/features/taxes/domain/entities/tax_calendar_item.dart';
 import 'package:smartspend/features/taxes/domain/entities/tax_calendar_snapshot.dart';
@@ -115,12 +116,20 @@ final class TaxCalendarError extends TaxCalendarState {
 class TaxCalendarCubit extends Cubit<TaxCalendarState> {
   TaxCalendarCubit({
     required TaxRepository repository,
+    TaxReminderScheduler? reminders,
     DateTime Function()? clock,
   })  : _repository = repository,
+        _reminders = reminders,
         _now = clock ?? DateTime.now,
         super(const TaxCalendarLoading());
 
   final TaxRepository _repository;
+
+  /// Null wherever notifications are not part of the picture — tests, and any
+  /// build without the scheduler wired. The calendar is fully usable without
+  /// it; reminders are an addition to it, not a part of it.
+  final TaxReminderScheduler? _reminders;
+
   final DateTime Function() _now;
   StreamSubscription<TaxCalendarSnapshot>? _subscription;
 
@@ -164,6 +173,30 @@ class TaxCalendarCubit extends Cubit<TaxCalendarState> {
     } on Object {
       // Deliberately empty: see above. A calendar the user can read beats a
       // correction they cannot receive.
+    }
+  }
+
+  /// Brings the scheduled reminders back in line with what is on screen.
+  ///
+  /// Called from the page rather than from [subscribe] because the language is
+  /// a property of the widget tree and the notification text is composed from
+  /// it. Cheap to call on every rebuild: the scheduler compares the plan
+  /// against what it last scheduled and does nothing when they match.
+  ///
+  /// This is what makes marking a return filed take its reminder away
+  /// promptly. Without it the next reminder would still fire, and a
+  /// notification telling someone to file what they have already filed is the
+  /// one that gets notifications switched off.
+  Future<void> refreshReminders({required String languageCode}) async {
+    final TaxReminderScheduler? scheduler = _reminders;
+    if (scheduler == null) {
+      return;
+    }
+    try {
+      await scheduler.tick(languageCode: languageCode);
+    } on Object {
+      // Nothing the user can act on, and nothing lost: the previously
+      // scheduled set stands until the next successful tick.
     }
   }
 

@@ -622,6 +622,27 @@
   "taxDetailEditDates": "Correct the dates",
   "taxDetailSaveFailed": "Could not be saved.",
   "taxDetailNotFound": "Item not found.",
+  "taxReminderTitleDeclaration": "{name} — filing",
+  "@taxReminderTitleDeclaration": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "taxReminderTitlePayment": "{name} — payment",
+  "@taxReminderTitlePayment": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "taxReminderBodyWeek": "By our calendar the deadline is a week away: {date}. Confirm it with your accountant.",
+  "@taxReminderBodyWeek": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "taxReminderBodyTomorrow": "By our calendar the deadline is tomorrow: {date}. Confirm it with your accountant.",
+  "@taxReminderBodyTomorrow": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "taxReminderBodyToday": "By our calendar the deadline is today. Confirm it with your accountant.",
+  "taxReminderAmountFromAccountant": " Amount your accountant gave: {amount}.",
+  "@taxReminderAmountFromAccountant": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
   "taxCustomTitle": "Your own item",
   "taxCustomName": "Name",
   "taxCustomNameRequired": "Enter a name.",

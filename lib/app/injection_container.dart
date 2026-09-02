@@ -31,6 +31,7 @@ import 'package:smartspend/core/services/sync_service_impl.dart';
 import 'package:smartspend/core/services/telemetry_remote_data_source.dart';
 import 'package:smartspend/core/services/telemetry_service.dart';
 import 'package:smartspend/core/services/tax_override_remote_data_source.dart';
+import 'package:smartspend/core/services/tax_reminder_scheduler.dart';
 import 'package:smartspend/core/services/telemetry_service_impl.dart';
 import 'package:smartspend/core/supabase/supabase_client_provider.dart';
 import 'package:smartspend/core/supabase/supabase_storage_data_source.dart';
@@ -611,6 +612,17 @@ Future<void> configureDependencies() async {
         overrideRemote: sl<TaxOverrideRemoteDataSource>(),
       ),
     )
+    // Reminders. Registered after the repository it reads and the
+    // notification service it writes to; it holds no state of its own beyond
+    // the fingerprint it keeps in UserSettings.
+    ..registerLazySingleton<TaxReminderScheduler>(
+      () => TaxReminderSchedulerImpl(
+        repository: sl<TaxRepository>(),
+        notifications: sl<NotificationService>(),
+        markets: sl<MarketRegistry>(),
+        settingsDao: sl<AppDatabase>().userSettingsDao,
+      ),
+    )
     ..registerLazySingleton<SaveTaxProfileUseCase>(
       () => SaveTaxProfileUseCase(
         repository: sl<TaxRepository>(),
@@ -636,7 +648,10 @@ Future<void> configureDependencies() async {
       ),
     )
     ..registerFactory<TaxCalendarCubit>(
-      () => TaxCalendarCubit(repository: sl<TaxRepository>()),
+      () => TaxCalendarCubit(
+        repository: sl<TaxRepository>(),
+        reminders: sl<TaxReminderScheduler>(),
+      ),
     )
     ..registerFactory<TaxProfileWizardCubit>(
       () => TaxProfileWizardCubit(

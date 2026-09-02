@@ -38,6 +38,7 @@ class TaxCalendarItem extends Equatable {
     this.paidAt,
     this.dismissedAt,
     this.note,
+    this.dueDateOverrideReason,
   });
 
   /// Local Drift row id.
@@ -70,7 +71,20 @@ class TaxCalendarItem extends Equatable {
   final DateTime? paymentDueDate;
 
   /// Where the dates came from — shown as a badge.
+  ///
+  /// [TaxDueDateSource.override] means *at least one* of the two dates was
+  /// replaced by a published correction; an extension often moves the filing
+  /// deadline and leaves the payment one alone. [dueDateOverrideReason] is
+  /// what tells the user which, and on whose authority.
   final TaxDueDateSource dueDateSource;
+
+  /// Why the date moved, when it moved because of a published override —
+  /// a circular number, typically. Null for every other source.
+  ///
+  /// Not decoration. A date that changes with no stated reason is
+  /// indistinguishable, from the user's side, from the app being wrong, and
+  /// they have no way to check it against GİB without this.
+  final String? dueDateOverrideReason;
 
   /// Whether this obligation is filed at all.
   final bool hasDeclarationStep;
@@ -165,5 +179,6 @@ class TaxCalendarItem extends Equatable {
         dismissedAt,
         note,
         isUserDefined,
+        dueDateOverrideReason,
       ];
 }

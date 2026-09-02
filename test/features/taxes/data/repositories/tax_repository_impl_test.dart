@@ -9,12 +9,34 @@ import 'package:smartspend/core/market/market_registry.dart';
 import 'package:smartspend/core/market/tax/tax_obligation_kind.dart';
 import 'package:smartspend/core/market/tax/tax_obligation_record.dart';
 import 'package:smartspend/core/market/tax/taxpayer_profile.dart';
+import 'package:smartspend/core/services/tax_override_remote_data_source.dart';
 import 'package:smartspend/features/taxes/data/repositories/tax_repository_impl.dart';
 import 'package:smartspend/features/taxes/domain/entities/tax_calendar_item.dart';
 import 'package:smartspend/features/taxes/domain/entities/tax_calendar_snapshot.dart';
 import 'package:smartspend/features/taxes/domain/repositories/tax_repository.dart';
 
 import '../../../../helpers/test_database.dart';
+
+
+/// Stands in for the PostgREST call. The rows are whatever the test wants the
+/// server to have published.
+class _FakeOverrideRemote implements TaxOverrideRemoteDataSource {
+  List<Map<String, dynamic>> rows = <Map<String, dynamic>>[];
+  Exception? failWith;
+  int calls = 0;
+  String? lastMarket;
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchOverrides(String market) async {
+    calls++;
+    lastMarket = market;
+    final Exception? failure = failWith;
+    if (failure != null) {
+      throw failure;
+    }
+    return rows;
+  }
+}
 
 void main() {
   late AppDatabase db;
@@ -29,6 +51,8 @@ void main() {
     repository = TaxRepositoryImpl(
       profileDao: db.taxProfileDao,
       obligationDao: db.taxObligationDao,
+      overrideDao: db.taxCalendarOverrideDao,
+      settingsDao: db.userSettingsDao,
       markets: MarketRegistry(),
       clock: now,
       random: Random(1),
@@ -286,6 +310,244 @@ void main() {
         (await snapshot()).items.where((TaxCalendarItem i) => i.isUserDefined),
         hasLength(1),
       );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Published overrides (1.3.0, Block 4, T10)
+  //
+  // 🚨 The regression this group exists for is the second test. An override
+  // written into the calendar and merely protected from being overwritten
+  // would pass the first test and fail every real user: regeneration runs on
+  // every app launch, so the extension would appear to arrive and cancel
+  // itself overnight. See D-17.
+  // ---------------------------------------------------------------------------
+  group('published overrides', () {
+    late _FakeOverrideRemote remote;
+    late TaxRepository repo;
+
+    /// The KDV-1 return for August 2026 — inside the generated window for the
+    /// fixed clock, and the item every test here addresses.
+    const String august = '2026-08-01';
+    final DateTime extended = DateTime.utc(2026, 9, 30);
+
+    Map<String, dynamic> publishedOverride({
+      String id = 'ovr-1',
+      String kind = 'kdv1',
+      String periodStart = august,
+      int installmentIndex = 0,
+      String? declarationDueDate = '2026-09-30',
+      String? paymentDueDate = '2026-09-30',
+      String? reason = 'VUK Sirküleri No: 175',
+      String? sourceUrl,
+    }) =>
+        <String, dynamic>{
+          'id': id,
+          'market': 'TR',
+          'kind': kind,
+          'period_start': periodStart,
+          'installment_index': installmentIndex,
+          'declaration_due_date': declarationDueDate,
+          'payment_due_date': paymentDueDate,
+          'reason': reason,
+          'source_url': sourceUrl,
+        };
+
+    Future<TaxCalendarItem> augustVat() async {
+      final TaxCalendarSnapshot snap = await repo.watchCalendar().first;
+      return snap.items.firstWhere(
+        (TaxCalendarItem i) =>
+            i.kind == TaxObligationKind.kdv1 &&
+            i.periodStart == DateTime.utc(2026, 8),
+      );
+    }
+
+    setUp(() async {
+      remote = _FakeOverrideRemote();
+      repo = TaxRepositoryImpl(
+        profileDao: db.taxProfileDao,
+        obligationDao: db.taxObligationDao,
+        overrideDao: db.taxCalendarOverrideDao,
+        settingsDao: db.userSettingsDao,
+        markets: MarketRegistry(),
+        overrideRemote: remote,
+        clock: now,
+        random: Random(1),
+      );
+      await repo.saveProfile(soleTraderWithVat);
+    });
+
+    test('should replace the catalog date with the published one', () async {
+      // The shipped catalog has no confirmed date for this item at all, which
+      // is the state the override channel exists to fix.
+      expect((await augustVat()).declarationDueDate, isNull);
+
+      remote.rows = <Map<String, dynamic>>[publishedOverride()];
+      await repo.refreshOverrides(force: true);
+
+      final TaxCalendarItem item = await augustVat();
+      expect(item.declarationDueDate, extended);
+      expect(item.dueDateSource, TaxDueDateSource.override);
+      expect(item.dueDateOverrideReason, 'VUK Sirküleri No: 175');
+    });
+
+    test('should survive a regeneration — the launch-time overwrite', () async {
+      remote.rows = <Map<String, dynamic>>[publishedOverride()];
+      await repo.refreshOverrides(force: true);
+
+      // What TaxCalendarCubit.subscribe() does on every single app launch.
+      await repo.regenerate();
+
+      final TaxCalendarItem item = await augustVat();
+      expect(
+        item.declarationDueDate,
+        extended,
+        reason: 'a regeneration must not put the catalog date back',
+      );
+      expect(item.dueDateSource, TaxDueDateSource.override);
+    });
+
+    test('should revert to the catalog when the override is withdrawn',
+        () async {
+      remote.rows = <Map<String, dynamic>>[publishedOverride()];
+      await repo.refreshOverrides(force: true);
+      expect((await augustVat()).dueDateSource, TaxDueDateSource.override);
+
+      // The publisher deletes the row: the extension was cancelled, or it was
+      // wrong. The client must be able to take it back.
+      remote.rows = <Map<String, dynamic>>[];
+      await repo.refreshOverrides(force: true);
+
+      final TaxCalendarItem item = await augustVat();
+      expect(item.dueDateSource, TaxDueDateSource.catalog);
+      expect(item.declarationDueDate, isNull);
+      expect(item.dueDateOverrideReason, isNull);
+    });
+
+    test('should leave a date the user entered alone', () async {
+      final DateTime theirs = DateTime.utc(2026, 9, 20);
+      await repo.setUserDueDates(
+        (await augustVat()).id,
+        declarationDueDate: theirs,
+      );
+
+      remote.rows = <Map<String, dynamic>>[publishedOverride()];
+      await repo.refreshOverrides(force: true);
+
+      // user > override > catalog. Theirs came from their accountant; ours is
+      // a rule nobody has confirmed to them.
+      final TaxCalendarItem item = await augustVat();
+      expect(item.declarationDueDate, theirs);
+      expect(item.dueDateSource, TaxDueDateSource.user);
+    });
+
+    test('should move only the deadline the override names', () async {
+      // An extension routinely moves the filing date and leaves the payment
+      // date where it was. A null column means "not overridden", never
+      // "removed".
+      remote.rows = <Map<String, dynamic>>[
+        publishedOverride(paymentDueDate: null),
+      ];
+      await repo.refreshOverrides(force: true);
+
+      final TaxCalendarItem item = await augustVat();
+      expect(item.declarationDueDate, extended);
+      expect(item.paymentDueDate, isNull);
+    });
+
+    test('should still hedge an overridden date', () async {
+      remote.rows = <Map<String, dynamic>>[publishedOverride()];
+      await repo.refreshOverrides(force: true);
+
+      // An override is a date we published, not one the user's accountant
+      // confirmed to them. The reason travels with it; the certainty does not.
+      expect((await augustVat()).needsDateWarning, isTrue);
+    });
+
+    test('should ignore a row that states no reason', () async {
+      remote.rows = <Map<String, dynamic>>[
+        publishedOverride(reason: null),
+        publishedOverride(id: 'ovr-2', kind: 'bagkur'),
+      ];
+      await repo.refreshOverrides(force: true);
+
+      // One bad row costs its own correction and nothing else.
+      expect((await augustVat()).dueDateSource, TaxDueDateSource.catalog);
+      expect(await db.taxCalendarOverrideDao.getAll(), hasLength(1));
+    });
+
+    test('should ignore a row that moves neither deadline', () async {
+      remote.rows = <Map<String, dynamic>>[
+        publishedOverride(declarationDueDate: null, paymentDueDate: null),
+      ];
+      await repo.refreshOverrides(force: true);
+
+      expect(await db.taxCalendarOverrideDao.getAll(), isEmpty);
+    });
+
+    test('should not retract everything over a response it cannot read',
+        () async {
+      remote.rows = <Map<String, dynamic>>[publishedOverride()];
+      await repo.refreshOverrides(force: true);
+
+      // A format change on the server must not read as "every correction has
+      // been withdrawn" — that failure mode looks exactly like success.
+      remote.rows = <Map<String, dynamic>>[
+        <String, dynamic>{'unexpected': 'shape'},
+      ];
+      final Either<Failure, void> result =
+          await repo.refreshOverrides(force: true);
+
+      expect(result.isLeft(), isTrue);
+      expect((await augustVat()).dueDateSource, TaxDueDateSource.override);
+    });
+
+    test('should keep the dates it had when the pull fails', () async {
+      remote.rows = <Map<String, dynamic>>[publishedOverride()];
+      await repo.refreshOverrides(force: true);
+
+      remote.failWith = Exception('offline');
+      final Either<Failure, void> result =
+          await repo.refreshOverrides(force: true);
+
+      expect(result.isLeft(), isTrue);
+      expect((await augustVat()).declarationDueDate, extended);
+    });
+
+    test('should not pull again inside the throttle window', () async {
+      await repo.refreshOverrides();
+      expect(remote.calls, 1);
+
+      // Every screen open would otherwise spend a round trip the user did not
+      // ask for.
+      await repo.refreshOverrides();
+      expect(remote.calls, 1);
+
+      // Pull-to-refresh is the user asking.
+      await repo.refreshOverrides(force: true);
+      expect(remote.calls, 2);
+    });
+
+    test('should ask only about the market whose catalog is in force',
+        () async {
+      await repo.refreshOverrides(force: true);
+      expect(remote.lastMarket, 'TR');
+    });
+
+    test('should do nothing at all when no remote is configured', () async {
+      final TaxRepository offline = TaxRepositoryImpl(
+        profileDao: db.taxProfileDao,
+        obligationDao: db.taxObligationDao,
+        overrideDao: db.taxCalendarOverrideDao,
+        settingsDao: db.userSettingsDao,
+        markets: MarketRegistry(),
+        clock: now,
+        random: Random(1),
+      );
+
+      // Not a failure: the calendar runs on the shipped catalog, which is what
+      // it did before this channel existed.
+      expect((await offline.refreshOverrides(force: true)).isRight(), isTrue);
     });
   });
 }

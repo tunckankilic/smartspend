@@ -50,14 +50,15 @@ class _TaxCalendarView extends StatelessWidget {
       body: BlocBuilder<TaxCalendarCubit, TaxCalendarState>(
         builder: (BuildContext context, TaxCalendarState state) {
           return switch (state) {
-            TaxCalendarLoading() =>
-              const Center(child: CircularProgressIndicator()),
+            TaxCalendarLoading() => const Center(
+              child: CircularProgressIndicator(),
+            ),
             TaxCalendarError(:final Object failure) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(failure.toString()),
-                ),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(failure.toString()),
               ),
+            ),
             TaxCalendarLoaded() => _LoadedBody(state: state),
           };
         },
@@ -96,19 +97,33 @@ class _LoadedBody extends StatelessWidget {
                     ),
                   ),
                 )
-              : ListView.builder(
-                  itemCount: state.visible.length + 1,
-                  itemBuilder: (BuildContext context, int index) {
-                    if (index == state.visible.length) {
-                      return _AsOfFooter(today: state.today);
-                    }
-                    final TaxCalendarItem item = state.visible[index];
-                    return TaxObligationCard(
-                      item: item,
-                      today: state.today,
-                      onTap: () => context.push('/taxes/${item.id}'),
-                    );
-                  },
+              : RefreshIndicator(
+                  key: const Key('tax.calendar.refresh'),
+                  // The one place `force` is justified: the throttle exists so
+                  // the app does not pester the server on its own initiative,
+                  // and a user pulling the list down is not the app's
+                  // initiative. Someone who suspects the date is stale should
+                  // not have to wait six hours to find out.
+                  onRefresh: () => context
+                      .read<TaxCalendarCubit>()
+                      .refreshOverrides(force: true),
+                  child: ListView.builder(
+                    // Without this a short list refuses to overscroll, and the
+                    // gesture the refresh hangs off never fires.
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: state.visible.length + 1,
+                    itemBuilder: (BuildContext context, int index) {
+                      if (index == state.visible.length) {
+                        return _AsOfFooter(today: state.today);
+                      }
+                      final TaxCalendarItem item = state.visible[index];
+                      return TaxObligationCard(
+                        item: item,
+                        today: state.today,
+                        onTap: () => context.push('/taxes/${item.id}'),
+                      );
+                    },
+                  ),
                 ),
         ),
       ],

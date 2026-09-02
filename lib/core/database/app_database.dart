@@ -13,6 +13,7 @@ import 'package:smartspend/core/database/daos/receipt_dao.dart';
 import 'package:smartspend/core/database/daos/sync_dao.dart';
 import 'package:smartspend/core/database/daos/sync_log_dao.dart';
 import 'package:smartspend/core/database/daos/tag_dao.dart';
+import 'package:smartspend/core/database/daos/tax_calendar_override_dao.dart';
 import 'package:smartspend/core/database/daos/tax_obligation_dao.dart';
 import 'package:smartspend/core/database/daos/tax_profile_dao.dart';
 import 'package:smartspend/core/database/daos/user_correction_dao.dart';
@@ -48,6 +49,7 @@ part 'app_database.g.dart';
     ProductEventCounters,
     TaxProfiles,
     TaxObligations,
+    TaxCalendarOverrides,
   ],
   daos: <Type>[
     ReceiptDao,
@@ -62,6 +64,7 @@ part 'app_database.g.dart';
     ProductEventDao,
     TaxProfileDao,
     TaxObligationDao,
+    TaxCalendarOverrideDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -99,13 +102,18 @@ class AppDatabase extends _$AppDatabase {
   ///        `v4.sql` is still the only snapshot that describes a schema a real
   ///        device can be sitting on, and v4 → v7 is the one upgrade path that
   ///        has to work.
+  ///   v8 — 1.3.0 Block 4 (T10) adds `tax_calendar_overrides`, the local copy
+  ///        of the server's deadline corrections. Additive, unpublished like
+  ///        v5–v7, and empty on every device until the first pull — an
+  ///        override that has not been fetched is simply absent, and the
+  ///        calendar shows the catalog date it would have shown anyway.
   ///
   /// Every published version (1.0.0 through 1.2.1) ships schema v4 — the
   /// v1→v4 steps all landed pre-release — so `from == 4` is the only upgrade
-  /// path a real device can take into 1.3.0. `migration_v4_to_v7_test.dart`
+  /// path a real device can take into 1.3.0. `migration_v4_to_v8_test.dart`
   /// exercises it against a snapshot of the real v4 schema.
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   /// Store `DateTime` columns as ISO-8601 text so timezone information
   /// survives a write/read round-trip. CLAUDE.md mandates UTC storage; the
@@ -161,6 +169,14 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(taxProfiles);
             await m.createTable(taxObligations);
           }
+          // v7 → v8: add tax_calendar_overrides (1.3.0, Block 4, T10).
+          // Additive, and it starts empty on every device: overrides are
+          // pulled, never backfilled. An empty table means the generator
+          // applies nothing and the calendar shows catalog dates — the exact
+          // behaviour of a build without the feature.
+          if (from < 8) {
+            await m.createTable(taxCalendarOverrides);
+          }
         },
       );
 
@@ -196,6 +212,11 @@ class AppDatabase extends _$AppDatabase {
       // amounts they wrote against them.
       await delete(taxObligations).go();
       await delete(taxProfiles).go();
+      // taxCalendarOverrides is deliberately NOT cleared. It holds no personal
+      // data — a filing extension is published regulatory fact, the same for
+      // everyone — and dropping it would leave the next account showing stale
+      // catalog dates until its first successful pull, for no privacy gain.
+
       // Reset the pull watermark so the next sign-in performs a full pull.
       // lastSyncAt lives in userSettings, not the data tables wiped above; if
       // it survived, the next session's incremental pull

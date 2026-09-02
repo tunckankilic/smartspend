@@ -1,13 +1,16 @@
 import 'dart:math';
 
+import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:smartspend/core/database/app_database.dart';
+import 'package:smartspend/core/error/failures.dart';
 import 'package:smartspend/core/market/market_registry.dart';
 import 'package:smartspend/core/market/tax/tax_obligation_record.dart';
 import 'package:smartspend/core/market/tax/taxpayer_profile.dart';
 import 'package:smartspend/features/taxes/data/repositories/tax_repository_impl.dart';
 import 'package:smartspend/features/taxes/domain/entities/tax_calendar_item.dart';
+import 'package:smartspend/features/taxes/domain/entities/tax_calendar_snapshot.dart';
 import 'package:smartspend/features/taxes/domain/repositories/tax_repository.dart';
 import 'package:smartspend/features/taxes/domain/usecases/annotate_tax_obligation.dart';
 import 'package:smartspend/features/taxes/domain/usecases/mark_tax_obligation.dart';
@@ -18,6 +21,99 @@ import 'package:smartspend/features/taxes/presentation/cubit/tax_profile_wizard_
 
 import '../../../../helpers/recording_telemetry_service.dart';
 import '../../../../helpers/test_database.dart';
+
+
+/// Counts the override pull and delegates everything else to the real thing.
+///
+/// The launch-time pull is the only thing that makes the override channel run
+/// at all; a repository that supports it and a cubit that never calls it is a
+/// channel that exists only in tests.
+class _CountingRepository implements TaxRepository {
+  _CountingRepository(this._inner);
+
+  final TaxRepository _inner;
+  int refreshCalls = 0;
+  bool? lastForce;
+  Exception? refreshThrows;
+
+  @override
+  Future<Either<Failure, void>> refreshOverrides({bool force = false}) async {
+    refreshCalls++;
+    lastForce = force;
+    final Exception? boom = refreshThrows;
+    if (boom != null) {
+      throw boom;
+    }
+    return _inner.refreshOverrides(force: force);
+  }
+
+  @override
+  Future<Either<Failure, TaxpayerProfile>> getProfile() => _inner.getProfile();
+
+  @override
+  Future<Either<Failure, void>> saveProfile(TaxpayerProfile profile) =>
+      _inner.saveProfile(profile);
+
+  @override
+  Stream<TaxCalendarSnapshot> watchCalendar() => _inner.watchCalendar();
+
+  @override
+  Future<Either<Failure, void>> regenerate() => _inner.regenerate();
+
+  @override
+  Future<Either<Failure, TaxCalendarItem?>> getItem(int id) =>
+      _inner.getItem(id);
+
+  @override
+  Future<Either<Failure, void>> setDeclared(int id, DateTime? at) =>
+      _inner.setDeclared(id, at);
+
+  @override
+  Future<Either<Failure, void>> setPaid(int id, DateTime? at) =>
+      _inner.setPaid(id, at);
+
+  @override
+  Future<Either<Failure, void>> setDismissed(int id, DateTime? at) =>
+      _inner.setDismissed(id, at);
+
+  @override
+  Future<Either<Failure, void>> setAmount(
+    int id, {
+    required int? amountMinor,
+    required TaxAmountSource source,
+  }) =>
+      _inner.setAmount(id, amountMinor: amountMinor, source: source);
+
+  @override
+  Future<Either<Failure, void>> setNote(int id, String? note) =>
+      _inner.setNote(id, note);
+
+  @override
+  Future<Either<Failure, void>> setUserDueDates(
+    int id, {
+    DateTime? declarationDueDate,
+    DateTime? paymentDueDate,
+  }) =>
+      _inner.setUserDueDates(
+        id,
+        declarationDueDate: declarationDueDate,
+        paymentDueDate: paymentDueDate,
+      );
+
+  @override
+  Future<Either<Failure, int>> addCustomItem({
+    required String title,
+    required DateTime dueDate,
+    bool isPayment = true,
+    String? note,
+  }) =>
+      _inner.addCustomItem(
+        title: title,
+        dueDate: dueDate,
+        isPayment: isPayment,
+        note: note,
+      );
+}
 
 void main() {
   late AppDatabase db;
@@ -34,6 +130,8 @@ void main() {
     repository = TaxRepositoryImpl(
       profileDao: db.taxProfileDao,
       obligationDao: db.taxObligationDao,
+      overrideDao: db.taxCalendarOverrideDao,
+      settingsDao: db.userSettingsDao,
       markets: MarketRegistry(),
       clock: now,
       random: Random(1),
@@ -148,6 +246,39 @@ void main() {
 
       expect(cubit.state, isA<TaxCalendarLoaded>());
       expect((cubit.state as TaxCalendarLoaded).snapshot.items, isNotEmpty);
+    });
+
+
+    test('should pull published corrections on subscribe', () async {
+      // Without this the override channel never runs on a real device: nothing
+      // else calls it, and every deadline stays at whatever the binary shipped.
+      final _CountingRepository counting = _CountingRepository(repository);
+      final TaxCalendarCubit cubit =
+          TaxCalendarCubit(repository: counting, clock: now);
+      addTearDown(cubit.close);
+
+      await cubit.subscribe();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(counting.refreshCalls, 1);
+      expect(counting.lastForce, isFalse);
+    });
+
+    test('should show the calendar even when the pull blows up', () async {
+      // The pull is fire-and-forget on purpose. Offline is the normal state,
+      // and a screen that fails because the network did would be a worse bug
+      // than a date six hours stale.
+      final _CountingRepository counting = _CountingRepository(repository)
+        ..refreshThrows = Exception('offline');
+      await repository.saveProfile(answered);
+      final TaxCalendarCubit cubit =
+          TaxCalendarCubit(repository: counting, clock: now);
+      addTearDown(cubit.close);
+
+      await cubit.subscribe();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(cubit.state, isA<TaxCalendarLoaded>());
     });
 
     test('should report that no profile has been given yet', () async {

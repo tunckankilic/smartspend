@@ -549,3 +549,71 @@ class TaxObligations extends Table {
         <Column<Object>>{generationKey},
       ];
 }
+
+/// A server-published correction to the catalog's deadline rules — the channel
+/// a GİB filing extension reaches an installed build through (1.3.0, T10).
+///
+/// 🚨 WHY THIS TABLE IS NOT LIKE THE OTHERS — it carries no `remoteId`-plus-
+/// `userId`-plus-`syncStatus` set, because it is not the user's data and never
+/// travels upward. A filing extension is a fact about the tax authority's
+/// calendar, identical for every taxpayer it applies to. Pulling it through
+/// [SyncService] would put rows the client must never author onto the push
+/// path; it has its own narrow datasource instead.
+///
+/// 🚨 WHY OVERRIDES ARE STORED HERE AND NOT WRITTEN INTO [TaxObligations] —
+/// see D-17. `upsertGenerated` preserves only a *user*-entered date, so an
+/// override written straight into the calendar would be overwritten by the
+/// next regeneration, which happens on every app launch. Widening that
+/// preservation to cover overrides would fix the overwrite and create a worse
+/// bug: a withdrawn extension could never be taken back, because the date
+/// would be frozen out of reach of the mechanism that wrote it. Keeping
+/// overrides here and *applying* them while generating keeps the precedence a
+/// single readable rule — user > override > catalog — and keeps
+/// [TaxObligations.dueDateSource] derived, so deleting the server row reverts
+/// the date on the next generation.
+///
+/// The local copy is replaced wholesale on each pull rather than merged, which
+/// is what makes withdrawal work: a row the server no longer returns is a row
+/// this table no longer has.
+class TaxCalendarOverrides extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  /// The server row's uuid. Kept for support and debugging — when a user
+  /// reports a wrong date, this is what identifies the row that caused it.
+  TextColumn get remoteId => text()();
+
+  /// ISO-3166-1 alpha-2, uppercase. An override corrects one market's catalog;
+  /// the generator ignores rows from any other.
+  TextColumn get market => text()();
+
+  /// A `TaxObligationKind.wireValue`. Never `custom` — the user's own items
+  /// are not anybody else's to move.
+  TextColumn get kind => text()();
+
+  /// First day of the period the override addresses, UTC. With [kind] and
+  /// [installmentIndex] this identifies exactly one generated obligation.
+  DateTimeColumn get periodStart => dateTime()();
+
+  IntColumn get installmentIndex => integer().withDefault(const Constant(0))();
+
+  /// NULL means "not overridden", never "removed". An extension moves a
+  /// deadline; nothing here can delete one.
+  DateTimeColumn get declarationDueDate => dateTime().nullable()();
+  DateTimeColumn get paymentDueDate => dateTime().nullable()();
+
+  /// Why the date moved, shown to the user beside it — e.g. a circular
+  /// number. Not nullable: an override with no stated source is
+  /// indistinguishable from a guess, and the user has no way to check it.
+  TextColumn get reason => text()();
+
+  /// Where the reason can be read in full, when it has a stable URL.
+  TextColumn get sourceUrl => text().nullable()();
+
+  /// When this local copy was written, UTC.
+  DateTimeColumn get fetchedAt => dateTime()();
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => <Set<Column<Object>>>[
+        <Column<Object>>{market, kind, periodStart, installmentIndex},
+      ];
+}

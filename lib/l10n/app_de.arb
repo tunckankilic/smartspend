@@ -605,6 +605,10 @@
   "taxDetailAmountDisclaimer": "SmartSpend berechnet keine Steuern. Hier steht nur ein Betrag, den Ihnen jemand genannt hat.",
   "taxDetailSourceCatalog": "App-Kalender",
   "taxDetailSourceOverride": "Aktualisiertes Datum",
+  "taxDetailOverrideReason": "Dieses Datum stammt aus einer veröffentlichten Korrektur: {reason}. Bestätigen Sie es dennoch mit Ihrer Steuerberatung.",
+  "@taxDetailOverrideReason": {
+    "placeholders": { "reason": { "type": "String" } }
+  },
   "taxDetailSourceUser": "Ihr eigenes Datum",
   "taxDetailEditDates": "Daten korrigieren",
   "taxDetailSaveFailed": "Konnte nicht gespeichert werden.",

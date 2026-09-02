@@ -137,6 +137,34 @@ class TaxCalendarCubit extends Cubit<TaxCalendarState> {
             ),
           ),
         );
+    // Deliberately not awaited. The override pull is a network round trip and
+    // the calendar must not wait on it — offline is the normal state, and a
+    // screen that blanks until the network answers is a worse bug than a date
+    // that is six hours stale. When it lands it regenerates, and the stream
+    // above delivers the corrected dates on its own.
+    unawaited(refreshOverrides());
+  }
+
+  /// Pulls published deadline corrections.
+  ///
+  /// Failure is swallowed on purpose: there is nothing the user can do about
+  /// it and nothing is lost — the calendar keeps the dates it already had. The
+  /// throttle lives in the repository, so calling this on every subscribe is
+  /// cheap.
+  ///
+  /// 🚨 The `catch` is load-bearing, not defensive decoration. `subscribe()`
+  /// launches this un-awaited, so a *thrown* error here — as opposed to a
+  /// `Left`, which the repository returns for the failures it anticipates —
+  /// becomes an unhandled async error rather than a swallowed one, and takes
+  /// down the zone that happens to be running. Returning a Left is the
+  /// contract; surviving a breach of it is this method's job.
+  Future<void> refreshOverrides({bool force = false}) async {
+    try {
+      await _repository.refreshOverrides(force: force);
+    } on Object {
+      // Deliberately empty: see above. A calendar the user can read beats a
+      // correction they cannot receive.
+    }
   }
 
   /// Switches the visible slice.

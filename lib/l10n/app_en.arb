@@ -614,6 +614,10 @@
   "taxDetailAmountDisclaimer": "SmartSpend does not calculate tax. Only an amount a person told you goes here.",
   "taxDetailSourceCatalog": "App calendar",
   "taxDetailSourceOverride": "Updated date",
+  "taxDetailOverrideReason": "This date comes from a published correction: {reason}. Confirm it with your accountant anyway.",
+  "@taxDetailOverrideReason": {
+    "placeholders": { "reason": { "type": "String" } }
+  },
   "taxDetailSourceUser": "Your own date",
   "taxDetailEditDates": "Correct the dates",
   "taxDetailSaveFailed": "Could not be saved.",

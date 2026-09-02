@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:smartspend/core/database/app_database.dart';
 import 'package:smartspend/core/market/tax/taxpayer_profile.dart';
 
-/// Migration coverage for schema v4 → v7 — the whole of 1.3.0's schema work.
+/// Migration coverage for schema v4 → v8 — the whole of 1.3.0's schema work.
 ///
 /// v4 is not an arbitrary starting point: every published SmartSpend (1.0.0,
 /// 1.0.1, 1.1.0, 1.2.0, 1.2.1) ships schema v4, because the v1→v4 steps all
@@ -16,14 +16,16 @@ import 'package:smartspend/core/market/tax/taxpayer_profile.dart';
 /// exact same upgrade path as one coming from 1.2.1 — the one this file
 /// exercises.
 ///
-/// There is deliberately no snapshot for v5, v6 or v7, and no test starting
-/// from any of them. Those versions exist only between commits on this branch
-/// and were never published, so no device can ever upgrade *from* one;
-/// CLAUDE.md's rule is that snapshots are taken per **published** schema
+/// There is deliberately no snapshot for v5, v6, v7 or v8, and no test
+/// starting from any of them. Those versions exist only between commits on
+/// this branch and were never published, so no device can ever upgrade *from*
+/// one; CLAUDE.md's rule is that snapshots are taken per **published** schema
 /// version, not per version. Writing one would create a fixture for a path
 /// that cannot occur and imply the version is frozen when it is still free to
-/// change until 1.3.0 ships — which is exactly what Block 4 did to v7, adding
-/// its tables to a version Block 3 had already introduced.
+/// change until 1.3.0 ships — which is exactly what Block 4 did twice: first
+/// adding its tables to the v7 Block 3 had introduced, then adding
+/// `tax_calendar_overrides` as v8 once the override channel needed a local
+/// copy to apply from.
 ///
 /// The v4 database is built from `schemas/v4.sql`, a captured snapshot of the
 /// real shipped schema, rather than from "current code minus the new table".
@@ -129,9 +131,9 @@ void main() {
     final AppDatabase db = AppDatabase.forTesting(NativeDatabase(dbFile));
     addTearDown(db.close);
 
-    // One open, three migration steps (4 → 5 → 6 → 7). A device coming from
-    // any published release runs all of them in a single upgrade, which is
-    // exactly the path a user who skipped 1.2.x takes.
+    // One open, four migration steps (4 → 5 → 6 → 7 → 8). A device coming
+    // from any published release runs all of them in a single upgrade, which
+    // is exactly the path a user who skipped 1.2.x takes.
     expect(
       await tableNames(db),
       containsAll(<String>[
@@ -140,9 +142,10 @@ void main() {
         'product_event_counters',
         'tax_profiles',
         'tax_obligations',
+        'tax_calendar_overrides',
       ]),
     );
-    expect(await userVersion(db), 7);
+    expect(await userVersion(db), 8);
   });
 
   test('upgrading a v4 database preserves the rows already in it', () async {
@@ -254,6 +257,38 @@ void main() {
     expect(stored.employsStaff, TaxpayerAnswer.yes);
     expect(stored.ownsVehicle, TaxpayerAnswer.unknown);
     expect(stored.bagkurInsured, TaxpayerAnswer.unknown);
+  });
+
+  test('the migrated override table accepts a pull, not merely exists',
+      () async {
+    await buildV4Database();
+
+    final AppDatabase db = AppDatabase.forTesting(NativeDatabase(dbFile));
+    addTearDown(db.close);
+
+    // A device upgrading from a published release is exactly the device most
+    // likely to be sitting on stale deadline rules. If the override channel
+    // could not write on that device, the users who need it most would be the
+    // ones it silently never reached.
+    await db.taxCalendarOverrideDao.replaceMarket(
+      'TR',
+      <TaxCalendarOverridesCompanion>[
+        TaxCalendarOverridesCompanion.insert(
+          remoteId: 'ovr-1',
+          market: 'TR',
+          kind: 'kdv1',
+          periodStart: DateTime.utc(2026, 8),
+          declarationDueDate: Value<DateTime?>(DateTime.utc(2026, 9, 30)),
+          reason: 'VUK Sirküleri No: 175',
+          fetchedAt: DateTime.utc(2026, 9, 15, 10),
+        ),
+      ],
+    );
+
+    final List<TaxCalendarOverride> stored =
+        await db.taxCalendarOverrideDao.getForMarket('TR');
+    expect(stored, hasLength(1));
+    expect(stored.single.declarationDueDate, DateTime.utc(2026, 9, 30));
   });
 
   test('the upgrade path and a fresh install agree on the whole schema',

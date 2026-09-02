@@ -629,6 +629,10 @@
   "taxDetailAmountDisclaimer": "SmartSpend vergi hesaplamaz. Buraya yalnız bir kişinin sana söylediği tutar girilir.",
   "taxDetailSourceCatalog": "Uygulama takvimi",
   "taxDetailSourceOverride": "Güncellenmiş tarih",
+  "taxDetailOverrideReason": "Bu tarih yayımlanmış bir düzeltmeden geliyor: {reason}. Yine de muhasebecinle teyit et.",
+  "@taxDetailOverrideReason": {
+    "placeholders": { "reason": { "type": "String" } }
+  },
   "taxDetailSourceUser": "Senin girdiğin tarih",
   "taxDetailEditDates": "Tarihleri düzelt",
   "taxDetailSaveFailed": "Kaydedilemedi.",

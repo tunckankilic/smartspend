@@ -52,6 +52,8 @@ select has_table('public', 'tax_profiles',
   'tax_profiles table exists');
 select has_table('public', 'tax_obligations',
   'tax_obligations table exists');
+select has_table('public', 'tax_calendar_overrides',
+  'tax_calendar_overrides table exists');
 
 -- -----------------------------------------------------------------------------
 -- 2. RLS is enabled on every public table (and forced for table owners)
@@ -71,7 +73,7 @@ from unnest(array[
   'categories','receipts','receipt_items','expenses','budgets',
   'budget_alerts','tags','expense_tags','user_settings','receipt_shares',
   'rate_limits','sync_log','user_corrections','product_events','tax_profiles',
-  'tax_obligations'
+  'tax_obligations','tax_calendar_overrides'
 ]) as t;
 
 select ok(
@@ -84,7 +86,7 @@ from unnest(array[
   'categories','receipts','receipt_items','expenses','budgets',
   'budget_alerts','tags','expense_tags','user_settings','receipt_shares',
   'rate_limits','sync_log','user_corrections','product_events','tax_profiles',
-  'tax_obligations'
+  'tax_obligations','tax_calendar_overrides'
 ]) as t;
 
 -- -----------------------------------------------------------------------------
@@ -939,6 +941,110 @@ select is(
   null,
   'user B''s item was not marked paid by user A'
 );
+
+
+-- -----------------------------------------------------------------------------
+-- 13. tax_calendar_overrides (1.3.0, Block 4, T10)
+--
+--     The one table in the tax feature that is not the user's data: a GİB
+--     filing extension is a fact about the authority's calendar, the same for
+--     everyone it applies to. Its posture is therefore inverted — everyone
+--     reads, no client writes — and the failure mode is inverted with it.
+--
+--     🚨 The failure this section exists to catch: auto_enable_rls() FORCES
+--     RLS on every new public table, and forced RLS with no policy does not
+--     raise — it returns zero rows. The override channel would look healthy in
+--     every log while delivering nothing, and a deadline extension would never
+--     reach a single phone. `policies_are` alone is not enough for that: a
+--     policy can be present and still match nothing. So the assertions below
+--     make a real `authenticated` role and a real `anon` role SELECT a real
+--     row.
+-- -----------------------------------------------------------------------------
+select policies_are(
+  'public', 'tax_calendar_overrides',
+  array['tax_calendar_overrides_select_all'],
+  'tax_calendar_overrides has exactly one policy — read, and nothing else'
+);
+
+insert into public.tax_calendar_overrides
+  (market, kind, period_start, installment_index,
+   declaration_due_date, payment_due_date, reason)
+values ('TR', 'kdv1', date '2026-08-01', 0,
+        date '2026-09-30', date '2026-09-30', 'VUK Sirküleri No: TEST');
+
+-- A signed-in client.
+set local role authenticated;
+set local request.jwt.claims to
+  '{"sub":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","role":"authenticated"}';
+
+select is(
+  (select count(*)::int from public.tax_calendar_overrides
+    where market = 'TR' and kind = 'kdv1'),
+  1,
+  'an authenticated client actually SEES the override row (not merely: a '
+  'policy exists)'
+);
+
+select throws_ok(
+  $$ insert into public.tax_calendar_overrides
+       (market, kind, period_start, reason)
+     values ('TR', 'kdv2', date '2026-08-01', 'forged') $$,
+  '42501',
+  null,
+  'an authenticated client cannot author a deadline'
+);
+
+select lives_ok(
+  $$ delete from public.tax_calendar_overrides where market = 'TR' $$,
+  'a client DELETE matches zero rows (no policy, no error, no effect)'
+);
+
+reset role;
+
+-- A signed-out client. The tax calendar is generated without an account, so
+-- `anon` losing read access would silently strip overrides from exactly the
+-- users who have no other channel.
+set local role anon;
+select is(
+  (select count(*)::int from public.tax_calendar_overrides),
+  1,
+  'an anonymous client sees the override too'
+);
+reset role;
+
+select is(
+  (select count(*)::int from public.tax_calendar_overrides),
+  1,
+  'and the client DELETE above really did nothing'
+);
+
+-- An override that moves neither date is a typo, not a correction.
+select throws_ok(
+  $$ insert into public.tax_calendar_overrides
+       (market, kind, period_start, reason)
+     values ('TR', 'mphb', date '2026-08-01', 'no dates') $$,
+  '23514',
+  null,
+  'an override must move at least one of the two deadlines'
+);
+
+-- An override with no stated source is indistinguishable from a guess.
+select throws_ok(
+  $$ insert into public.tax_calendar_overrides
+       (market, kind, period_start, payment_due_date)
+     values ('TR', 'mphb', date '2026-08-01', date '2026-09-30') $$,
+  '23502',
+  null,
+  'an override cannot be published without a reason'
+);
+
+-- 🚨 The row carries no user_id and no company_id, and that is load-bearing:
+-- a user_id here would pull the table into SyncService's per-user push path,
+-- where the client would try to upload rows it must never write.
+select hasnt_column('public', 'tax_calendar_overrides', 'user_id',
+  'tax_calendar_overrides has no user_id — it is not the user''s data');
+select hasnt_column('public', 'tax_calendar_overrides', 'company_id',
+  'tax_calendar_overrides has no company_id either');
 
 select * from finish();
 rollback;

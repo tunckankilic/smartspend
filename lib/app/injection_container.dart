@@ -30,6 +30,7 @@ import 'package:smartspend/core/services/sync_service.dart';
 import 'package:smartspend/core/services/sync_service_impl.dart';
 import 'package:smartspend/core/services/telemetry_remote_data_source.dart';
 import 'package:smartspend/core/services/telemetry_service.dart';
+import 'package:smartspend/core/services/tax_override_remote_data_source.dart';
 import 'package:smartspend/core/services/telemetry_service_impl.dart';
 import 'package:smartspend/core/supabase/supabase_client_provider.dart';
 import 'package:smartspend/core/supabase/supabase_storage_data_source.dart';
@@ -597,11 +598,17 @@ Future<void> configureDependencies() async {
       ),
     )
     // Taxes feature (1.3.0, Block 4) --------------------------------------
+    ..registerLazySingleton<TaxOverrideRemoteDataSource>(
+      () => SupabaseTaxOverrideRemoteDataSource(sl<SupabaseClient>()),
+    )
     ..registerLazySingleton<TaxRepository>(
       () => TaxRepositoryImpl(
         profileDao: sl<AppDatabase>().taxProfileDao,
         obligationDao: sl<AppDatabase>().taxObligationDao,
+        overrideDao: sl<AppDatabase>().taxCalendarOverrideDao,
+        settingsDao: sl<AppDatabase>().userSettingsDao,
         markets: sl<MarketRegistry>(),
+        overrideRemote: sl<TaxOverrideRemoteDataSource>(),
       ),
     )
     ..registerLazySingleton<SaveTaxProfileUseCase>(

@@ -68,6 +68,19 @@ abstract class TaxRepository {
     DateTime? paymentDueDate,
   });
 
+  /// Pulls the server's published deadline corrections and regenerates.
+  ///
+  /// Best-effort and safe to call on every app launch: it throttles itself,
+  /// and failing means the calendar keeps the dates it already had. Offline is
+  /// the normal state, not an error condition.
+  ///
+  /// 🚨 The pull REPLACES this device's overrides rather than merging them,
+  /// which is what lets the publisher take a correction back — see D-17. A
+  /// merge would leave a withdrawn extension applied forever.
+  ///
+  /// [force] skips the throttle; the calendar screen's pull-to-refresh uses it.
+  Future<Either<Failure, void>> refreshOverrides({bool force});
+
   /// Adds a deadline the user tracks themselves. Returns the local row id.
   Future<Either<Failure, int>> addCustomItem({
     required String title,

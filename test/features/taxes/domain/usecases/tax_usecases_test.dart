@@ -31,6 +31,12 @@ class _FakeTaxRepository implements TaxRepository {
   }
 
   @override
+  Future<Either<Failure, void>> refreshOverrides({bool force = false}) async {
+    calls.add('refreshOverrides');
+    return _result<void>(null);
+  }
+
+  @override
   Future<Either<Failure, void>> saveProfile(TaxpayerProfile profile) async {
     calls.add('saveProfile');
     savedProfile = profile;

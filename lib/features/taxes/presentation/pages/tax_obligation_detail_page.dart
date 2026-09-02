@@ -106,6 +106,19 @@ class _Body extends StatelessWidget {
             ),
           ],
         ),
+        if (item.dueDateOverrideReason != null) ...<Widget>[
+          const SizedBox(height: 8),
+          // A date that moved with no stated reason is indistinguishable, from
+          // the user's side, from the app being wrong — and they have no way
+          // to check it against GİB without the circular's number.
+          Text(
+            key: const Key('tax.detail.overrideReason'),
+            l.taxDetailOverrideReason(item.dueDateOverrideReason!),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
         const SizedBox(height: 8),
         Text(
           DateFormat.yMMMM(locale).format(item.periodStart),

@@ -77,6 +77,8 @@ TaxCalendarItem item({
   int? amountMinor,
   TaxAmountSource amountSource = TaxAmountSource.unknown,
   String? note,
+  TaxDueDateSource dueDateSource = TaxDueDateSource.catalog,
+  String? dueDateOverrideReason,
 }) =>
     TaxCalendarItem(
       id: id,
@@ -86,7 +88,8 @@ TaxCalendarItem item({
       periodStart: DateTime.utc(2026, 8),
       periodEnd: DateTime.utc(2026, 8, 31),
       installmentIndex: 0,
-      dueDateSource: TaxDueDateSource.catalog,
+      dueDateSource: dueDateSource,
+      dueDateOverrideReason: dueDateOverrideReason,
       amountSource: amountSource,
       hasDeclarationStep: hasDeclarationStep,
       hasPaymentStep: hasPaymentStep,
@@ -432,6 +435,39 @@ void main() {
             isLoading: loading,
           ),
         );
+
+    testWidgets('names the authority behind a corrected date',
+        (WidgetTester tester) async {
+      withItem(
+        item(
+          declarationDue: DateTime.utc(2026, 9, 30),
+          dueDateSource: TaxDueDateSource.override,
+          dueDateOverrideReason: 'VUK Sirküleri No: 175',
+        ),
+      );
+
+      await pumpDetail(tester);
+
+      // Without the reason the user sees a date that moved and no way to
+      // check it — indistinguishable from the app being wrong.
+      expect(
+        find.byKey(const Key('tax.detail.overrideReason')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('VUK Sirküleri No: 175'), findsOneWidget);
+    });
+
+    testWidgets('says nothing about a correction when there was none',
+        (WidgetTester tester) async {
+      withItem(item(declarationDue: DateTime.utc(2026, 9, 26)));
+
+      await pumpDetail(tester);
+
+      expect(
+        find.byKey(const Key('tax.detail.overrideReason')),
+        findsNothing,
+      );
+    });
 
     testWidgets('shows two switches for two separate acts',
         (WidgetTester tester) async {

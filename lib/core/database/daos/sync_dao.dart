@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 
 import 'package:smartspend/core/database/app_database.dart';
@@ -26,6 +28,10 @@ part 'sync_dao.g.dart';
     Tags,
     UserCorrections,
     UserSettings,
+    SyncConflictPayloads,
+    SyncDeferredRows,
+    TaxProfiles,
+    TaxObligations,
   ],
 )
 class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
@@ -274,6 +280,322 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
       (delete(budgets)..where(($BudgetsTable t) => t.id.equals(id))).go();
 
   // ---------------------------------------------------------------------
+  // Tax profile (1.3.0, Block 4)
+  // ---------------------------------------------------------------------
+
+  Future<TaxProfile?> findTaxProfileByRemoteId(String remoteId) {
+    return (select(taxProfiles)
+          ..where(($TaxProfilesTable t) => t.remoteId.equals(remoteId))
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  Future<void> markTaxProfileSynced(int id, {String? remoteId}) {
+    return (update(taxProfiles)
+          ..where(($TaxProfilesTable t) => t.id.equals(id)))
+        .write(
+      TaxProfilesCompanion(
+        remoteId: remoteId == null
+            ? const Value<String?>.absent()
+            : Value<String?>(remoteId),
+        syncStatus: const Value<String>(SyncStatus.synced),
+      ),
+    );
+  }
+
+  /// Applies a pulled taxpayer profile.
+  ///
+  /// Differs from the other `apply*FromRemote` methods in one way that
+  /// matters: when no local row carries [remoteId], this does **not** insert
+  /// a second profile. The table holds one row per user, and a second device
+  /// that filled the wizard offline has a local row with no `remote_id` at
+  /// all. Inserting would leave the device with two profiles and no rule for
+  /// which one generates the calendar; adopting the existing row — writing
+  /// the server's id onto it — is the merge that keeps the invariant.
+  ///
+  /// The adoption path is still subject to last-write-wins, and it still
+  /// quarantines the version it discards. That is the case this guards: the
+  /// user answers the wizard on their phone, then again on their tablet, and
+  /// one of the two answer sets is about to lose. It is kept.
+  Future<bool> applyTaxProfileFromRemote({
+    required String remoteId,
+    required Map<String, dynamic> remotePayload,
+    required String legalForm,
+    required String vatLiability,
+    required String withholdingLiability,
+    required String employsStaff,
+    required String bagkurInsured,
+    required String usesELedger,
+    required String ownsVehicle,
+    required String ownsRealEstate,
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    String? userId,
+  }) async {
+    final TaxProfilesCompanion values = TaxProfilesCompanion(
+      remoteId: Value<String?>(remoteId),
+      userId: Value<String?>(userId),
+      legalForm: Value<String>(legalForm),
+      vatLiability: Value<String>(vatLiability),
+      withholdingLiability: Value<String>(withholdingLiability),
+      employsStaff: Value<String>(employsStaff),
+      bagkurInsured: Value<String>(bagkurInsured),
+      usesELedger: Value<String>(usesELedger),
+      ownsVehicle: Value<String>(ownsVehicle),
+      ownsRealEstate: Value<String>(ownsRealEstate),
+      createdAt: Value<DateTime>(createdAt.toUtc()),
+      updatedAt: Value<DateTime>(updatedAt.toUtc()),
+      syncStatus: const Value<String>(SyncStatus.synced),
+    );
+
+    final TaxProfile? existing = await findTaxProfileByRemoteId(remoteId) ??
+        await (select(taxProfiles)..limit(1)).getSingleOrNull();
+    if (existing == null) {
+      await into(taxProfiles).insert(values);
+      return true;
+    }
+    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) {
+      await recordConflictPayload(
+        tableName: 'tax_profiles',
+        remoteId: remoteId,
+        remotePayload: remotePayload,
+        localUpdatedAt: existing.updatedAt,
+        remoteUpdatedAt: updatedAt,
+        userId: userId,
+      );
+      return false;
+    }
+    await (update(taxProfiles)
+          ..where(($TaxProfilesTable t) => t.id.equals(existing.id)))
+        .write(values);
+    return true;
+  }
+
+  // ---------------------------------------------------------------------
+  // Tax obligations (1.3.0, Block 4)
+  // ---------------------------------------------------------------------
+
+  Future<TaxObligation?> findTaxObligationByRemoteId(String remoteId) {
+    return (select(taxObligations)
+          ..where(($TaxObligationsTable t) => t.remoteId.equals(remoteId))
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  Future<void> markTaxObligationSynced(int id, {String? remoteId}) {
+    return (update(taxObligations)
+          ..where(($TaxObligationsTable t) => t.id.equals(id)))
+        .write(
+      TaxObligationsCompanion(
+        remoteId: remoteId == null
+            ? const Value<String?>.absent()
+            : Value<String?>(remoteId),
+        syncStatus: const Value<String>(SyncStatus.synced),
+      ),
+    );
+  }
+
+  /// Applies a pulled calendar item.
+  ///
+  /// Falls back to `generation_key` when no local row carries [remoteId].
+  /// Generation is deterministic, so a phone and a tablet that both built
+  /// August's return each hold a local row with no server id; matching on the
+  /// key is what makes them the same item instead of two deadlines the user
+  /// has to reconcile by hand.
+  Future<bool> applyTaxObligationFromRemote({
+    required String remoteId,
+    required Map<String, dynamic> remotePayload,
+    required String generationKey,
+    required String kind,
+    required String periodKind,
+    required DateTime periodStart,
+    required DateTime periodEnd,
+    required int installmentIndex,
+    required String dueDateSource,
+    required String amountSource,
+    required bool isUserDefined,
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    DateTime? declarationDueDate,
+    DateTime? paymentDueDate,
+    int? amountMinor,
+    DateTime? declaredAt,
+    DateTime? paidAt,
+    DateTime? dismissedAt,
+    String? note,
+    String? title,
+    String? userId,
+  }) async {
+    final TaxObligationsCompanion values = TaxObligationsCompanion(
+      remoteId: Value<String?>(remoteId),
+      userId: Value<String?>(userId),
+      generationKey: Value<String>(generationKey),
+      kind: Value<String>(kind),
+      periodKind: Value<String>(periodKind),
+      periodStart: Value<DateTime>(periodStart.toUtc()),
+      periodEnd: Value<DateTime>(periodEnd.toUtc()),
+      installmentIndex: Value<int>(installmentIndex),
+      declarationDueDate: Value<DateTime?>(declarationDueDate?.toUtc()),
+      paymentDueDate: Value<DateTime?>(paymentDueDate?.toUtc()),
+      dueDateSource: Value<String>(dueDateSource),
+      amountMinor: Value<int?>(amountMinor),
+      amountSource: Value<String>(amountSource),
+      declaredAt: Value<DateTime?>(declaredAt?.toUtc()),
+      paidAt: Value<DateTime?>(paidAt?.toUtc()),
+      dismissedAt: Value<DateTime?>(dismissedAt?.toUtc()),
+      note: Value<String?>(note),
+      title: Value<String?>(title),
+      isUserDefined: Value<bool>(isUserDefined),
+      createdAt: Value<DateTime>(createdAt.toUtc()),
+      updatedAt: Value<DateTime>(updatedAt.toUtc()),
+      syncStatus: const Value<String>(SyncStatus.synced),
+    );
+
+    final TaxObligation? existing =
+        await findTaxObligationByRemoteId(remoteId) ??
+            await (select(taxObligations)
+                  ..where(
+                    ($TaxObligationsTable t) =>
+                        t.generationKey.equals(generationKey),
+                  )
+                  ..limit(1))
+                .getSingleOrNull();
+    if (existing == null) {
+      await into(taxObligations).insert(values);
+      return true;
+    }
+    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) {
+      await recordConflictPayload(
+        tableName: 'tax_obligations',
+        remoteId: remoteId,
+        remotePayload: remotePayload,
+        localUpdatedAt: existing.updatedAt,
+        remoteUpdatedAt: updatedAt,
+        userId: userId,
+      );
+      return false;
+    }
+    await (update(taxObligations)
+          ..where(($TaxObligationsTable t) => t.id.equals(existing.id)))
+        .write(values);
+    return true;
+  }
+
+  // ---------------------------------------------------------------------
+  // Conflict quarantine
+  // ---------------------------------------------------------------------
+
+  /// Keeps the remote row that last-write-wins is about to discard.
+  ///
+  /// Every `apply*FromRemote` calls this on its "local is newer" path before
+  /// returning `false`. That placement is the point: the capture lives where
+  /// the decision is made, so no caller can drop a remote version by
+  /// forgetting to log it. `sync_log` still records *that* a conflict
+  /// happened — this records *what* was thrown away.
+  ///
+  /// [remotePayload] is stored as raw JSON, exactly as it came off the wire.
+  /// Deliberately unmapped: foreign keys stay remote UUIDs, so 1.4.0 can
+  /// replay the row without depending on local ids that may since have
+  /// changed. `toEncodable` is a fallback, not an expectation — `fetchSince`
+  /// hands us JSON-decoded maps, but a payload that somehow will not encode
+  /// must still be captured rather than throw and abort the whole pull.
+  ///
+  /// The DAO surface says `tableName` even though the Drift getter is
+  /// `conflictTableName` — same convention as [SyncLogDao.log].
+  Future<int> recordConflictPayload({
+    required String tableName,
+    required String remoteId,
+    required Map<String, dynamic> remotePayload,
+    required DateTime localUpdatedAt,
+    required DateTime remoteUpdatedAt,
+    String? userId,
+  }) {
+    return into(syncConflictPayloads).insert(
+      SyncConflictPayloadsCompanion.insert(
+        userId: Value<String?>(userId),
+        conflictTableName: tableName,
+        remoteId: remoteId,
+        remotePayload: jsonEncode(
+          remotePayload,
+          toEncodable: (Object? o) => o.toString(),
+        ),
+        localUpdatedAt: localUpdatedAt.toUtc(),
+        remoteUpdatedAt: remoteUpdatedAt.toUtc(),
+        detectedAt: DateTime.now().toUtc(),
+      ),
+    );
+  }
+
+  /// Quarantined conflicts, most recently detected first.
+  ///
+  /// Nothing in 1.3.0 shows these to the user — the release only stops the
+  /// loss. 1.4.0's resolution screen is the first reader.
+  Future<List<SyncConflictPayload>> getConflictPayloads() {
+    return (select(syncConflictPayloads)
+          ..orderBy(<OrderClauseGenerator<$SyncConflictPayloadsTable>>[
+            ($SyncConflictPayloadsTable t) =>
+                OrderingTerm.desc(t.detectedAt),
+          ]))
+        .get();
+  }
+
+  // ---------------------------------------------------------------------
+  // Deferred rows (parent not here yet)
+  // ---------------------------------------------------------------------
+
+  /// Keeps a pulled row that could not be applied because [missingParentTable]
+  /// does not hold [missingParentRemoteId] on this device yet.
+  ///
+  /// Called from the pull loop rather than from a DAO apply method, because
+  /// the parent lookup fails before any `apply*FromRemote` is reached — there
+  /// is nothing for the DAO to decide about.
+  ///
+  /// Re-recording the same row replaces the earlier entry instead of stacking
+  /// a duplicate: a watermark reset (sign-out, fresh install) re-pulls the
+  /// whole history, and the same orphan would otherwise be filed again on
+  /// every full pull.
+  Future<void> recordDeferredRow({
+    required String tableName,
+    required String remoteId,
+    required Map<String, dynamic> remotePayload,
+    required DateTime remoteUpdatedAt,
+    required String missingParentTable,
+    String? missingParentRemoteId,
+    String? userId,
+  }) async {
+    await (delete(syncDeferredRows)..where(
+          ($SyncDeferredRowsTable t) =>
+              t.deferredTableName.equals(tableName) &
+              t.remoteId.equals(remoteId),
+        ))
+        .go();
+    await into(syncDeferredRows).insert(
+      SyncDeferredRowsCompanion.insert(
+        userId: Value<String?>(userId),
+        deferredTableName: tableName,
+        remoteId: remoteId,
+        remotePayload: jsonEncode(
+          remotePayload,
+          toEncodable: (Object? o) => o.toString(),
+        ),
+        remoteUpdatedAt: remoteUpdatedAt.toUtc(),
+        missingParentTable: missingParentTable,
+        missingParentRemoteId: Value<String?>(missingParentRemoteId),
+        detectedAt: DateTime.now().toUtc(),
+      ),
+    );
+  }
+
+  /// Rows still waiting on a parent, most recently detected first.
+  Future<List<SyncDeferredRow>> getDeferredRows() {
+    return (select(syncDeferredRows)
+          ..orderBy(<OrderClauseGenerator<$SyncDeferredRowsTable>>[
+            ($SyncDeferredRowsTable t) => OrderingTerm.desc(t.detectedAt),
+          ]))
+        .get();
+  }
+
+  // ---------------------------------------------------------------------
   // Pull apply — insert-or-(last-write-wins)-update by remoteId.
   // Returns true when the row was written, false when skipped because the
   // local copy is newer (last-write-wins keeps local).
@@ -281,6 +603,7 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
 
   Future<bool> applyCategoryFromRemote({
     required String remoteId,
+    required Map<String, dynamic> remotePayload,
     required String name,
     required String icon,
     required int color,
@@ -305,7 +628,17 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
       await into(categories).insert(values);
       return true;
     }
-    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) return false;
+    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) {
+      await recordConflictPayload(
+        tableName: 'categories',
+        remoteId: remoteId,
+        remotePayload: remotePayload,
+        localUpdatedAt: existing.updatedAt,
+        remoteUpdatedAt: updatedAt,
+        userId: userId,
+      );
+      return false;
+    }
     await (update(
       categories,
     )..where(($CategoriesTable t) => t.id.equals(existing.id))).write(values);
@@ -314,6 +647,7 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
 
   Future<bool> applyReceiptFromRemote({
     required String remoteId,
+    required Map<String, dynamic> remotePayload,
     required DateTime date,
     required int total,
     required String currency,
@@ -348,7 +682,17 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
       await into(receipts).insert(values);
       return true;
     }
-    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) return false;
+    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) {
+      await recordConflictPayload(
+        tableName: 'receipts',
+        remoteId: remoteId,
+        remotePayload: remotePayload,
+        localUpdatedAt: existing.updatedAt,
+        remoteUpdatedAt: updatedAt,
+        userId: userId,
+      );
+      return false;
+    }
     await (update(
       receipts,
     )..where(($ReceiptsTable t) => t.id.equals(existing.id))).write(values);
@@ -357,6 +701,7 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
 
   Future<bool> applyExpenseFromRemote({
     required String remoteId,
+    required Map<String, dynamic> remotePayload,
     required int amount,
     required int categoryId,
     required DateTime date,
@@ -389,7 +734,17 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
       await into(expenses).insert(values);
       return true;
     }
-    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) return false;
+    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) {
+      await recordConflictPayload(
+        tableName: 'expenses',
+        remoteId: remoteId,
+        remotePayload: remotePayload,
+        localUpdatedAt: existing.updatedAt,
+        remoteUpdatedAt: updatedAt,
+        userId: userId,
+      );
+      return false;
+    }
     await (update(
       expenses,
     )..where(($ExpensesTable t) => t.id.equals(existing.id))).write(values);
@@ -398,6 +753,7 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
 
   Future<bool> applyBudgetFromRemote({
     required String remoteId,
+    required Map<String, dynamic> remotePayload,
     required int amount,
     required String period,
     required DateTime startDate,
@@ -422,7 +778,17 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
       await into(budgets).insert(values);
       return true;
     }
-    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) return false;
+    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) {
+      await recordConflictPayload(
+        tableName: 'budgets',
+        remoteId: remoteId,
+        remotePayload: remotePayload,
+        localUpdatedAt: existing.updatedAt,
+        remoteUpdatedAt: updatedAt,
+        userId: userId,
+      );
+      return false;
+    }
     await (update(
       budgets,
     )..where(($BudgetsTable t) => t.id.equals(existing.id))).write(values);
@@ -431,6 +797,7 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
 
   Future<bool> applyReceiptItemFromRemote({
     required String remoteId,
+    required Map<String, dynamic> remotePayload,
     required int receiptId,
     required String name,
     required double quantity,
@@ -457,7 +824,17 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
       await into(receiptItems).insert(values);
       return true;
     }
-    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) return false;
+    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) {
+      await recordConflictPayload(
+        tableName: 'receipt_items',
+        remoteId: remoteId,
+        remotePayload: remotePayload,
+        localUpdatedAt: existing.updatedAt,
+        remoteUpdatedAt: updatedAt,
+        userId: userId,
+      );
+      return false;
+    }
     await (update(receiptItems)
           ..where(($ReceiptItemsTable t) => t.id.equals(existing.id)))
         .write(values);
@@ -466,6 +843,7 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
 
   Future<bool> applyTagFromRemote({
     required String remoteId,
+    required Map<String, dynamic> remotePayload,
     required String name,
     required DateTime updatedAt,
     String? userId,
@@ -482,7 +860,17 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
       await into(tags).insert(values);
       return true;
     }
-    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) return false;
+    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) {
+      await recordConflictPayload(
+        tableName: 'tags',
+        remoteId: remoteId,
+        remotePayload: remotePayload,
+        localUpdatedAt: existing.updatedAt,
+        remoteUpdatedAt: updatedAt,
+        userId: userId,
+      );
+      return false;
+    }
     await (update(tags)..where(($TagsTable t) => t.id.equals(existing.id)))
         .write(values);
     return true;
@@ -490,6 +878,7 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
 
   Future<bool> applyUserCorrectionFromRemote({
     required String remoteId,
+    required Map<String, dynamic> remotePayload,
     required String storeName,
     required int newCategoryId,
     required int count,
@@ -515,7 +904,17 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
       await into(userCorrections).insert(values);
       return true;
     }
-    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) return false;
+    if (!updatedAt.toUtc().isAfter(existing.updatedAt.toUtc())) {
+      await recordConflictPayload(
+        tableName: 'user_corrections',
+        remoteId: remoteId,
+        remotePayload: remotePayload,
+        localUpdatedAt: existing.updatedAt,
+        remoteUpdatedAt: updatedAt,
+        userId: userId,
+      );
+      return false;
+    }
     await (update(userCorrections)
           ..where(($UserCorrectionsTable t) => t.id.equals(existing.id)))
         .write(values);

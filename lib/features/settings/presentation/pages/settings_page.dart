@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:smartspend/app/bloc/app_bloc.dart';
 import 'package:smartspend/app/injection_container.dart';
 import 'package:smartspend/core/constants/app_constants.dart';
+import 'package:smartspend/core/services/telemetry_service.dart';
 import 'package:smartspend/core/utils/currency_formatter.dart';
 import 'package:smartspend/features/auth/domain/entities/app_user.dart';
 import 'package:smartspend/features/auth/presentation/bloc/auth_bloc.dart';
@@ -284,6 +288,16 @@ class _PreferencesSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         _SectionHeader(l.settingsPreferencesSection),
+        // The tax calendar's second entry point (the first is the end of
+        // onboarding). Reachable from here so a user who skipped the wizard
+        // — which every step invites them to do — can still find it later.
+        ListTile(
+          key: const Key('settings.taxCalendar'),
+          leading: const Icon(Icons.event_note_rounded),
+          title: Text(l.taxCalendarTitle),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/taxes'),
+        ),
         BlocBuilder<SettingsCubit, SettingsState>(
           buildWhen: (SettingsState p, SettingsState c) =>
               p.preferences != c.preferences,
@@ -331,12 +345,96 @@ class _PreferencesSection extends StatelessWidget {
                       .read<SettingsCubit>()
                       .setAiConsent(granted: granted),
                 ),
+                // Product telemetry (1.3.0, Block 3). Opt-out on a legitimate
+                // interest basis (D-15), which only holds while the switch is
+                // genuinely reachable — hence a first-class tile next to the
+                // AI consent one rather than a line buried in the policy.
+                const _TelemetryTile(),
               ],
             );
           },
         ),
         const _LanguageTile(),
         const _DarkModeTile(),
+      ],
+    );
+  }
+}
+
+/// Telemetry opt-out plus the KVKK notice that has to accompany it.
+///
+/// Reads [TelemetryService] directly rather than going through
+/// [SettingsCubit]: the preference is device-local (it deliberately survives
+/// sign-out and never syncs), so routing it through the cloud-backed
+/// preferences would imply a sharing it does not have.
+class _TelemetryTile extends StatefulWidget {
+  const _TelemetryTile();
+
+  @override
+  State<_TelemetryTile> createState() => _TelemetryTileState();
+}
+
+class _TelemetryTileState extends State<_TelemetryTile> {
+  /// Seeded from the service's own default so the first frame is right.
+  /// Painting `on` and then flicking to `off` would misrepresent the default
+  /// in exactly the jurisdictions where the default matters most (D-16).
+  late bool _enabled = sl<TelemetryService>().defaultEnabled;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    final bool value = await sl<TelemetryService>().isEnabled();
+    if (!mounted) return;
+    setState(() => _enabled = value);
+  }
+
+  Future<void> _set({required bool enabled}) async {
+    setState(() => _enabled = enabled);
+    await sl<TelemetryService>().setEnabled(enabled: enabled);
+  }
+
+  void _showNotice() {
+    final AppLocalizations l = AppLocalizations.of(context);
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (BuildContext dialogContext) => AlertDialog(
+          title: Text(l.settingsTelemetryNoticeTitle),
+          content: SingleChildScrollView(
+            child: Text(l.settingsTelemetryNoticeBody),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(l.settingsTelemetryNoticeClose),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AppLocalizations l = AppLocalizations.of(context);
+    return Column(
+      children: <Widget>[
+        SwitchListTile(
+          secondary: const Icon(Icons.insights_rounded),
+          title: Text(l.settingsTelemetry),
+          subtitle: Text(l.settingsTelemetrySubtitle),
+          value: _enabled,
+          onChanged: (bool value) => unawaited(_set(enabled: value)),
+        ),
+        ListTile(
+          leading: const Icon(Icons.info_outline_rounded),
+          title: Text(l.settingsTelemetryNoticeTitle),
+          onTap: _showNotice,
+        ),
       ],
     );
   }

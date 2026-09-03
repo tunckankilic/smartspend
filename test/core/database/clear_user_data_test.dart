@@ -42,6 +42,44 @@ void main() {
       expect(await categoryCount(), seededCategories);
     });
 
+    test('wipes quarantined sync conflict payloads', () async {
+      // A quarantined payload is the user's own financial row held as raw
+      // JSON. Leaving it behind on sign-out would keep one account's data
+      // readable on a device the next account is using.
+      await db.syncDao.recordConflictPayload(
+        tableName: 'expenses',
+        remoteId: 'exp-1',
+        remotePayload: <String, dynamic>{'id': 'exp-1', 'amount': 1299},
+        localUpdatedAt: DateTime.utc(2026, 6),
+        remoteUpdatedAt: DateTime.utc(2026, 5),
+        userId: 'user-1',
+      );
+      expect(await db.syncDao.getConflictPayloads(), isNotEmpty);
+
+      await db.clearUserData();
+
+      expect(await db.syncDao.getConflictPayloads(), isEmpty);
+    });
+
+    test('wipes deferred remote rows', () async {
+      // Same reasoning as the quarantined payloads: a deferred row is the
+      // user's own financial data held as raw JSON.
+      await db.syncDao.recordDeferredRow(
+        tableName: 'expenses',
+        remoteId: 'exp-orphan',
+        remotePayload: <String, dynamic>{'id': 'exp-orphan', 'amount': 100},
+        remoteUpdatedAt: DateTime.utc(2026, 5),
+        missingParentTable: 'categories',
+        missingParentRemoteId: 'cat-missing',
+        userId: 'user-1',
+      );
+      expect(await db.syncDao.getDeferredRows(), isNotEmpty);
+
+      await db.clearUserData();
+
+      expect(await db.syncDao.getDeferredRows(), isEmpty);
+    });
+
     test('resets the lastSyncAt watermark so the next sign-in pulls all',
         () async {
       final DateTime now = DateTime.now().toUtc();

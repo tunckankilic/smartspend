@@ -18,6 +18,12 @@ import 'package:smartspend/core/supabase/supabase_error_mapper.dart';
 /// `updated_at`. Per-row push failures are isolated: they are logged to
 /// `sync_log` and the row stays `pending_*` for the next run rather than
 /// aborting the whole batch.
+///
+/// Last-write-wins still picks a winner, but as of 1.3.0 it no longer throws
+/// the loser away: each discarded remote row is quarantined verbatim in
+/// `sync_conflict_payloads` (see [SyncDao.recordConflictPayload]). Which is
+/// why every `apply*FromRemote` call below hands the raw `row` down — the
+/// unmapped wire JSON is what 1.4.0's resolution screen will replay.
 class SupabaseSyncServiceImpl implements SyncService {
   SupabaseSyncServiceImpl({
     required this.database,
@@ -109,6 +115,8 @@ class SupabaseSyncServiceImpl implements SyncService {
     n += (await database.expenseDao.getPendingSync()).length;
     n += (await database.budgetDao.getPendingSync()).length;
     n += (await database.userCorrectionDao.getPendingSync()).length;
+    n += (await database.taxProfileDao.getPendingSync()).length;
+    n += (await database.taxObligationDao.getPendingSync()).length;
     return n;
   }
 
@@ -392,6 +400,89 @@ class SupabaseSyncServiceImpl implements SyncService {
         }
       }
 
+      // 8. Taxpayer profile (no parent).
+      //
+      // Pushed with an explicit conflict target rather than on `id`. The row
+      // is one-per-user and a second device can create its own copy offline —
+      // wizard filled on the tablet before the phone's profile ever reached
+      // it — so there is no shared `id` to conflict on. Without the target
+      // that insert would trip the table's UNIQUE (user_id) forever.
+      for (final TaxProfile tp
+          in await database.taxProfileDao.getPendingSync()) {
+        try {
+          final String id = await remote.upsert(
+            'tax_profiles',
+            <String, dynamic>{
+              if (tp.remoteId != null) 'id': tp.remoteId,
+              'user_id': userId,
+              'legal_form': tp.legalForm,
+              'vat_liability': tp.vatLiability,
+              'withholding_liability': tp.withholdingLiability,
+              'employs_staff': tp.employsStaff,
+              'bagkur_insured': tp.bagkurInsured,
+              'uses_e_ledger': tp.usesELedger,
+              'owns_vehicle': tp.ownsVehicle,
+              'owns_real_estate': tp.ownsRealEstate,
+              'created_at': tp.createdAt.toUtc().toIso8601String(),
+            },
+            onConflict: 'user_id',
+          );
+          await database.syncDao.markTaxProfileSynced(tp.id, remoteId: id);
+          pushed++;
+        } on Object catch (e) {
+          failed++;
+          await _logFailure('tax_profiles', tp.remoteId ?? '${tp.id}', e);
+        }
+      }
+
+      // 9. Tax obligations (no parent — the profile they came from is not a
+      // foreign key; regenerating from a changed profile rewrites the items).
+      //
+      // Same conflict-target reasoning as the profile: generation is
+      // deterministic, so a second device holds its own copy of August's
+      // return with no server id. UNIQUE (user_id, generation_key) is what
+      // makes those two rows one deadline instead of two.
+      for (final TaxObligation to
+          in await database.taxObligationDao.getPendingSync()) {
+        try {
+          final String id = await remote.upsert(
+            'tax_obligations',
+            <String, dynamic>{
+              if (to.remoteId != null) 'id': to.remoteId,
+              'user_id': userId,
+              'generation_key': to.generationKey,
+              'kind': to.kind,
+              'period_kind': to.periodKind,
+              'period_start': _dateOnly(to.periodStart),
+              'period_end': _dateOnly(to.periodEnd),
+              'installment_index': to.installmentIndex,
+              'declaration_due_date': to.declarationDueDate == null
+                  ? null
+                  : _dateOnly(to.declarationDueDate!),
+              'payment_due_date': to.paymentDueDate == null
+                  ? null
+                  : _dateOnly(to.paymentDueDate!),
+              'due_date_source': to.dueDateSource,
+              'amount_minor': to.amountMinor,
+              'amount_source': to.amountSource,
+              'declared_at': to.declaredAt?.toUtc().toIso8601String(),
+              'paid_at': to.paidAt?.toUtc().toIso8601String(),
+              'dismissed_at': to.dismissedAt?.toUtc().toIso8601String(),
+              'note': to.note,
+              'title': to.title,
+              'is_user_defined': to.isUserDefined,
+              'created_at': to.createdAt.toUtc().toIso8601String(),
+            },
+            onConflict: 'user_id,generation_key',
+          );
+          await database.syncDao.markTaxObligationSynced(to.id, remoteId: id);
+          pushed++;
+        } on Object catch (e) {
+          failed++;
+          await _logFailure('tax_obligations', to.remoteId ?? '${to.id}', e);
+        }
+      }
+
       return Right<Failure, SyncReport>(
         SyncReport(pushed: pushed, failed: failed),
       );
@@ -431,6 +522,7 @@ class SupabaseSyncServiceImpl implements SyncService {
       final DateTime? since = await database.syncDao.getLastSyncAt();
       int pulled = 0;
       int conflicts = 0;
+      int deferred = 0;
 
       // Categories.
       for (final Map<String, dynamic> row in await remote.fetchSince(
@@ -439,6 +531,7 @@ class SupabaseSyncServiceImpl implements SyncService {
       )) {
         final bool written = await database.syncDao.applyCategoryFromRemote(
           remoteId: row['id'] as String,
+          remotePayload: row,
           name: row['name'] as String,
           icon: row['icon'] as String,
           color: (row['color'] as num).toInt(),
@@ -463,6 +556,7 @@ class SupabaseSyncServiceImpl implements SyncService {
         final Object? warranty = row['warranty_end_date'];
         final bool written = await database.syncDao.applyReceiptFromRemote(
           remoteId: row['id'] as String,
+          remotePayload: row,
           date: _parseRemoteDate(row['date'] as String),
           total: (row['total'] as num).toInt(),
           currency: row['currency'] as String,
@@ -493,12 +587,25 @@ class SupabaseSyncServiceImpl implements SyncService {
       )) {
         final int? localReceipt = await database.syncDao
             .localReceiptIdForRemote(row['receipt_id'] as String?);
-        if (localReceipt == null) continue; // Parent not present locally yet.
+        if (localReceipt == null) {
+          // The parent receipt is not here yet. Hold the row instead of
+          // dropping it: the watermark below moves past it either way, so a
+          // bare `continue` meant this device would never ask for it again.
+          deferred++;
+          await _deferRow(
+            table: 'receipt_items',
+            row: row,
+            missingParentTable: 'receipts',
+            missingParentRemoteId: row['receipt_id'] as String?,
+          );
+          continue;
+        }
         final int? localCat = await database.syncDao.localCategoryIdForRemote(
           row['category_id'] as String?,
         );
         final bool written = await database.syncDao.applyReceiptItemFromRemote(
           remoteId: row['id'] as String,
+          remotePayload: row,
           receiptId: localReceipt,
           name: row['name'] as String,
           quantity: (row['quantity'] as num).toDouble(),
@@ -523,6 +630,7 @@ class SupabaseSyncServiceImpl implements SyncService {
       )) {
         final bool written = await database.syncDao.applyTagFromRemote(
           remoteId: row['id'] as String,
+          remotePayload: row,
           name: row['name'] as String,
           updatedAt: DateTime.parse(row['updated_at'] as String),
           userId: row['user_id'] as String?,
@@ -543,11 +651,21 @@ class SupabaseSyncServiceImpl implements SyncService {
         final int? localCat = await database.syncDao.localCategoryIdForRemote(
           row['category_id'] as String?,
         );
-        if (localCat == null) continue; // Category not present locally yet.
+        if (localCat == null) {
+          deferred++;
+          await _deferRow(
+            table: 'expenses',
+            row: row,
+            missingParentTable: 'categories',
+            missingParentRemoteId: row['category_id'] as String?,
+          );
+          continue;
+        }
         final int? localReceipt = await database.syncDao
             .localReceiptIdForRemote(row['receipt_id'] as String?);
         final bool written = await database.syncDao.applyExpenseFromRemote(
           remoteId: row['id'] as String,
+          remotePayload: row,
           amount: (row['amount'] as num).toInt(),
           categoryId: localCat,
           date: DateTime.parse(row['date'] as String),
@@ -578,6 +696,7 @@ class SupabaseSyncServiceImpl implements SyncService {
         );
         final bool written = await database.syncDao.applyBudgetFromRemote(
           remoteId: row['id'] as String,
+          remotePayload: row,
           amount: (row['amount'] as num).toInt(),
           period: row['period'] as String,
           startDate: _parseRemoteDate(row['start_date'] as String),
@@ -601,12 +720,22 @@ class SupabaseSyncServiceImpl implements SyncService {
       )) {
         final int? localNewCat = await database.syncDao
             .localCategoryIdForRemote(row['new_category_id'] as String?);
-        if (localNewCat == null) continue; // Category not present locally yet.
+        if (localNewCat == null) {
+          deferred++;
+          await _deferRow(
+            table: 'user_corrections',
+            row: row,
+            missingParentTable: 'categories',
+            missingParentRemoteId: row['new_category_id'] as String?,
+          );
+          continue;
+        }
         final int? localOldCat = await database.syncDao
             .localCategoryIdForRemote(row['old_category_id'] as String?);
         final bool written = await database.syncDao
             .applyUserCorrectionFromRemote(
               remoteId: row['id'] as String,
+              remotePayload: row,
               storeName: row['store_name'] as String,
               newCategoryId: localNewCat,
               count: (row['count'] as num).toInt(),
@@ -623,9 +752,85 @@ class SupabaseSyncServiceImpl implements SyncService {
         }
       }
 
+      // Taxpayer profile (no parent).
+      for (final Map<String, dynamic> row in await remote.fetchSince(
+        'tax_profiles',
+        since,
+      )) {
+        final bool written = await database.syncDao.applyTaxProfileFromRemote(
+          remoteId: row['id'] as String,
+          remotePayload: row,
+          legalForm: row['legal_form'] as String,
+          vatLiability: row['vat_liability'] as String,
+          withholdingLiability: row['withholding_liability'] as String,
+          employsStaff: row['employs_staff'] as String,
+          bagkurInsured: row['bagkur_insured'] as String,
+          usesELedger: row['uses_e_ledger'] as String,
+          ownsVehicle: row['owns_vehicle'] as String,
+          ownsRealEstate: row['owns_real_estate'] as String,
+          createdAt: DateTime.parse(row['created_at'] as String),
+          updatedAt: DateTime.parse(row['updated_at'] as String),
+          userId: row['user_id'] as String?,
+        );
+        if (written) {
+          pulled++;
+        } else {
+          conflicts++;
+          await _logConflict('tax_profiles', row['id'] as String);
+        }
+      }
+
+      // Tax obligations (no parent).
+      for (final Map<String, dynamic> row in await remote.fetchSince(
+        'tax_obligations',
+        since,
+      )) {
+        final String? declarationDue = row['declaration_due_date'] as String?;
+        final String? paymentDue = row['payment_due_date'] as String?;
+        final String? declaredAt = row['declared_at'] as String?;
+        final String? paidAt = row['paid_at'] as String?;
+        final String? dismissedAt = row['dismissed_at'] as String?;
+        final bool written =
+            await database.syncDao.applyTaxObligationFromRemote(
+          remoteId: row['id'] as String,
+          remotePayload: row,
+          generationKey: row['generation_key'] as String,
+          kind: row['kind'] as String,
+          periodKind: row['period_kind'] as String,
+          periodStart: _parseRemoteDate(row['period_start'] as String),
+          periodEnd: _parseRemoteDate(row['period_end'] as String),
+          installmentIndex: (row['installment_index'] as num).toInt(),
+          dueDateSource: row['due_date_source'] as String,
+          amountSource: row['amount_source'] as String,
+          isUserDefined: row['is_user_defined'] as bool,
+          createdAt: DateTime.parse(row['created_at'] as String),
+          updatedAt: DateTime.parse(row['updated_at'] as String),
+          declarationDueDate: declarationDue == null
+              ? null
+              : _parseRemoteDate(declarationDue),
+          paymentDueDate:
+              paymentDue == null ? null : _parseRemoteDate(paymentDue),
+          amountMinor: (row['amount_minor'] as num?)?.toInt(),
+          declaredAt:
+              declaredAt == null ? null : DateTime.parse(declaredAt).toUtc(),
+          paidAt: paidAt == null ? null : DateTime.parse(paidAt).toUtc(),
+          dismissedAt:
+              dismissedAt == null ? null : DateTime.parse(dismissedAt).toUtc(),
+          note: row['note'] as String?,
+          title: row['title'] as String?,
+          userId: row['user_id'] as String?,
+        );
+        if (written) {
+          pulled++;
+        } else {
+          conflicts++;
+          await _logConflict('tax_obligations', row['id'] as String);
+        }
+      }
+
       await database.syncDao.setLastSyncAt(DateTime.now().toUtc());
       return Right<Failure, SyncReport>(
-        SyncReport(pulled: pulled, conflicts: conflicts),
+        SyncReport(pulled: pulled, conflicts: conflicts, deferred: deferred),
       );
     } on Object catch (e, st) {
       return Left<Failure, SyncReport>(SupabaseErrorMapper.map(e, st));
@@ -646,6 +851,39 @@ class SupabaseSyncServiceImpl implements SyncService {
     );
   }
 
+  /// Holds a pulled row whose parent has not reached this device yet.
+  ///
+  /// The parent lookup fails before any `apply*FromRemote` runs, so unlike a
+  /// conflict there is no DAO decision point to hang this on — the pull loop
+  /// has to record it itself. Both the row and the identity of the parent it
+  /// is waiting for are kept, so 1.4.0 can replay it once the parent lands.
+  Future<void> _deferRow({
+    required String table,
+    required Map<String, dynamic> row,
+    required String missingParentTable,
+    String? missingParentRemoteId,
+  }) async {
+    final String recordId = row['id'] as String;
+    await database.syncDao.recordDeferredRow(
+      tableName: table,
+      remoteId: recordId,
+      remotePayload: row,
+      remoteUpdatedAt: DateTime.parse(row['updated_at'] as String),
+      missingParentTable: missingParentTable,
+      missingParentRemoteId: missingParentRemoteId,
+      userId: row['user_id'] as String?,
+    );
+    await database.syncLogDao.log(
+      tableName: table,
+      recordId: recordId,
+      operation: SyncOperation.deferredMissingParent,
+      success: true,
+    );
+  }
+
+  /// Records *that* a conflict happened. *What* was discarded is written by
+  /// the DAO itself, at the point of the decision — see
+  /// [SyncDao.recordConflictPayload].
   Future<void> _logConflict(String table, String recordId) {
     return database.syncLogDao.log(
       tableName: table,

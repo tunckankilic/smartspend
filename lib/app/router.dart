@@ -19,6 +19,10 @@ import 'package:smartspend/features/expenses/presentation/pages/expense_detail_p
 import 'package:smartspend/features/expenses/presentation/pages/expense_list_page.dart';
 import 'package:smartspend/features/onboarding/presentation/pages/onboarding_page.dart';
 import 'package:smartspend/features/receipts/presentation/pages/receipt_archive_page.dart';
+import 'package:smartspend/features/taxes/presentation/pages/add_custom_tax_item_page.dart';
+import 'package:smartspend/features/taxes/presentation/pages/tax_calendar_page.dart';
+import 'package:smartspend/features/taxes/presentation/pages/tax_obligation_detail_page.dart';
+import 'package:smartspend/features/taxes/presentation/pages/tax_profile_wizard_page.dart';
 import 'package:smartspend/features/receipts/presentation/pages/receipt_detail_page.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
 import 'package:smartspend/features/scan/presentation/pages/scan_camera_page.dart';
@@ -137,6 +141,36 @@ GoRouter buildRouter({
         builder: (BuildContext c, GoRouterState s) {
           final int id = int.tryParse(s.pathParameters['id'] ?? '') ?? -1;
           return ReceiptDetailPage(receiptId: id);
+        },
+      ),
+      // 1.3.0 Block 4 — vergi/ödeme takvimi. Top-level rather than a tab:
+      // it is entered from Settings and from the onboarding hand-off, and the
+      // bottom navigation is full.
+      GoRoute(
+        path: '/taxes',
+        parentNavigatorKey: _rootKey,
+        builder: (BuildContext c, GoRouterState s) => const TaxCalendarPage(),
+      ),
+      GoRoute(
+        path: '/taxes/profile',
+        parentNavigatorKey: _rootKey,
+        builder: (BuildContext c, GoRouterState s) =>
+            const TaxProfileWizardPage(),
+      ),
+      GoRoute(
+        path: '/taxes/custom',
+        parentNavigatorKey: _rootKey,
+        builder: (BuildContext c, GoRouterState s) =>
+            const AddCustomTaxItemPage(),
+      ),
+      // Declared after the two literal paths above so `/taxes/profile` is not
+      // swallowed by `:id`.
+      GoRoute(
+        path: '/taxes/:id',
+        parentNavigatorKey: _rootKey,
+        builder: (BuildContext c, GoRouterState s) {
+          final int id = int.tryParse(s.pathParameters['id'] ?? '') ?? -1;
+          return TaxObligationDetailPage(itemId: id);
         },
       ),
       StatefulShellRoute.indexedStack(

@@ -17,10 +17,21 @@ abstract class SyncRemoteDataSource {
   /// born without an owner and would otherwise be rejected.
   String? get currentUserId;
 
-  /// Upserts [values] into [table] (conflict on the `id` primary key) and
-  /// returns the server-assigned `id`. Omit `id` from [values] to insert a
-  /// fresh row and let Postgres generate the UUID.
-  Future<String> upsert(String table, Map<String, dynamic> values);
+  /// Upserts [values] into [table] and returns the server-assigned `id`.
+  /// Omit `id` from [values] to insert a fresh row and let Postgres generate
+  /// the UUID.
+  ///
+  /// Conflicts resolve on the `id` primary key unless [onConflict] names
+  /// another unique constraint (comma-separated columns). That matters for
+  /// rows a second device can recreate independently rather than pull: a
+  /// taxpayer profile filled offline on a tablet has no `id` to conflict on,
+  /// and without a target the insert would either duplicate the row or fail
+  /// forever against the table's unique key.
+  Future<String> upsert(
+    String table,
+    Map<String, dynamic> values, {
+    String? onConflict,
+  });
 
   /// Fetches every row in [table] whose `updated_at` is strictly greater
   /// than [since]. A `null` [since] pulls the full table (first sync).
@@ -41,10 +52,14 @@ class SupabaseSyncRemoteDataSource implements SyncRemoteDataSource {
   String? get currentUserId => _client.auth.currentUser?.id;
 
   @override
-  Future<String> upsert(String table, Map<String, dynamic> values) async {
+  Future<String> upsert(
+    String table,
+    Map<String, dynamic> values, {
+    String? onConflict,
+  }) async {
     final Map<String, dynamic> row = await _client
         .from(table)
-        .upsert(values)
+        .upsert(values, onConflict: onConflict)
         .select('id')
         .single();
     return row['id'] as String;

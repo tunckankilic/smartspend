@@ -13,6 +13,7 @@ import 'package:smartspend/core/database/daos/budget_dao.dart';
 import 'package:smartspend/core/database/daos/category_dao.dart';
 import 'package:smartspend/core/database/daos/expense_dao.dart';
 import 'package:smartspend/core/database/daos/receipt_dao.dart';
+import 'package:smartspend/core/database/daos/product_event_dao.dart';
 import 'package:smartspend/core/database/daos/sync_dao.dart';
 import 'package:smartspend/core/database/daos/sync_log_dao.dart';
 import 'package:smartspend/core/database/daos/tag_dao.dart';
@@ -27,6 +28,11 @@ import 'package:smartspend/core/services/recurring_expense_scheduler.dart';
 import 'package:smartspend/core/services/sync_remote_data_source.dart';
 import 'package:smartspend/core/services/sync_service.dart';
 import 'package:smartspend/core/services/sync_service_impl.dart';
+import 'package:smartspend/core/services/telemetry_remote_data_source.dart';
+import 'package:smartspend/core/services/telemetry_service.dart';
+import 'package:smartspend/core/services/tax_override_remote_data_source.dart';
+import 'package:smartspend/core/services/tax_reminder_scheduler.dart';
+import 'package:smartspend/core/services/telemetry_service_impl.dart';
 import 'package:smartspend/core/supabase/supabase_client_provider.dart';
 import 'package:smartspend/core/supabase/supabase_storage_data_source.dart';
 import 'package:smartspend/features/auth/data/datasources/supabase_auth_data_source.dart';
@@ -99,6 +105,15 @@ import 'package:smartspend/features/receipts/domain/usecases/get_receipt_detail.
 import 'package:smartspend/features/receipts/domain/usecases/get_receipt_image_url.dart';
 import 'package:smartspend/features/receipts/domain/usecases/watch_receipt_archive.dart';
 import 'package:smartspend/features/receipts/presentation/bloc/receipt_archive_bloc.dart';
+import 'package:smartspend/features/taxes/data/repositories/tax_repository_impl.dart';
+import 'package:smartspend/features/taxes/domain/repositories/tax_repository.dart';
+import 'package:smartspend/features/taxes/domain/usecases/add_custom_tax_item.dart';
+import 'package:smartspend/features/taxes/domain/usecases/annotate_tax_obligation.dart';
+import 'package:smartspend/features/taxes/domain/usecases/mark_tax_obligation.dart';
+import 'package:smartspend/features/taxes/domain/usecases/save_tax_profile.dart';
+import 'package:smartspend/features/taxes/presentation/cubit/tax_calendar_cubit.dart';
+import 'package:smartspend/features/taxes/presentation/cubit/tax_obligation_detail_cubit.dart';
+import 'package:smartspend/features/taxes/presentation/cubit/tax_profile_wizard_cubit.dart';
 import 'package:smartspend/features/receipts/presentation/bloc/receipt_detail_bloc.dart';
 import 'package:smartspend/features/split/data/repositories/split_repository_impl.dart';
 import 'package:smartspend/features/split/data/share_plus_split_sink.dart';
@@ -158,6 +173,9 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton<BudgetDao>(() => sl<AppDatabase>().budgetDao)
     ..registerLazySingleton<CategoryDao>(() => sl<AppDatabase>().categoryDao)
     ..registerLazySingleton<SyncDao>(() => sl<AppDatabase>().syncDao)
+    ..registerLazySingleton<ProductEventDao>(
+      () => sl<AppDatabase>().productEventDao,
+    )
     ..registerLazySingleton<SyncLogDao>(() => sl<AppDatabase>().syncLogDao)
     ..registerLazySingleton<TagDao>(() => sl<AppDatabase>().tagDao)
     ..registerLazySingleton<UserCorrectionDao>(
@@ -233,6 +251,7 @@ Future<void> configureDependencies() async {
         resetPassword: sl<ResetPasswordUseCase>(),
         database: sl<AppDatabase>(),
         syncService: sl<SyncService>(),
+        notifications: sl<NotificationService>(),
       ),
     )
     // Categories feature (Sprint 4 hoist) ---------------------------------
@@ -292,6 +311,20 @@ Future<void> configureDependencies() async {
         database: sl<AppDatabase>(),
         remote: sl<SyncRemoteDataSource>(),
         connectivity: sl<Connectivity>(),
+      ),
+    )
+    // Product telemetry (1.3.0, Block 3). Registered after SyncService
+    // because it subscribes to that engine's phase stream for its upload
+    // trigger — the dependency runs telemetry → sync and never back, so the
+    // sync engine stays unaware that telemetry exists.
+    ..registerLazySingleton<TelemetryRemoteDataSource>(
+      () => SupabaseTelemetryRemoteDataSource(sl<SupabaseClient>()),
+    )
+    ..registerLazySingleton<TelemetryService>(
+      () => TelemetryServiceImpl(
+        database: sl<AppDatabase>(),
+        remote: sl<TelemetryRemoteDataSource>(),
+        syncService: sl<SyncService>(),
       ),
     )
     // SyncCubit is the presentation owner of the engine — singleton so the
@@ -392,6 +425,7 @@ Future<void> configureDependencies() async {
         captureImage: sl<CaptureImageUseCase>(),
         pickImage: sl<PickImageUseCase>(),
         scanReceipt: sl<ScanReceiptUseCase>(),
+        telemetry: sl<TelemetryService>(),
       ),
     )
     // One-time third-party-AI consent ask on the Scan tab (5.1.2(i)).
@@ -408,6 +442,7 @@ Future<void> configureDependencies() async {
       () => ReceiptEditBloc(
         repository: sl<ScanRepository>(),
         suggestCategory: sl<SuggestCategoryForReceiptUseCase>(),
+        telemetry: sl<TelemetryService>(),
       ),
     )
     // Expenses feature (Sprint 3.1) -------------------------------------
@@ -562,6 +597,74 @@ Future<void> configureDependencies() async {
         getDetail: sl<GetReceiptDetailUseCase>(),
         addWarranty: sl<AddWarrantyUseCase>(),
         getImageUrl: sl<GetReceiptImageUrlUseCase>(),
+      ),
+    )
+    // Taxes feature (1.3.0, Block 4) --------------------------------------
+    ..registerLazySingleton<TaxOverrideRemoteDataSource>(
+      () => SupabaseTaxOverrideRemoteDataSource(sl<SupabaseClient>()),
+    )
+    ..registerLazySingleton<TaxRepository>(
+      () => TaxRepositoryImpl(
+        profileDao: sl<AppDatabase>().taxProfileDao,
+        obligationDao: sl<AppDatabase>().taxObligationDao,
+        overrideDao: sl<AppDatabase>().taxCalendarOverrideDao,
+        settingsDao: sl<AppDatabase>().userSettingsDao,
+        markets: sl<MarketRegistry>(),
+        overrideRemote: sl<TaxOverrideRemoteDataSource>(),
+      ),
+    )
+    // Reminders. Registered after the repository it reads and the
+    // notification service it writes to; it holds no state of its own beyond
+    // the fingerprint it keeps in UserSettings.
+    ..registerLazySingleton<TaxReminderScheduler>(
+      () => TaxReminderSchedulerImpl(
+        repository: sl<TaxRepository>(),
+        notifications: sl<NotificationService>(),
+        markets: sl<MarketRegistry>(),
+        settingsDao: sl<AppDatabase>().userSettingsDao,
+      ),
+    )
+    ..registerLazySingleton<SaveTaxProfileUseCase>(
+      () => SaveTaxProfileUseCase(
+        repository: sl<TaxRepository>(),
+        telemetry: sl<TelemetryService>(),
+      ),
+    )
+    ..registerLazySingleton<MarkTaxObligationUseCase>(
+      () => MarkTaxObligationUseCase(
+        repository: sl<TaxRepository>(),
+        telemetry: sl<TelemetryService>(),
+      ),
+    )
+    ..registerLazySingleton<AnnotateTaxObligationUseCase>(
+      () => AnnotateTaxObligationUseCase(
+        repository: sl<TaxRepository>(),
+        telemetry: sl<TelemetryService>(),
+      ),
+    )
+    ..registerLazySingleton<AddCustomTaxItemUseCase>(
+      () => AddCustomTaxItemUseCase(
+        repository: sl<TaxRepository>(),
+        telemetry: sl<TelemetryService>(),
+      ),
+    )
+    ..registerFactory<TaxCalendarCubit>(
+      () => TaxCalendarCubit(
+        repository: sl<TaxRepository>(),
+        reminders: sl<TaxReminderScheduler>(),
+      ),
+    )
+    ..registerFactory<TaxProfileWizardCubit>(
+      () => TaxProfileWizardCubit(
+        repository: sl<TaxRepository>(),
+        saveProfile: sl<SaveTaxProfileUseCase>(),
+      ),
+    )
+    ..registerFactory<TaxObligationDetailCubit>(
+      () => TaxObligationDetailCubit(
+        repository: sl<TaxRepository>(),
+        mark: sl<MarkTaxObligationUseCase>(),
+        annotate: sl<AnnotateTaxObligationUseCase>(),
       ),
     );
 

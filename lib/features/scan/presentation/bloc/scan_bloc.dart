@@ -11,6 +11,7 @@ import 'package:equatable/equatable.dart';
 
 import 'package:smartspend/core/error/failure_codes.dart';
 import 'package:smartspend/core/error/failures.dart';
+import 'package:smartspend/core/services/telemetry_service.dart';
 import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
 import 'package:smartspend/features/scan/domain/usecases/capture_image.dart';
 import 'package:smartspend/features/scan/domain/usecases/pick_image.dart';
@@ -38,9 +39,11 @@ class ScanBloc extends Bloc<ScanEvent, ScanState> {
     required CaptureImageUseCase captureImage,
     required PickImageUseCase pickImage,
     required ScanReceiptUseCase scanReceipt,
+    required TelemetryService telemetry,
   }) : _captureImage = captureImage,
        _pickImage = pickImage,
        _scanReceipt = scanReceipt,
+       _telemetry = telemetry,
        super(const ScanInitial()) {
     on<CameraOpened>(_onCameraOpened);
     on<GalleryOpened>(_onGalleryOpened);
@@ -55,6 +58,7 @@ class ScanBloc extends Bloc<ScanEvent, ScanState> {
   final CaptureImageUseCase _captureImage;
   final PickImageUseCase _pickImage;
   final ScanReceiptUseCase _scanReceipt;
+  final TelemetryService _telemetry;
 
   Future<void> _onCameraOpened(
     CameraOpened event,
@@ -107,6 +111,13 @@ class ScanBloc extends Bloc<ScanEvent, ScanState> {
       // Defensive — UI should not allow ScanStarted without an image.
       return;
     }
+    // Denominator of the scan → save conversion rate. Recorded here and NOT
+    // in `_runOcr`, which [ScanRetried] also calls: a retry is a second
+    // attempt at the same intent, and counting it would inflate the
+    // denominator and make the pipeline look worse than it is. Awaited rather
+    // than fired and forgotten so the ordering is deterministic in tests; the
+    // call is a single local upsert and never throws.
+    await _telemetry.record(ProductEvent.scanStarted);
     await _runOcr(current.image, emit);
   }
 

@@ -1,4 +1,5 @@
 import 'package:smartspend/core/market/document_type.dart';
+import 'package:smartspend/core/market/tax/tax_obligation_spec.dart';
 
 /// Everything that varies by market (country) in one place.
 ///
@@ -35,6 +36,26 @@ abstract class CountryProfile {
   /// Language code this market's users get when the device language is not
   /// one we ship. Ties into `AppLocalizations.supportedLocales`.
   String get defaultLanguageCode;
+
+  /// IANA timezone the market's statutory deadlines are expressed in
+  /// (`Europe/Istanbul`).
+  ///
+  /// 🚨 NOT the device's timezone, and the difference is the point. A filing
+  /// deadline is "the 26th in Turkey", not "the 26th wherever the phone
+  /// happens to be": a user in Berlin or Toronto has the same deadline as one
+  /// in Ankara, and a reminder computed against `tz.local` would fire on the
+  /// wrong day for them. Every reminder time is built in this zone and
+  /// converted to an absolute instant.
+  String get timeZone;
+
+  /// The tax and payment obligations that exist in this market.
+  ///
+  /// Empty by default: a market gets a calendar when someone has verified its
+  /// deadlines, not when the feature ships. An empty catalog generates an
+  /// empty calendar, which is the correct behaviour for a market we have not
+  /// researched — not a degraded one.
+  List<TaxObligationSpec> get taxObligations =>
+      const <TaxObligationSpec>[];
 
   /// Whether [rateBp] is a legal rate in this market.
   bool isVatRateSupported(int rateBp) => vatRatesBp.contains(rateBp);

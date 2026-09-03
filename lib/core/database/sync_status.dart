@@ -43,4 +43,9 @@ abstract class SyncOperation {
   /// Remote and local diverged; the engine kept the last writer by
   /// `updated_at` and logged the loser under this operation.
   static const String conflictResolved = 'conflict_resolved';
+
+  /// A pulled row could not be applied because a parent it references is not
+  /// on this device yet. The row is held in `sync_deferred_rows` rather than
+  /// skipped silently.
+  static const String deferredMissingParent = 'deferred_missing_parent';
 }

@@ -19,6 +19,8 @@ import 'package:smartspend/features/scan/domain/entities/scanned_receipt.dart';
 import 'package:smartspend/features/scan/domain/repositories/scan_repository.dart';
 import 'package:smartspend/features/scan/presentation/bloc/receipt_edit_bloc.dart';
 
+import '../../helpers/recording_telemetry_service.dart';
+
 class _MockRepo extends Mock implements ScanRepository {}
 
 class _FakeFile extends Fake implements File {}
@@ -116,11 +118,14 @@ void main() {
     );
   }
 
+  late RecordingTelemetryService telemetry;
+
   ReceiptEditBloc build({CategorizationEngine? engine}) => ReceiptEditBloc(
     repository: repo,
     suggestCategory: SuggestCategoryForReceiptUseCase(
       engine ?? const _NoMatchEngine(),
     ),
+    telemetry: telemetry,
   );
 
   void mockCategoriesOK() {
@@ -132,6 +137,7 @@ void main() {
   }
 
   setUp(() {
+    telemetry = RecordingTelemetryService();
     repo = _MockRepo();
   });
 
@@ -456,6 +462,70 @@ void main() {
         ),
       ];
       expect(ReceiptEditBloc.computeTotal(items), 300);
+    });
+  });
+
+  group('telemetry (1.3.0, Block 3)', () {
+    test('a successful save records scan_approved', () async {
+      mockCategoriesOK();
+      when(
+        () => repo.saveReceipt(
+          receipt: any(named: 'receipt'),
+          defaultCategoryId: any(named: 'defaultCategoryId'),
+        ),
+      ).thenAnswer((_) async => const Right<Failure, int>(42));
+
+      final ReceiptEditBloc b = build();
+      b.add(ReceiptEditStarted(receipt: baseReceipt()));
+      await Future<void>.delayed(Duration.zero);
+      b.add(const ReceiptEditSubmitted());
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(telemetry.keys, <String>['scan_approved']);
+      expect(telemetry.recorded.single.dimension, isNull);
+      await b.close();
+    });
+
+    // The conversion rate is only honest if the numerator counts documents
+    // that actually landed. A failed save is not an approved document.
+    test('a failed save records nothing', () async {
+      mockCategoriesOK();
+      when(
+        () => repo.saveReceipt(
+          receipt: any(named: 'receipt'),
+          defaultCategoryId: any(named: 'defaultCategoryId'),
+        ),
+      ).thenAnswer(
+        (_) async => const Left<Failure, int>(CacheFailure(message: 'disk')),
+      );
+
+      final ReceiptEditBloc b = build();
+      b.add(ReceiptEditStarted(receipt: baseReceipt()));
+      await Future<void>.delayed(Duration.zero);
+      b.add(const ReceiptEditSubmitted());
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(telemetry.keys, isEmpty);
+      await b.close();
+    });
+
+    // Submitting an invalid receipt never reaches the repository, so it must
+    // not reach telemetry either.
+    test('a validation failure records nothing', () async {
+      mockCategoriesOK();
+
+      final ReceiptEditBloc b = build();
+      b.add(
+        ReceiptEditStarted(
+          receipt: baseReceipt(items: const <ScannedItem>[], total: 0),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      b.add(const ReceiptEditSubmitted());
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(telemetry.keys, isEmpty);
+      await b.close();
     });
   });
 }
